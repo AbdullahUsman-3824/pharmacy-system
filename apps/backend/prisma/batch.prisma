@@ -1,0 +1,88 @@
+// ======================================================
+// BATCH
+// ======================================================
+
+model Batch {
+    id String @id @default(uuid())
+
+    productId  String
+    supplierId String?
+
+    product  Product   @relation(fields: [productId], references: [id])
+    supplier Supplier? @relation(fields: [supplierId], references: [id])
+
+    batchNumber String
+    expiryDate  DateTime?
+
+    quantity     Int      @default(0) // current remaining stock in this batch
+    purchaseRate Decimal? @db.Decimal(10, 2)
+
+    isActive Boolean @default(true)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @updatedAt
+    deletedAt DateTime?
+
+    @@unique([productId, batchNumber])
+    @@index([batchNumber])
+    @@index([expiryDate])
+}
+
+// ======================================================
+// STOCK VOUCHER — covers both Product Opening and Purchase
+// ======================================================
+
+enum StockVoucherType {
+    OPENING
+    PURCHASE
+}
+
+model StockVoucher {
+    id            String           @id @default(uuid())
+    voucherNumber String           @unique
+    type          StockVoucherType @default(PURCHASE)
+    date          DateTime         @default(now())
+
+    supplierId String? // null for OPENING, set for PURCHASE
+    supplier   Supplier? @relation(fields: [supplierId], references: [id])
+
+    items StockVoucherItem[]
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @updatedAt
+    deletedAt DateTime?
+
+    @@index([voucherNumber])
+    @@index([date])
+}
+
+model StockVoucherItem {
+    id String @id @default(uuid())
+
+    voucherId String
+    voucher   StockVoucher @relation(fields: [voucherId], references: [id])
+
+    productId String
+    product   Product @relation(fields: [productId], references: [id])
+
+    // raw batch info as entered on the form — service layer resolves/creates
+    // the actual Batch record and updates its quantity from these values
+    batchNumber String
+    expiryDate  DateTime?
+
+    rate  Decimal @db.Decimal(10, 2)
+    size  Int? // units per pack
+    pack  Int? // number of packs
+    loose Int? // individual units outside a full pack
+    free  Int? // bonus/free units from supplier
+
+    gross           Decimal  @db.Decimal(12, 2)
+    discountPercent Decimal? @db.Decimal(5, 2)
+    amount          Decimal  @db.Decimal(12, 2)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @updatedAt
+    deletedAt DateTime?
+
+    @@index([batchNumber])
+}
