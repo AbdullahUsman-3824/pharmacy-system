@@ -72,28 +72,28 @@ model Product {
 
     companyId String
     typeId    String
-    groupId   String
-    genericId String
+    groupId   String?
+    genericId String?
 
     defaultSupplierId String?
 
-    company Company      @relation(fields: [companyId], references: [id])
-    type    ProductType  @relation(fields: [typeId], references: [id])
-    group   ProductGroup @relation(fields: [groupId], references: [id])
-    generic Generic      @relation(fields: [genericId], references: [id])
+    company Company       @relation(fields: [companyId], references: [id])
+    type    ProductType   @relation(fields: [typeId], references: [id])
+    group   ProductGroup? @relation(fields: [groupId], references: [id])
+    generic Generic?      @relation(fields: [genericId], references: [id])
 
     defaultSupplier Supplier? @relation(fields: [defaultSupplierId], references: [id])
 
     registrationNo    String?
     originalReference String?
 
-    // packing / pricing
-    packingSize    String?
+    // packing
+    packingSize    Decimal  @db.Decimal(10, 2)
     retailPrice    Decimal? @db.Decimal(10, 2)
     retailDiscount Decimal? @db.Decimal(5, 2)
     tradePrice     Decimal? @db.Decimal(10, 2)
 
-    // rates (auto-calculated by service layer from the above)
+    // unit prize
     retailRate         Decimal? @db.Decimal(10, 2)
     tradeRate          Decimal? @db.Decimal(10, 2)
     counterRatePercent Decimal? @db.Decimal(5, 2)
