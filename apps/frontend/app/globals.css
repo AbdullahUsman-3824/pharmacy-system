@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+@theme {
+  /* surfaces */
+  --color-surface-page: #f4f5f7;
+  --color-surface-card: #ffffff;
+  --color-surface-sunken: #f8f9fb;
+  --color-surface-sidebar: #ffffff;
+
+  /* borders */
+  --color-border: #e6e8ec;
+  --color-border-soft: #eef0f3;
+
+  /* text / ink */
+  --color-ink-900: #111418;
+  --color-ink-700: #3a3f47;
+  --color-ink-500: #6b7280;
+  --color-ink-400: #9aa0aa;
+
+  /* brand */
+  --color-brand: #2f6fed;
+  --color-brand-50: #eaf1fe;
+  --color-brand-600: #2f6fed;
+  --color-brand-700: #2559c7;
+
+  /* warn (low stock) */
+  --color-warn-bg: #fef6e7;
+  --color-warn-border: #f6e2b3;
+  --color-warn-text: #a15c00;
+  --color-warn-strong: #b8790a;
+
+  /* danger (near expiry) */
+  --color-danger-bg: #fdeeee;
+  --color-danger-border: #f3cfcf;
+  --color-danger-text: #b3261e;
+  --color-danger-strong: #c22b22;
+
+  --color-success: #1aa153;
+
+  /* shadows */
+  --shadow-panel: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-card: 0 1px 3px rgba(16, 24, 40, 0.06);
+
+  /* font */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter,
+    system-ui, sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-surface-page);
+  color: var(--color-ink-900);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* thin scrollbars to match a tidy dashboard feel */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #d8dbe0;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
