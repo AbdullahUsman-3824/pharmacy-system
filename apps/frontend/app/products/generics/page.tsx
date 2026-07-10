@@ -1,6 +1,12 @@
 import { LookupTable } from "@/components/products/lookup/LookupTable";
-import { generics } from "@/lib/data";
+import { LookupType } from "@repo/shared/types/lookups";
 
 export default function GenericsPage() {
-  return <LookupTable initialItems={generics} entityLabelPlural="generics" />;
+  return (
+    <LookupTable
+      type={LookupType.Generic}
+      entityLabelPlural="generics"
+      entityLabel="generic"
+    />
+  );
 }

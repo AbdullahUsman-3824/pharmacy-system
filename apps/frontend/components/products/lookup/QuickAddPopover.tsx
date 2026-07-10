@@ -4,31 +4,30 @@ import { useState } from "react";
 
 interface QuickAddPopoverProps {
   label: string;
-  onSave: (code: string, name: string) => void;
+  onSave: (name: string) => void;
   onCancel: () => void;
 }
 
-export function QuickAddPopover({ label, onSave, onCancel }: QuickAddPopoverProps) {
-  const [code, setCode] = useState("");
+export function QuickAddPopover({
+  label,
+  onSave,
+  onCancel,
+}: QuickAddPopoverProps) {
   const [name, setName] = useState("");
 
   function submit() {
-    if (!code.trim() || !name.trim()) return;
-    onSave(code.trim(), name.trim());
+    if (!name.trim()) return;
+    onSave(name.trim());
   }
 
   return (
     <div className="absolute left-0 top-full z-10 mt-2 w-72 rounded-xl border border-border bg-surface-card p-4 shadow-card">
-      <p className="mb-3 text-sm text-ink-500">Quick add {label.toLowerCase()}</p>
+      <p className="mb-3 text-sm text-ink-500">
+        Quick add {label.toLowerCase()}
+      </p>
 
       <input
         autoFocus
-        value={code}
-        onChange={(e) => setCode(e.target.value)}
-        placeholder="Code (e.g. GSK)"
-        className="mb-2 w-full rounded-lg border border-border bg-surface-sunken px-3 py-2 text-sm focus:outline-none"
-      />
-      <input
         value={name}
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && submit()}

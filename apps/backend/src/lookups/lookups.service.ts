@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-
-type LookupType = 'company' | 'productType' | 'productGroup' | 'generic';
+import { LookupInterface, LookupType } from '@repo/shared';
+import { CreateLookupDto } from './dto/create-lookups.dto';
+import { UpdateLookupDto } from './dto/update-lookups.dto';
 
 type LookupDelegate = {
   findMany: (args: {
@@ -9,14 +10,12 @@ type LookupDelegate = {
     orderBy?: { name: 'asc' };
   }) => Promise<Record<string, unknown>[]>;
   findFirst: (args: {
-    where: { id: string; deletedAt: null };
+    where: { id: string; deletedAt: null } | { code: string };
   }) => Promise<Record<string, unknown> | null>;
-  create: (args: {
-    data: { code: string; name: string };
-  }) => Promise<Record<string, unknown>>;
+  create: (args: { data: CreateLookupDto }) => Promise<Record<string, unknown>>;
   update: (args: {
     where: { id: string };
-    data: { code?: string; name?: string; deletedAt?: Date };
+    data: UpdateLookupDto;
   }) => Promise<Record<string, unknown>>;
 };
 
@@ -26,15 +25,42 @@ export class LookupsService {
 
   private getDelegate(type: LookupType): LookupDelegate {
     switch (type) {
-      case 'company':
+      case LookupType.Company:
         return this.prisma.company;
-      case 'productType':
+
+      case LookupType.ProductType:
         return this.prisma.productType;
-      case 'productGroup':
+
+      case LookupType.ProductGroup:
         return this.prisma.productGroup;
-      case 'generic':
+
+      case LookupType.Generic:
         return this.prisma.generic;
     }
+  }
+
+  private deriveCode(name: string): string {
+    return name
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '-')
+      .slice(0, 10);
+  }
+
+  private async ensureUniqueCode(
+    type: LookupType,
+    baseCode: string,
+  ): Promise<string> {
+    const delegate = this.getDelegate(type);
+    let code = baseCode;
+    let suffix = 1;
+
+    while (await delegate.findFirst({ where: { code } })) {
+      suffix += 1;
+      code = `${baseCode}-${suffix}`;
+    }
+
+    return code;
   }
 
   findAll(type: LookupType) {
@@ -44,28 +70,31 @@ export class LookupsService {
     });
   }
 
-  create(type: LookupType, data: { code: string; name: string }) {
-    return this.getDelegate(type).create({ data });
+  async create(type: LookupType, data: LookupInterface) {
+    const baseCode = this.deriveCode(data.name);
+    const code = await this.ensureUniqueCode(type, baseCode);
+
+    return this.getDelegate(type).create({
+      data: { ...data, code },
+    });
   }
 
-  async update(
-    type: LookupType,
-    id: string,
-    data: { code?: string; name?: string },
-  ) {
-    const existing = await this.getDelegate(type).findFirst({
+  async update(type: LookupType, id: string, data: UpdateLookupDto) {
+    const delegate = this.getDelegate(type);
+    const existing = await delegate.findFirst({
       where: { id, deletedAt: null },
     });
     if (!existing) throw new NotFoundException(`${type} not found`);
-    return this.getDelegate(type).update({ where: { id }, data });
+    return delegate.update({ where: { id }, data });
   }
 
   async softDelete(type: LookupType, id: string) {
-    const existing = await this.getDelegate(type).findFirst({
+    const delegate = this.getDelegate(type);
+    const existing = await delegate.findFirst({
       where: { id, deletedAt: null },
     });
     if (!existing) throw new NotFoundException(`${type} not found`);
-    return this.getDelegate(type).update({
+    return delegate.update({
       where: { id },
       data: { deletedAt: new Date() },
     });

@@ -1,6 +1,14 @@
+"use client";
+
 import { LookupTable } from "@/components/products/lookup/LookupTable";
-import { companies } from "@/lib/data";
+import { LookupType } from "@repo/shared/types/lookups";
 
 export default function CompaniesPage() {
-  return <LookupTable initialItems={companies} entityLabelPlural="companies" />;
+  return (
+    <LookupTable
+      type={LookupType.Company}
+      entityLabelPlural="companies"
+      entityLabel="company"
+    />
+  );
 }

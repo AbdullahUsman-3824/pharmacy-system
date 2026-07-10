@@ -11,8 +11,9 @@ import {
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { CreateProductInput } from '@repo/shared';
 
-export class CreateProductDto {
+export class CreateProductDto implements CreateProductInput {
   @IsString()
   @IsNotEmpty()
   code!: string;

@@ -2,33 +2,32 @@
 
 import { useState } from "react";
 import { Check, X, Trash2 } from "lucide-react";
-import type { LookupEntity } from "@/lib/types";
+import type { LookupEntity } from "@repo/shared/types/lookups";
 
 interface LookupRowProps {
+  index: number;
   item: LookupEntity;
-  onSave: (id: string, code: string, name: string) => void;
+  onSave: (id: string, name: string) => void;
   onDelete: (id: string) => void;
 }
 
-export function LookupRow({ item, onSave, onDelete }: LookupRowProps) {
+export function LookupRow({ index, item, onSave, onDelete }: LookupRowProps) {
   const [editing, setEditing] = useState(false);
-  const [code, setCode] = useState(item.code);
   const [name, setName] = useState(item.name);
 
   function save() {
-    if (!code.trim() || !name.trim()) return;
-    onSave(item.id, code.trim(), name.trim());
+    if (!name.trim()) return;
+    onSave(item.id, name.trim());
     setEditing(false);
   }
 
   function cancel() {
-    setCode(item.code);
     setName(item.name);
     setEditing(false);
   }
 
   function handleDelete(e: React.MouseEvent) {
-    e.stopPropagation(); // don't trigger row-click edit mode
+    e.stopPropagation();
     if (confirm(`Delete "${item.name}"?`)) {
       onDelete(item.id);
     }
@@ -36,16 +35,13 @@ export function LookupRow({ item, onSave, onDelete }: LookupRowProps) {
 
   if (editing) {
     return (
-      <div className="grid grid-cols-[140px_1fr_100px] items-center gap-3 rounded-lg border border-brand px-4 py-2">
-        <input
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          className="rounded-lg border border-border bg-surface-sunken px-3 py-1.5 text-sm focus:outline-none"
-        />
+      <div className="grid grid-cols-[48px_1fr_100px] items-center gap-3 rounded-lg border border-brand px-4 py-2">
+        <span className="text-ink-400 text-sm">{index}</span>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && save()}
+          autoFocus
           className="rounded-lg border border-border bg-surface-sunken px-3 py-1.5 text-sm focus:outline-none"
         />
         <div className="flex gap-2">
@@ -63,9 +59,9 @@ export function LookupRow({ item, onSave, onDelete }: LookupRowProps) {
   return (
     <div
       onClick={() => setEditing(true)}
-      className="group grid cursor-pointer grid-cols-[140px_1fr_100px] items-center gap-3 border-b border-border-soft px-4 py-3 text-sm hover:bg-surface-sunken"
+      className="group grid cursor-pointer grid-cols-[48px_1fr_100px] items-center gap-3 border-b border-border-soft px-4 py-3 text-sm hover:bg-surface-sunken"
     >
-      <span className="text-ink-500">{item.code}</span>
+      <span className="text-ink-400">{index}</span>
       <span className="font-medium text-ink-900">{item.name}</span>
       <button
         onClick={handleDelete}

@@ -1,6 +1,12 @@
 import { LookupTable } from "@/components/products/lookup/LookupTable";
-import { productTypes } from "@/lib/data";
+import { LookupType } from "@repo/shared/types/lookups";
 
 export default function TypesPage() {
-  return <LookupTable initialItems={productTypes} entityLabelPlural="types" />;
+  return (
+    <LookupTable
+      type={LookupType.ProductType}
+      entityLabelPlural="types"
+      entityLabel="type"
+    />
+  );
 }
