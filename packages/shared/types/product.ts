@@ -5,9 +5,9 @@ export interface CreateProductInput {
 
   companyId: string;
   typeId: string;
-  groupId?: string;
-  genericId?: string;
-  defaultSupplierId?: string;
+  groupId?: string | null;
+  genericId?: string | null;
+  defaultSupplierId?: string | null;
 
   registrationNo?: string;
   originalReference?: string;

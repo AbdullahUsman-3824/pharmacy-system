@@ -1,4 +1,3 @@
-// apps/frontend/app/products/new/page.tsx
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -22,6 +21,7 @@ export default function NewProductPage() {
       </div>
 
       <ProductForm
+        mode="create"
         onSubmit={(values) => {
           createProduct(values, {
             onSuccess: () => router.push("/products"),

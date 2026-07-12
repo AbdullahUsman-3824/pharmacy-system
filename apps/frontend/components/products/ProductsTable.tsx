@@ -6,6 +6,7 @@ import { useProducts, useDeleteProduct } from "@/hooks/useProducts";
 import { useLookup } from "@/hooks/useLookups";
 import { LookupType, LookupEntity } from "@repo/shared/types/lookups";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 function nameFor(list: LookupEntity[], id: string | null | undefined) {
   return list.find((item) => item.id === id)?.name ?? "—";
@@ -69,7 +70,12 @@ export function ProductsTable() {
             key={p.id}
             className="group grid grid-cols-[1fr_140px_120px_120px_100px_40px] items-center gap-3 border-b border-border-soft px-4 py-3 text-sm"
           >
-            <span className="font-medium text-ink-900">{p.name}</span>
+            <Link
+              href={`/products/${p.id}`}
+              className="font-medium text-ink-900 hover:text-primary hover:underline"
+            >
+              {p.name}
+            </Link>
             <span className="text-ink-700">
               {nameFor(companies, p.companyId)}
             </span>
