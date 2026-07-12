@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import type { LookupEntity } from "@/lib/types";
+import type { LookupEntity } from "@repo/shared/types/lookups";
 import { QuickAddPopover } from "./lookup/QuickAddPopover";
 
 interface SelectWithQuickAddProps {
@@ -11,7 +11,7 @@ interface SelectWithQuickAddProps {
   options: LookupEntity[];
   value: string | null;
   onChange: (id: string) => void;
-  onQuickAdd: (code: string, name: string) => string; // returns new id
+  onQuickAdd: (name: string) => void; // async — id arrives later via onChange from the parent's onSuccess
 }
 
 export function SelectWithQuickAdd({
@@ -24,9 +24,8 @@ export function SelectWithQuickAdd({
 }: SelectWithQuickAddProps) {
   const [popoverOpen, setPopoverOpen] = useState(false);
 
-  function handleQuickAdd(code: string, name: string) {
-    const newId = onQuickAdd(code, name);
-    onChange(newId);
+  function handleQuickAdd(name: string) {
+    onQuickAdd(name);
     setPopoverOpen(false);
   }
 

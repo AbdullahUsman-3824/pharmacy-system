@@ -2,36 +2,24 @@
 
 import { useMemo, useState } from "react";
 import { Plus, Search, Trash2 } from "lucide-react";
-import type { LookupEntity, Product } from "@/lib/types";
-import { AddProductModal } from "./AddProductModal";
+import { useProducts, useDeleteProduct } from "@/hooks/useProducts";
+import { useLookup } from "@/hooks/useLookups";
+import { LookupType, LookupEntity } from "@repo/shared/types/lookups";
+import { useRouter } from "next/navigation";
 
-interface ProductsTableProps {
-  initialProducts: Product[];
-  initialCompanies: LookupEntity[];
-  initialTypes: LookupEntity[];
-  initialGroups: LookupEntity[];
-  initialGenerics: LookupEntity[];
-}
-
-function nameFor(list: LookupEntity[], id: string | null) {
+function nameFor(list: LookupEntity[], id: string | null | undefined) {
   return list.find((item) => item.id === id)?.name ?? "—";
 }
 
-export function ProductsTable({
-  initialProducts,
-  initialCompanies,
-  initialTypes,
-  initialGroups,
-  initialGenerics,
-}: ProductsTableProps) {
-  const [products, setProducts] = useState(initialProducts);
-  const [companies, setCompanies] = useState(initialCompanies);
-  const [types, setTypes] = useState(initialTypes);
-  const [groups, setGroups] = useState(initialGroups);
-  const [generics, setGenerics] = useState(initialGenerics);
+export function ProductsTable() {
+  const { data: products = [] } = useProducts();
+  const { data: companies = [] } = useLookup(LookupType.Company);
+  const { data: types = [] } = useLookup(LookupType.ProductType);
+  const { data: generics = [] } = useLookup(LookupType.Generic);
+  const { mutate: deleteProduct } = useDeleteProduct();
+  const router = useRouter();
 
   const [query, setQuery] = useState("");
-  const [modalOpen, setModalOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -39,19 +27,9 @@ export function ProductsTable({
     return products.filter((p) => p.name.toLowerCase().includes(q));
   }, [products, query]);
 
-  function addLookup(
-    setter: React.Dispatch<React.SetStateAction<LookupEntity[]>>,
-    code: string,
-    name: string,
-  ) {
-    const id = crypto.randomUUID();
-    setter((prev) => [...prev, { id, code, name }]);
-    return id;
-  }
-
   function handleDeleteProduct(id: string) {
     if (confirm("Delete this product?")) {
-      setProducts((prev) => prev.filter((p) => p.id !== id));
+      deleteProduct(id);
     }
   }
 
@@ -69,7 +47,7 @@ export function ProductsTable({
           {products.length} products
         </span>
         <button
-          onClick={() => setModalOpen(true)}
+          onClick={() => router.push("/products/new")}
           className="flex shrink-0 items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
         >
           <Plus size={16} />
@@ -111,25 +89,6 @@ export function ProductsTable({
           </div>
         ))}
       </div>
-
-      <AddProductModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        companies={companies}
-        types={types}
-        groups={groups}
-        generics={generics}
-        onAddCompany={(code, name) => addLookup(setCompanies, code, name)}
-        onAddType={(code, name) => addLookup(setTypes, code, name)}
-        onAddGroup={(code, name) => addLookup(setGroups, code, name)}
-        onAddGeneric={(code, name) => addLookup(setGenerics, code, name)}
-        onSave={(values) => {
-          setProducts((prev) => [
-            ...prev,
-            { id: crypto.randomUUID(), ...values },
-          ]);
-        }}
-      />
     </div>
   );
 }

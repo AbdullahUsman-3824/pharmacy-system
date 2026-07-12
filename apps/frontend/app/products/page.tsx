@@ -1,20 +1,11 @@
 import { ProductsTable } from "@/components/products/ProductsTable";
-import {
-  products,
-  companies,
-  productTypes,
-  productGroups,
-  generics,
-} from "@/lib/data";
+import { ProductsTabs } from "@/components/products/ProductsTabs";
 
 export default function ProductsPage() {
   return (
-    <ProductsTable
-      initialProducts={products}
-      initialCompanies={companies}
-      initialTypes={productTypes}
-      initialGroups={productGroups}
-      initialGenerics={generics}
-    />
+    <div className="flex flex-col gap-4">
+      <ProductsTabs />
+      <ProductsTable />
+    </div>
   );
 }
