@@ -1,4 +1,8 @@
 {
   "name": "pharmacy-system",
-  "private": true
+  "private": true,
+  "scripts": {
+    "frontend": "pnpm --dir apps/frontend dev",
+    "backend": "pnpm --dir apps/backend start:dev"
+  }
 }

@@ -11,6 +11,7 @@ import {
 } from "./productSchema";
 import { SelectWithQuickAdd } from "./SelectWithQuickAdd";
 import { useLookup, useCreateLookup } from "@/hooks/useLookups";
+import { useSuppliers } from "@/hooks/useSuppliers";
 import { LookupType, CreateProductInput, ProductDto } from "@repo/shared";
 
 export type ProductFormMode = "create" | "edit" | "view";
@@ -40,13 +41,12 @@ export function ProductForm({
   const { data: types = [] } = useLookup(LookupType.ProductType);
   const { data: groups = [] } = useLookup(LookupType.ProductGroup);
   const { data: generics = [] } = useLookup(LookupType.Generic);
-  // const { data: suppliers = [] } = useLookup(LookupType.Supplier);
+  const { data: suppliers = [] } = useSuppliers();
 
   const { mutate: createCompany } = useCreateLookup(LookupType.Company);
   const { mutate: createType } = useCreateLookup(LookupType.ProductType);
   const { mutate: createGroup } = useCreateLookup(LookupType.ProductGroup);
   const { mutate: createGeneric } = useCreateLookup(LookupType.Generic);
-  // const { mutate: createSupplier } = useCreateLookup(LookupType.Supplier);
 
   const {
     register,
@@ -79,7 +79,7 @@ export function ProductForm({
   });
 
   useEffect(() => {
-    if (isReadOnly) return; // don't recompute/overwrite while just viewing
+    if (isReadOnly) return;
 
     const price = Number(retailPrice) || 0;
     const discount = Number(retailDiscount) || 0;
@@ -115,7 +115,6 @@ export function ProductForm({
                   value={field.value ?? null}
                   onChange={field.onChange}
                   disabled={isReadOnly}
-                  hideQuickAdd={isReadOnly}
                   onQuickAdd={(n) =>
                     createCompany(n, {
                       onSuccess: (c) => field.onChange(c.id),
@@ -141,7 +140,6 @@ export function ProductForm({
                   value={field.value ?? null}
                   onChange={field.onChange}
                   disabled={isReadOnly}
-                  hideQuickAdd={isReadOnly}
                   onQuickAdd={(n) =>
                     createType(n, { onSuccess: (t) => field.onChange(t.id) })
                   }
@@ -212,7 +210,6 @@ export function ProductForm({
                   value={field.value ?? null}
                   onChange={field.onChange}
                   disabled={isReadOnly}
-                  hideQuickAdd={isReadOnly}
                   onQuickAdd={(n) =>
                     createGroup(n, { onSuccess: (g) => field.onChange(g.id) })
                   }
@@ -235,7 +232,6 @@ export function ProductForm({
                   value={field.value ?? null}
                   onChange={field.onChange}
                   disabled={isReadOnly}
-                  hideQuickAdd={isReadOnly}
                   onQuickAdd={(n) =>
                     createGeneric(n, {
                       onSuccess: (g) => field.onChange(g.id),
@@ -249,22 +245,20 @@ export function ProductForm({
                 {errors.genericId.message}
               </p>
             )}
-            {/* <Controller
+            <Controller
               name="defaultSupplierId"
               control={control}
               render={({ field }) => (
                 <SelectWithQuickAdd
-                  label="Distributor"
+                  label="Supplier"
                   placeholder="Select supplier"
                   options={suppliers}
                   value={field.value ?? null}
                   onChange={field.onChange}
                   disabled={isReadOnly}
-                  hideQuickAdd={isReadOnly}
-                  onQuickAdd={(n) => createSupplier(n, { onSuccess: (s) => field.onChange(s.id) })}
                 />
               )}
-            /> */}
+            />
           </div>
 
           <div className="flex flex-col gap-4">

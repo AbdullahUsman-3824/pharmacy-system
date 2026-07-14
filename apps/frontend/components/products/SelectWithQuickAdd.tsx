@@ -11,9 +11,8 @@ interface SelectWithQuickAddProps {
   options: LookupEntity[];
   value: string | null;
   onChange: (id: string) => void;
-  onQuickAdd: (name: string) => void;
+  onQuickAdd?: (name: string) => void;
   disabled?: boolean;
-  hideQuickAdd?: boolean;
 }
 
 export function SelectWithQuickAdd({
@@ -24,11 +23,14 @@ export function SelectWithQuickAdd({
   onChange,
   onQuickAdd,
   disabled = false,
-  hideQuickAdd = false,
 }: SelectWithQuickAddProps) {
   const [popoverOpen, setPopoverOpen] = useState(false);
 
+  const canQuickAdd = !!onQuickAdd;
+
   function handleQuickAdd(name: string) {
+    if (!onQuickAdd) return;
+
     onQuickAdd(name);
     setPopoverOpen(false);
   }
@@ -36,6 +38,7 @@ export function SelectWithQuickAdd({
   return (
     <div className="relative">
       <label className="mb-1.5 block text-sm text-ink-500">{label}</label>
+
       <div className="flex gap-2">
         <select
           value={value ?? ""}
@@ -46,6 +49,7 @@ export function SelectWithQuickAdd({
           <option value="" disabled>
             {placeholder}
           </option>
+
           {options.map((opt) => (
             <option key={opt.id} value={opt.id}>
               {opt.name}
@@ -53,7 +57,7 @@ export function SelectWithQuickAdd({
           ))}
         </select>
 
-        {!hideQuickAdd && (
+        {canQuickAdd && (
           <button
             type="button"
             onClick={() => setPopoverOpen((o) => !o)}
@@ -65,7 +69,7 @@ export function SelectWithQuickAdd({
         )}
       </div>
 
-      {popoverOpen && !hideQuickAdd && (
+      {canQuickAdd && popoverOpen && (
         <QuickAddPopover
           label={label}
           onCancel={() => setPopoverOpen(false)}
