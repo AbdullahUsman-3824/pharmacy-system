@@ -40,7 +40,7 @@ export function Sidebar() {
   // route badla to render ke dauran hi collapsed reset kar do — koi useEffect nahi
   if (pathname !== prevPathname) {
     setPrevPathname(pathname);
-    setCollapsed(collapsedByDefaultOn.includes(pathname));
+    setCollapsed(collapsedByDefaultOn.some((p) => pathname.startsWith(p)));
   }
 
   return (
@@ -68,7 +68,7 @@ export function Sidebar() {
         </button>
         {navItems.map((item) => {
           const Icon = icons[item.key];
-          const active = pathname.includes(item.href);
+          const active = pathname.startsWith(item.href);
 
           return (
             <Link
