@@ -4,6 +4,7 @@ import { StockVoucherFormOutput } from "./schema";
 
 export function buildCreateVoucherPayload(
   form: StockVoucherFormOutput,
+  confirmedBatchKeys: Set<string> = new Set(), 
 ): CreateStockVoucherInput {
   return {
     type: form.type,
@@ -12,6 +13,7 @@ export function buildCreateVoucherPayload(
     remarks: form.remarks,
     items: form.items.map((item) => {
       const amounts = calculateItemAmounts(item);
+      const batchKey = `${item.productId}::${item.batchNumber}`;
       return {
         productId: item.productId,
         batchNumber: item.batchNumber,
@@ -24,6 +26,7 @@ export function buildCreateVoucherPayload(
         saleRate: item.saleRate,
         discountPercent: item.discountPercent,
         taxPercent: item.taxPercent,
+        confirmRateUpdate: confirmedBatchKeys.has(batchKey), // NEW
         ...amounts,
       };
     }),

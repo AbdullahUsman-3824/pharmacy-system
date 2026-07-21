@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateStockVoucherDto } from './dto/create-stock-voucher.dto';
 import { StockVoucherType } from '@repo/shared';
@@ -39,8 +43,6 @@ export class StockService {
           expiryDate,
         );
 
-        await this.updateProductRates(tx, item);
-
         await this.createStockVoucherItem(tx, voucher.id, batch.id, item);
 
         grossTotal += item.grossAmount;
@@ -60,11 +62,40 @@ export class StockService {
     });
   }
 
-  findAll() {
-    return this.prisma.stockVoucher.findMany({
+  async findAll() {
+    const vouchers = await this.prisma.stockVoucher.findMany({
       where: {
         deletedAt: null,
       },
+      select: {
+        id: true,
+        voucherNumber: true,
+        type: true,
+        date: true,
+        supplierId: true,
+        grossAmount: true,
+        discountAmount: true,
+        taxAmount: true,
+        netAmount: true,
+      },
+      orderBy: {
+        date: 'desc',
+      },
+    });
+
+    // convert Decimal -> number here, once, so every consumer gets real numbers
+    return vouchers.map((v) => ({
+      ...v,
+      grossAmount: Number(v.grossAmount),
+      discountAmount: Number(v.discountAmount),
+      taxAmount: Number(v.taxAmount),
+      netAmount: Number(v.netAmount),
+    }));
+  }
+
+  async findOne(id: string) {
+    const voucher = await this.prisma.stockVoucher.findFirst({
+      where: { id, deletedAt: null },
       include: {
         supplier: true,
         items: {
@@ -74,10 +105,33 @@ export class StockService {
           },
         },
       },
-      orderBy: {
-        date: 'desc',
-      },
     });
+
+    if (!voucher) {
+      throw new NotFoundException(`Voucher ${id} not found`);
+    }
+
+    return {
+      ...voucher,
+      grossAmount: Number(voucher.grossAmount),
+      discountAmount: Number(voucher.discountAmount),
+      taxAmount: Number(voucher.taxAmount),
+      netAmount: Number(voucher.netAmount),
+      items: voucher.items.map((item) => ({
+        ...item,
+        purchaseRate: Number(item.purchaseRate),
+        saleRate: Number(item.saleRate),
+        grossAmount: Number(item.grossAmount),
+        discountAmount: Number(item.discountAmount),
+        taxAmount: Number(item.taxAmount),
+        netAmount: Number(item.netAmount),
+        batch: {
+          ...item.batch,
+          purchaseRate: Number(item.batch.purchaseRate),
+          saleRate: Number(item.batch.saleRate),
+        },
+      })),
+    };
   }
 
   async getProductStock(productId: string) {
@@ -94,13 +148,22 @@ export class StockService {
       },
     });
 
+    const mappedBatches = batches.map((b) => ({
+      batchId: b.id, // renamed to match BatchStockLine's `batchId` field, not `id`
+      batchNumber: b.batchNumber,
+      expiryDate: b.expiryDate,
+      currentQuantity: b.currentQuantity,
+      purchaseRate: Number(b.purchaseRate), // Decimal -> number, matches shared type's promise
+      saleRate: Number(b.saleRate),
+    }));
+
     return {
       productId,
-      totalQuantity: batches.reduce(
+      totalQuantity: mappedBatches.reduce(
         (sum, batch) => sum + batch.currentQuantity,
         0,
       ),
-      batches,
+      batches: mappedBatches,
     };
   }
 
@@ -151,6 +214,34 @@ export class StockService {
         },
       });
     } else {
+      const rateChanged =
+        Number(batch.purchaseRate) !== item.purchaseRate ||
+        Number(batch.saleRate) !== item.saleRate;
+
+      if (rateChanged && !item.confirmRateUpdate) {
+        throw new BadRequestException({
+          message: `Batch ${item.batchNumber} already exists at different rates.`,
+          code: 'BATCH_RATE_MISMATCH',
+          batchNumber: item.batchNumber,
+          productId: item.productId,
+          existingPurchaseRate: Number(batch.purchaseRate),
+          existingSaleRate: Number(batch.saleRate),
+        });
+      }
+
+      if (rateChanged) {
+        await tx.batchRateHistory.create({
+          data: {
+            batchId: batch.id,
+            oldPurchaseRate: batch.purchaseRate,
+            oldSaleRate: batch.saleRate,
+            newPurchaseRate: item.purchaseRate,
+            newSaleRate: item.saleRate,
+            changedAt: new Date(),
+          },
+        });
+      }
+
       await tx.batch.update({
         where: {
           id: batch.id,
@@ -159,27 +250,24 @@ export class StockService {
           currentQuantity: {
             increment: item.quantity + (item.freeQuantity ?? 0),
           },
+          ...(rateChanged && {
+            purchaseRate: item.purchaseRate,
+            saleRate: item.saleRate,
+          }),
         },
       });
+
       batch = {
         ...batch,
         currentQuantity:
           batch.currentQuantity + item.quantity + (item.freeQuantity ?? 0),
+        ...(rateChanged && {
+          purchaseRate: item.purchaseRate,
+          saleRate: item.saleRate,
+        }),
       };
     }
     return batch;
-  }
-
-  private async updateProductRates(tx: any, item: any): Promise<void> {
-    await tx.product.update({
-      where: {
-        id: item.productId,
-      },
-      data: {
-        purchaseRate: item.purchaseRate,
-        saleRate: item.saleRate,
-      },
-    });
   }
 
   private async createStockVoucherItem(

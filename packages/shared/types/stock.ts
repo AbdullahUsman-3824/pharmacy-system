@@ -20,6 +20,7 @@ export interface StockVoucherItemInput {
   taxPercent?: number;
   taxAmount?: number;
   netAmount: number;
+  confirmRateUpdate?: boolean;
 }
 
 export interface CreateStockVoucherInput {
@@ -46,6 +47,16 @@ export interface StockVoucherItemOutput {
   taxPercent?: number;
   taxAmount: number;
   netAmount: number;
+  product: {
+    id: string;
+    name: string;
+    code: string;
+  };
+  batch: {
+    id: string;
+    batchNumber: string;
+    expiryDate?: string | null;
+  };
 }
 
 export interface StockVoucherOutput {
@@ -53,7 +64,7 @@ export interface StockVoucherOutput {
   voucherNumber: string;
   type: StockVoucherType;
   supplierId: string | null;
-  voucherDate: string;
+  date: string;
   remarks?: string | null;
   grossAmount: number;
   discountAmount: number;
@@ -61,7 +72,12 @@ export interface StockVoucherOutput {
   netAmount: number;
   createdAt: string;
   updatedAt: string;
-  items: StockVoucherItemOutput[]; // fixed: was Input[]
+  items: StockVoucherItemOutput[];
+  supplier: {
+    id: string;
+    name: string;
+    contactPerson?: string | null;
+  };
 }
 
 export interface BatchStockLine {
@@ -77,4 +93,17 @@ export interface ProductStockView {
   productId: string;
   totalQuantity: number;
   batches: BatchStockLine[]; // FEFO order
+}
+
+export interface StockVoucherListItem {
+  id: string;
+  voucherNumber: string;
+  type: StockVoucherType;
+  date: string;
+  supplierId: string | null;
+  grossAmount: number;
+  discountAmount: number;
+  taxAmount: number;
+  netAmount: number;
+  remarks?: string;
 }

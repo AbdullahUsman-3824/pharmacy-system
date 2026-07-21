@@ -24,15 +24,27 @@ model Batch {
 
     isActive Boolean @default(true)
 
-    createdAt         DateTime           @default(now())
-    updatedAt         DateTime           @updatedAt
-    deletedAt         DateTime?
-    stockVoucherItems StockVoucherItem[]
+    createdAt          DateTime           @default(now())
+    updatedAt          DateTime           @updatedAt
+    deletedAt          DateTime?
+    stockVoucherItems  StockVoucherItem[]
+    batchRateHistories BatchRateHistory[]
 
     @@unique([productId, batchNumber, expiryDate])
     @@index([batchNumber])
     @@index([expiryDate])
     @@index([productId])
+}
+
+model BatchRateHistory {
+    id              String   @id @default(cuid())
+    batchId         String
+    batch           Batch    @relation(fields: [batchId], references: [id])
+    oldPurchaseRate Decimal
+    oldSaleRate     Decimal
+    newPurchaseRate Decimal
+    newSaleRate     Decimal
+    changedAt       DateTime @default(now())
 }
 
 // ======================================================

@@ -18,7 +18,7 @@ export function Topbar({ pharmacyName }: TopbarProps) {
       <div className="flex items-center gap-5">
         <StatusBadge label="Master connected" />
         <span className="text-sm text-ink-500">{timestamp}</span>
-        <Avatar initial="A" />
+        <Avatar initial="F" />
       </div>
     </header>
   );

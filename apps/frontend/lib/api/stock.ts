@@ -1,6 +1,7 @@
 import { apiClient } from "../axios";
 import {
   CreateStockVoucherInput,
+  StockVoucherListItem,
   StockVoucherOutput,
   ProductStockView,
 } from "@repo/shared";
@@ -16,7 +17,14 @@ export const stockApi = {
 
   getVouchers: async () => {
     const { data } =
-      await apiClient.get<StockVoucherOutput[]>("/stocks/vouchers");
+      await apiClient.get<StockVoucherListItem[]>("/stocks/vouchers");
+    return data;
+  },
+
+  getVoucherById: async (id: string) => {
+    const { data } = await apiClient.get<StockVoucherOutput>(
+      `/stocks/vouchers/${id}`,
+    );
     return data;
   },
 

@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react";
 interface Props {
   value: string;
   onChange: (id: string) => void;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   placeholder?: string;
   className?: string;
 }
@@ -14,6 +15,7 @@ interface Props {
 export function ProductSelect({
   value,
   onChange,
+  onKeyDown,
   placeholder = "Search product...",
   className = "",
 }: Props) {
@@ -43,6 +45,7 @@ export function ProductSelect({
         options={options}
         isLoading={isLoading}
         placeholder={placeholder}
+        onKeyDown={onKeyDown} // ✅ PASS IT THROUGH
       />
     </div>
   );

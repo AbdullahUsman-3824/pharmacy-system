@@ -16,6 +16,11 @@ export class StockController {
     return this.stockService.findAll();
   }
 
+  @Get('vouchers/:id')
+  findOne(@Param('id') id: string) {
+    return this.stockService.findOne(id);
+  }
+
   @Get('products/:productId/stock')
   getProductStock(@Param('productId') productId: string) {
     return this.stockService.getProductStock(productId);

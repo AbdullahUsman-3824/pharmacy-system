@@ -4,13 +4,21 @@ import { CreateStockVoucherInput } from "@repo/shared";
 
 export const stockKeys = {
   vouchers: ["stock-vouchers"] as const,
+  voucher: (id: string) => ["stock-voucher", id] as const,
   productStock: (productId: string) => ["stock-product", productId] as const,
 };
-
 export function useStockVouchers() {
   return useQuery({
     queryKey: stockKeys.vouchers,
     queryFn: stockApi.getVouchers,
+  });
+}
+
+export function useStockVoucher(id: string) {
+  return useQuery({
+    queryKey: stockKeys.voucher(id),
+    queryFn: () => stockApi.getVoucherById(id),
+    enabled: !!id,
   });
 }
 

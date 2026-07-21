@@ -72,3 +72,20 @@ body {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+@media print {
+  .print\\:hidden {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+  }
+  .bg-slate-50\/50 {
+    background: white !important;
+  }
+  .shadow-sm {
+    box-shadow: none !important;
+  }
+  .border {
+    border-color: #e5e7eb !important;
+  }
+}

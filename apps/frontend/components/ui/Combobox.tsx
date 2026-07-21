@@ -15,6 +15,7 @@ interface ComboboxProps {
   options: ComboboxOption[];
   isLoading?: boolean;
   placeholder?: string;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void; // ✅ ADD THIS
 }
 
 export function Combobox({
@@ -23,6 +24,7 @@ export function Combobox({
   options,
   isLoading,
   placeholder,
+  onKeyDown, // ✅ ADD THIS
 }: ComboboxProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -93,6 +95,10 @@ export function Combobox({
           setQuery("");
         }}
         onKeyDown={(e) => {
+          // ✅ CALL THE PARENT'S onKeyDown FIRST
+          if (onKeyDown) onKeyDown(e);
+
+          // Then handle the combobox's own Enter logic
           if (e.key === "Enter" && open && filtered.length > 0) {
             const top = filtered[0];
             if (top.id !== value) onChange(top.id);

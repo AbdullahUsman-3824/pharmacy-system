@@ -11,6 +11,7 @@ import {
   StockVoucherFormOutput,
   StockVoucherItemValues,
 } from "./schema";
+import Link from "next/link";
 import { VOUCHER_TYPE_LABELS, IMPLEMENTED_VOUCHER_TYPES } from "./schema";
 import { buildCreateVoucherPayload } from "./build-payload";
 import { previewVoucherNumber } from "./voucher-number-preview";
@@ -32,6 +33,7 @@ import {
   AlertCircle,
   SlidersHorizontal,
   Plus,
+  ArrowLeft,
 } from "lucide-react";
 
 export default function NewStockVoucherPage() {
@@ -108,9 +110,38 @@ export default function NewStockVoucherPage() {
   );
 
   const onSubmit = async (data: StockVoucherFormOutput) => {
-    const payload = buildCreateVoucherPayload(data);
-    await createVoucher.mutateAsync(payload);
-    router.push("/stock/vouchers");
+    const confirmedBatchKeys = new Set<string>(); // batches the user has approved this submit attempt
+
+    const trySubmit = async (): Promise<void> => {
+      const payload = buildCreateVoucherPayload(data, confirmedBatchKeys);
+      try {
+        await createVoucher.mutateAsync(payload);
+        router.push("/stock/vouchers");
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } catch (error: any) {
+        const responseData = error?.response?.data;
+
+        // only handle the specific rate-mismatch case — everything else bubbles up as before
+        if (responseData?.code === "BATCH_RATE_MISMATCH") {
+          const confirmed = window.confirm(
+            `Batch ${responseData.batchNumber} already exists at ` +
+              `purchase rate ${responseData.existingPurchaseRate} / sale rate ${responseData.existingSaleRate}.\n\n` +
+              `Update the batch to the new rate you entered?`,
+          );
+
+          if (confirmed) {
+            const batchKey = `${responseData.productId}::${responseData.batchNumber}`;
+            confirmedBatchKeys.add(batchKey);
+            await trySubmit();
+            return;
+          }
+        }
+
+        throw error;
+      }
+    };
+
+    await trySubmit();
   };
 
   const handleAddButtonClick = () => {
@@ -126,6 +157,13 @@ export default function NewStockVoucherPage() {
         className="flex flex-col flex-1 gap-4"
       >
         {/* Slim header bar */}
+        <Link
+          href="/stock"
+          className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Vouchers
+        </Link>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex flex-wrap items-end gap-4 shrink-0">
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">

@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsString,
   ValidateNested,
+  IsBoolean,
 } from 'class-validator';
 
 import { CreateStockVoucherInput, StockVoucherType } from '@repo/shared';
@@ -33,4 +34,8 @@ export class CreateStockVoucherDto implements CreateStockVoucherInput {
   @ValidateNested({ each: true })
   @Type(() => StockVoucherItemDto)
   items!: StockVoucherItemDto[];
+
+  @IsOptional()
+  @IsBoolean()
+  confirmRateUpdate?: boolean;
 }
