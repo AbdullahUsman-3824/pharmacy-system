@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, useRef, useState, useImperativeHandle } from "react";
-import { itemSchema, StockVoucherItemValues } from "./schema";
+import { itemSchema, StockVoucherItemValues } from "@/schemas/stockVoucher";
 import { ProductSelect } from "@/components/ProductSelect";
 import { calculateItemAmounts } from "@/lib/stock-calculations";
 

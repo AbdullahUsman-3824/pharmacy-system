@@ -1,10 +1,10 @@
 import { CreateStockVoucherInput } from "@repo/shared";
 import { calculateItemAmounts } from "../../../../lib/stock-calculations";
-import { StockVoucherFormOutput } from "./schema";
+import { StockVoucherFormOutput } from "@/schemas/stockVoucher";
 
 export function buildCreateVoucherPayload(
   form: StockVoucherFormOutput,
-  confirmedBatchKeys: Set<string> = new Set(), 
+  confirmedBatchKeys: Set<string> = new Set(),
 ): CreateStockVoucherInput {
   return {
     type: form.type,

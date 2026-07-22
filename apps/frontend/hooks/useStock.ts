@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { stockApi } from "../lib/api/stock";
+import { stockApi } from "../lib/api/stockApi";
 import { CreateStockVoucherInput } from "@repo/shared";
 
 export const stockKeys = {

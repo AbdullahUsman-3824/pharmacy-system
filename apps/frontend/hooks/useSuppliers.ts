@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { suppliersApi } from "@/lib/api/suppliers";
+import { suppliersApi } from "@/lib/api/suppliersApi";
 import type { CreateSupplierInput, UpdateSupplierInput } from "@repo/shared";
 
 export function useSuppliers() {

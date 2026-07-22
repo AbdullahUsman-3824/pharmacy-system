@@ -10,17 +10,20 @@ import {
   StockVoucherFormInput,
   StockVoucherFormOutput,
   StockVoucherItemValues,
-} from "./schema";
+} from "@/schemas/stockVoucher";
 import Link from "next/link";
-import { VOUCHER_TYPE_LABELS, IMPLEMENTED_VOUCHER_TYPES } from "./schema";
+import {
+  VOUCHER_TYPE_LABELS,
+  IMPLEMENTED_VOUCHER_TYPES,
+} from "@/constants/stock/stockVoucher";
 import { buildCreateVoucherPayload } from "./build-payload";
-import { previewVoucherNumber } from "./voucher-number-preview";
-import { getColumns } from "./table-columns";
+import { previewVoucherNumber } from "../../../../constants/stock/voucher-number-preview";
+import { getColumns } from "../../../../constants/stock/table-columns";
 import {
   StockVoucherEntryRow,
   StockVoucherEntryRowRef,
-} from "./StockVoucherEntryRow";
-import { StockVoucherItemRow } from "./StockVoucherItemRow";
+} from "../../../../components/stock/stockEntry/StockVoucherEntryRow";
+import { StockVoucherItemRow } from "../../../../components/stock/stockEntry/StockVoucherItemRow";
 import { useCreateStockVoucher, useStockVouchers } from "@/hooks/useStock";
 import { useProducts } from "@/hooks/useProducts";
 import { SupplierSelect } from "@/components/SupplierSelect";

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { productsApi } from '../lib/api/products';
+import { productsApi } from '../lib/api/productsApi';
 import { CreateProductInput, UpdateProductInput } from '@repo/shared';
 
 export function useProducts() {

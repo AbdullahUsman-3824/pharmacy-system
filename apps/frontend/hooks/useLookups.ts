@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { lookupsApi } from "../lib/api/lookups";
+import { lookupsApi } from "../lib/api/lookupsApi";
 import { LookupType, LookupEntity } from "@repo/shared/types/lookups";
 
 export function useLookup(

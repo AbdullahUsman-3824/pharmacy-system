@@ -17,7 +17,7 @@ import { LookupType, CreateProductInput, ProductDto } from "@repo/shared";
 export type ProductFormMode = "create" | "edit" | "view";
 
 interface ProductFormProps {
-  mode: ProductFormMode;
+  mode?: ProductFormMode;
   initialData?: ProductDto;
   onSubmit: (values: CreateProductInput) => void;
   onCancel: () => void;

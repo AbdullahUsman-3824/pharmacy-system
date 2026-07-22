@@ -34,29 +34,3 @@ export const stockVoucherFormSchema = z
 export type StockVoucherFormInput = z.input<typeof stockVoucherFormSchema>;
 export type StockVoucherFormOutput = z.output<typeof stockVoucherFormSchema>;
 export type StockVoucherItemValues = z.output<typeof itemSchema>;
-
-export const defaultItemRow = {
-  productId: "",
-  batchNumber: "",
-  expiryDate: "",
-  quantity: 0,
-  freeQuantity: 0,
-  purchaseRate: 0,
-  saleRate: 0,
-  discountPercent: 0,
-  taxPercent: 0,
-};
-
-export const VOUCHER_TYPE_LABELS: Record<StockVoucherType, string> = {
-  [StockVoucherType.PURCHASE]: "Purchase",
-  [StockVoucherType.OPENING]: "Opening",
-  [StockVoucherType.PURCHASE_RETURN]: "Purchase Return",
-  [StockVoucherType.STOCK_ADJUSTMENT]: "Stock Adjustment",
-  [StockVoucherType.STOCK_TRANSFER]: "Stock Transfer",
-};
-
-// Only these two are wired to real backend business logic today
-export const IMPLEMENTED_VOUCHER_TYPES = new Set([
-  StockVoucherType.OPENING,
-  StockVoucherType.PURCHASE,
-]);
