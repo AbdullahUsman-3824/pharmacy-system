@@ -29,6 +29,7 @@ model Batch {
     deletedAt          DateTime?
     stockVoucherItems  StockVoucherItem[]
     batchRateHistories BatchRateHistory[]
+    saleItems          SaleItem[]
 
     @@unique([productId, batchNumber, expiryDate])
     @@index([batchNumber])

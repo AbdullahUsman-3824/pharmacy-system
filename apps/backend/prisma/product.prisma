@@ -109,6 +109,7 @@ model Product {
 
     batches           Batch[]
     stockVoucherItems StockVoucherItem[]
+    saleItems         SaleItem[]
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @updatedAt
