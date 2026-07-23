@@ -8,7 +8,7 @@ import { CreateSaleDto } from './dto/create-sale.dto';
 import { SaleType } from '@repo/shared';
 
 @Injectable()
-export class SaleService {
+export class SalesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async createSale(dto: CreateSaleDto) {

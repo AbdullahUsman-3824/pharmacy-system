@@ -19,7 +19,9 @@ export interface CreateSaleItemInput {
 export interface CreateSaleInput {
   type: SaleType;
   customerName?: string;
-  originalSaleId?: string;
+  saleDate: string;
+  originalSaleId?: string | null;
+  remarks?: string;
   items: CreateSaleItemInput[];
 }
 

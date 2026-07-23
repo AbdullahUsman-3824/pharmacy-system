@@ -1,17 +1,23 @@
 "use client";
 
-import { forwardRef, useRef, useState, useImperativeHandle } from "react";
-import { itemSchema, StockVoucherItemValues } from "@/schemas/stock-voucher";
+import {
+  forwardRef,
+  useRef,
+  useState,
+  useEffect,
+  useImperativeHandle,
+} from "react";
+import { saleItemSchema, SaleItemValues } from "@/schemas/sale-form";
 import { ProductSelect } from "@/components/ProductSelect";
-import { calculateItemAmounts } from "@/lib/stock-calculations";
+import { useProductStock } from "@/hooks/useStock";
+import { calculateSaleItemAmounts } from "@/lib/sale-calculations";
 
 interface EntryRowState {
   productId: string;
+  batchId: string;
   batchNumber: string;
   expiryDate: string;
   quantity: string;
-  freeQuantity: string;
-  purchaseRate: string;
   saleRate: string;
   discountPercent: string;
   taxPercent: string;
@@ -19,11 +25,10 @@ interface EntryRowState {
 
 const blankEntry: EntryRowState = {
   productId: "",
+  batchId: "",
   batchNumber: "",
   expiryDate: "",
   quantity: "",
-  freeQuantity: "0",
-  purchaseRate: "",
   saleRate: "",
   discountPercent: "0",
   taxPercent: "0",
@@ -31,20 +36,39 @@ const blankEntry: EntryRowState = {
 
 interface Props {
   showAdvanced: boolean;
-  onAdd: (item: StockVoucherItemValues) => void;
-  onProductPicked?: (productId: string) => void;
+  onAdd: (item: SaleItemValues) => void;
 }
 
-export interface StockVoucherEntryRowRef {
+export interface SaleEntryRowRef {
   commit: () => void;
 }
 
-export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
-  ({ showAdvanced, onAdd, onProductPicked }, ref) => {
+export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
+  ({ showAdvanced, onAdd }, ref) => {
     const [entry, setEntry] = useState<EntryRowState>(blankEntry);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const containerRef = useRef<HTMLTableRowElement>(null);
-    const expiryInputRef = useRef<HTMLInputElement>(null);
+
+    const { data: stock } = useProductStock(entry.productId);
+    const batches = stock?.batches ?? [];
+    const selectedBatch = batches.find((b) => b.batchId === entry.batchId);
+
+    // When a product is picked, auto-select the FEFO-first batch (batches
+    // already come expiry-ordered from the backend) and prefill its saleRate.
+    useEffect(() => {
+      if (!entry.productId || batches.length === 0) return;
+      if (entry.batchId) return; // don't override a batch the cashier already chose
+
+      const first = batches[0];
+      setEntry((prev) => ({
+        ...prev,
+        batchId: first.batchId,
+        batchNumber: first.batchNumber,
+        expiryDate: first.expiryDate ?? "",
+        saleRate: String(first.saleRate),
+      }));
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [entry.productId, batches.length]);
 
     function set<K extends keyof EntryRowState>(
       key: K,
@@ -53,16 +77,40 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
       setEntry((prev) => ({ ...prev, [key]: value }));
     }
 
-    // Calculate amounts for the entry row preview
-    const amounts = calculateItemAmounts({
+    function handleProductChange(productId: string) {
+      setEntry({ ...blankEntry, productId });
+    }
+
+    function handleBatchChange(batchId: string) {
+      const batch = batches.find((b) => b.batchId === batchId);
+      if (!batch) return;
+      setEntry((prev) => ({
+        ...prev,
+        batchId: batch.batchId,
+        batchNumber: batch.batchNumber,
+        expiryDate: batch.expiryDate ?? "",
+        saleRate: String(batch.saleRate),
+      }));
+    }
+
+    const amounts = calculateSaleItemAmounts({
       quantity: Number(entry.quantity) || 0,
-      purchaseRate: Number(entry.purchaseRate) || 0,
+      saleRate: Number(entry.saleRate) || 0,
       discountPercent: Number(entry.discountPercent) || 0,
       taxPercent: Number(entry.taxPercent) || 0,
     });
 
     const commit = () => {
-      const result = itemSchema.safeParse({
+      const requestedQty = Number(entry.quantity) || 0;
+
+      if (selectedBatch && requestedQty > selectedBatch.currentQuantity) {
+        setErrors({
+          quantity: `Only ${selectedBatch.currentQuantity} in stock for this batch`,
+        });
+        return;
+      }
+
+      const result = saleItemSchema.safeParse({
         ...entry,
         expiryDate: entry.expiryDate || undefined,
       });
@@ -96,7 +144,7 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
       if (!container) return;
 
       const inputs = Array.from(
-        container.querySelectorAll<HTMLElement>("input"),
+        container.querySelectorAll<HTMLElement>("input, select"),
       );
       const currentIndex = inputs.indexOf(
         document.activeElement as HTMLElement,
@@ -109,14 +157,6 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
       }
     }
 
-    // Handle focus on expiry date input to show calendar
-    const handleExpiryFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-      // Use showPicker if available (modern browsers)
-      if (e.target.showPicker) {
-        e.target.showPicker();
-      }
-    };
-
     return (
       <tr
         ref={containerRef}
@@ -127,10 +167,7 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
           <div className="min-h-[60px] flex flex-col justify-center">
             <ProductSelect
               value={entry.productId}
-              onChange={(id) => {
-                set("productId", id);
-                onProductPicked?.(id);
-              }}
+              onChange={handleProductChange}
             />
             {errors.productId && (
               <div className="text-xs text-red-600 mt-0.5 leading-none">
@@ -141,30 +178,35 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
         </td>
         <td className="px-3 py-1.5">
           <div className="min-h-[60px] flex flex-col justify-center">
-            <input
-              value={entry.batchNumber}
-              onChange={(e) => set("batchNumber", e.target.value)}
-              className="w-full border rounded px-2 py-1.5 text-sm bg-white"
-              placeholder="Batch #"
-            />
-            {errors.batchNumber && (
+            <select
+              value={entry.batchId}
+              onChange={(e) => handleBatchChange(e.target.value)}
+              disabled={!entry.productId || batches.length === 0}
+              className="w-full border rounded px-2 py-1.5 text-sm bg-white disabled:bg-gray-50"
+            >
+              {batches.length === 0 && <option value="">No stock</option>}
+              {batches.map((b) => (
+                <option key={b.batchId} value={b.batchId}>
+                  {b.batchNumber} (Qty: {b.currentQuantity})
+                </option>
+              ))}
+            </select>
+            {errors.batchId && (
               <div className="text-xs text-red-600 mt-0.5 leading-none">
-                {errors.batchNumber}
+                {errors.batchId}
               </div>
             )}
           </div>
         </td>
         <td className="px-3 py-1.5">
-          <div className="min-h-[60px] flex flex-col justify-center">
-            <input
-              ref={expiryInputRef}
-              type="date"
-              value={entry.expiryDate}
-              onChange={(e) => set("expiryDate", e.target.value)}
-              onFocus={handleExpiryFocus}
-              className="w-full border rounded px-2 py-1.5 text-sm bg-white cursor-pointer"
-              placeholder="Select expiry"
-            />
+          <div className="min-h-[60px] flex items-center text-sm text-gray-600">
+            {entry.expiryDate
+              ? new Date(entry.expiryDate).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })
+              : "—"}
           </div>
         </td>
         <td className="px-3 py-1.5">
@@ -179,23 +221,6 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
             {errors.quantity && (
               <div className="text-xs text-red-600 mt-0.5 leading-none">
                 {errors.quantity}
-              </div>
-            )}
-          </div>
-        </td>
-        <td className="px-3 py-1.5">
-          <div className="min-h-[60px] flex flex-col justify-center">
-            <input
-              type="number"
-              step="0.01"
-              value={entry.purchaseRate}
-              onChange={(e) => set("purchaseRate", e.target.value)}
-              className="w-full border rounded px-2 py-1.5 text-sm bg-white"
-              placeholder="0.00"
-            />
-            {errors.purchaseRate && (
-              <div className="text-xs text-red-600 mt-0.5 leading-none">
-                {errors.purchaseRate}
               </div>
             )}
           </div>
@@ -220,17 +245,6 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
 
         {showAdvanced && (
           <>
-            <td className="px-3 py-1.5">
-              <div className="min-h-[60px] flex flex-col justify-center">
-                <input
-                  type="number"
-                  value={entry.freeQuantity}
-                  onChange={(e) => set("freeQuantity", e.target.value)}
-                  className="w-full border rounded px-2 py-1.5 text-sm bg-white"
-                  placeholder="0"
-                />
-              </div>
-            </td>
             <td className="px-3 py-1.5">
               <div className="min-h-[60px] flex flex-col justify-center">
                 <input
@@ -278,12 +292,10 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
             {amounts.netAmount.toFixed(2)}
           </div>
         </td>
-        <td className="px-3 py-1.5">
-          {/* Empty cell - aligns with the actions column where remove button sits */}
-        </td>
+        <td className="px-3 py-1.5" />
       </tr>
     );
   },
 );
 
-StockVoucherEntryRow.displayName = "StockVoucherEntryRow";
+SaleEntryRow.displayName = "SaleEntryRow";

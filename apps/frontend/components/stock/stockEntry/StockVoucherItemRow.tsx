@@ -6,7 +6,7 @@ import {
   FieldErrors,
 } from "react-hook-form";
 import { calculateItemAmounts } from "../../../lib/stock-calculations";
-import { StockVoucherFormInput } from "@/schemas/stockVoucher";
+import { StockVoucherFormInput } from "@/schemas/stock-voucher";
 import { ProductSelect } from "../../ProductSelect";
 
 interface Props {

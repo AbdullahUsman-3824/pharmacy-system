@@ -1,23 +1,23 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import { SaleService } from './sales.service';
+import { SalesService } from './sales.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
 
-@Controller('sale')
-export class SaleController {
-  constructor(private readonly saleService: SaleService) {}
+@Controller('sales')
+export class SalesController {
+  constructor(private readonly salesService: SalesService) {}
 
   @Post()
   create(@Body() dto: CreateSaleDto) {
-    return this.saleService.createSale(dto);
+    return this.salesService.createSale(dto);
   }
 
   @Get()
   findAll() {
-    return this.saleService.findAll();
+    return this.salesService.findAll();
   }
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.saleService.findOne(id);
+    return this.salesService.findOne(id);
   }
 }

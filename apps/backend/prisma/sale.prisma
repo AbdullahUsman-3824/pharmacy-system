@@ -16,7 +16,8 @@ model Sale {
 
     date DateTime @default(now())
 
-    customerName String @default("Walk-in Customer")
+    customerName String  @default("Walk-in Customer")
+    remarks      String?
 
     // for SALE_RETURN: link back to the original sale being returned against
     originalSaleId String?

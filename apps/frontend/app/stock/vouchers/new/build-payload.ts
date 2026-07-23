@@ -1,6 +1,6 @@
 import { CreateStockVoucherInput } from "@repo/shared";
-import { calculateItemAmounts } from "../../../../lib/stock-calculations";
-import { StockVoucherFormOutput } from "@/schemas/stockVoucher";
+import { calculateItemAmounts } from "@/lib/stock-calculations";
+import { StockVoucherFormOutput } from "@/schemas/stock-voucher";
 
 export function buildCreateVoucherPayload(
   form: StockVoucherFormOutput,

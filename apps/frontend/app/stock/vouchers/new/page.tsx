@@ -10,12 +10,12 @@ import {
   StockVoucherFormInput,
   StockVoucherFormOutput,
   StockVoucherItemValues,
-} from "@/schemas/stockVoucher";
+} from "@/schemas/stock-voucher";
 import Link from "next/link";
 import {
   VOUCHER_TYPE_LABELS,
   IMPLEMENTED_VOUCHER_TYPES,
-} from "@/constants/stock/stockVoucher";
+} from "@/constants/stock/stock-voucher";
 import { buildCreateVoucherPayload } from "./build-payload";
 import { previewVoucherNumber } from "../../../../constants/stock/voucher-number-preview";
 import { getColumns } from "../../../../constants/stock/table-columns";
