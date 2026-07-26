@@ -6,13 +6,11 @@ export enum SaleType {
 export interface CreateSaleItemInput {
   productId: string;
   batchId: string;
-  quantity: number;
-  saleRate: number;
+  packQuantity: number; // whole packs sold on this line, 0 if none
+  saleRate: number; // rate per pack
+  looseQuantity: number; // loose units sold on this line, 0 if none
+  looseRate: number; // rate per loose unit
   grossAmount: number;
-  discountPercent?: number;
-  discountAmount?: number;
-  taxPercent?: number;
-  taxAmount?: number;
   netAmount: number;
 }
 
@@ -22,6 +20,8 @@ export interface CreateSaleInput {
   saleDate: string;
   originalSaleId?: string | null;
   remarks?: string;
+  discountPercent?: number;
+  taxPercent?: number;
   items: CreateSaleItemInput[];
 }
 
@@ -30,13 +30,11 @@ export interface SaleItemDto {
   saleId: string;
   productId: string;
   batchId: string;
-  quantity: number;
+  packQuantity: number;
   saleRate: number;
+  looseQuantity: number;
+  looseRate: number;
   grossAmount: number;
-  discountPercent?: number | null;
-  discountAmount: number;
-  taxPercent?: number | null;
-  taxAmount: number;
   netAmount: number;
   createdAt: string;
   updatedAt: string;
@@ -51,7 +49,9 @@ export interface SaleDto {
   originalSaleId?: string | null;
   remarks?: string | null;
   grossAmount: number;
+  discountPercent?: number | null;
   discountAmount: number;
+  taxPercent?: number | null;
   taxAmount: number;
   netAmount: number;
   createdAt: string;

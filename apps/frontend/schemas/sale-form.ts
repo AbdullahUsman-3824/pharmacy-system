@@ -1,17 +1,22 @@
 import { z } from "zod";
 import { SaleType } from "@repo/shared";
 
-export const saleItemSchema = z.object({
-  productId: z.string().min(1, "Product required"),
-  productName: z.string().optional(),
-  batchId: z.string().min(1, "Batch required"),
-  batchNumber: z.string().optional(),
-  expiryDate: z.string().optional().nullable(),
-  quantity: z.coerce.number().positive("Qty too low"),
-  saleRate: z.coerce.number().positive("Rate too low"),
-  discountPercent: z.coerce.number().min(0).max(100).default(0),
-  taxPercent: z.coerce.number().min(0).max(100).default(0),
-});
+export const saleItemSchema = z
+  .object({
+    productId: z.string().min(1, "Product required"),
+    productName: z.string().optional(),
+    batchId: z.string().min(1, "Batch required"),
+    batchNumber: z.string().optional(),
+    expiryDate: z.string().optional().nullable(),
+    packQuantity: z.coerce.number().min(0).default(0),
+    saleRate: z.coerce.number().min(0, "Rate too low"), // rate per pack
+    looseQuantity: z.coerce.number().min(0).default(0),
+    looseRate: z.coerce.number().min(0).default(0), // rate per loose unit
+  })
+  .refine((data) => data.packQuantity > 0 || data.looseQuantity > 0, {
+    message: "Enter a pack or loose quantity",
+    path: ["packQuantity"],
+  });
 
 export const saleFormSchema = z
   .object({
@@ -20,6 +25,9 @@ export const saleFormSchema = z
     saleDate: z.string().min(1, "Date required"),
     originalSaleId: z.string().optional().nullable(),
     remarks: z.string().optional(),
+    // bill-level discount/tax — applied once on the invoice total
+    discountPercent: z.coerce.number().min(0).max(100).default(0),
+    taxPercent: z.coerce.number().min(0).max(100).default(0),
     items: z.array(saleItemSchema).min(1, "Add at least one item"),
   })
   .superRefine((data, ctx) => {

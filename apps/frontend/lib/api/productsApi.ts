@@ -11,6 +11,17 @@ export const productsApi = {
     return data;
   },
 
+  search: async (query: string, limit = 20): Promise<ProductDto[]> => {
+    const { data } = await apiClient.get("/products/search", {
+      params: {
+        q: query,
+        limit,
+      },
+    });
+
+    return data;
+  },
+
   getOne: async (id: string): Promise<ProductDto> => {
     const { data } = await apiClient.get(`/products/${id}`);
     return data;

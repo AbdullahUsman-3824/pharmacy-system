@@ -19,6 +19,7 @@ model Batch {
 
     openingQuantity Int @default(0)
     currentQuantity Int @default(0)
+    looseQuantity   Int @default(0)
 
     manufacturingDate DateTime?
 

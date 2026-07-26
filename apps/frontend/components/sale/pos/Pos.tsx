@@ -14,7 +14,6 @@ import {
 import { buildCreateSalePayload } from "./build-payload";
 import { previewSaleNumber } from "@/constants/sale/sale-number-preview";
 import { useCreateSale, useSales } from "@/hooks/useSale";
-import { calculateSaleItemAmounts } from "@/lib/sale-calculations";
 import {
   PosHeader,
   PosFooter,
@@ -22,6 +21,10 @@ import {
   ItemsTable,
   SaleEntryRowRef,
 } from ".";
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
 
 export default function PosPage() {
   const router = useRouter();
@@ -32,6 +35,7 @@ export default function PosPage() {
     register,
     control,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<SaleFormInput, unknown, SaleFormOutput>({
     resolver: zodResolver(saleFormSchema),
@@ -40,24 +44,27 @@ export default function PosPage() {
       customerName: "Walk-in Customer",
       saleDate: new Date().toISOString().slice(0, 10),
       remarks: "",
+      discountPercent: 0,
+      taxPercent: 0,
       items: [],
     },
   });
 
   const { fields, insert, remove } = useFieldArray({ control, name: "items" });
   const items = useWatch({ control, name: "items" });
+  const discountPercent = (useWatch({ control, name: "discountPercent" }) ??
+    0) as number;
+  const taxPercent = (useWatch({ control, name: "taxPercent" }) ?? 0) as number;
 
   const saleNoPreview = useMemo(
     () => previewSaleNumber(SaleType.SALE, sales),
     [sales],
   );
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [stockError, setStockError] = useState<string | null>(null);
   const entryRowRef = useRef<SaleEntryRowRef>(null);
 
   const handleAddItem = (item: SaleItemValues) => {
     insert(0, item);
-    // Scroll to the new item with smooth animation
     setTimeout(() => {
       const newItem = document.querySelector(`[data-item-index="0"]`);
       if (newItem) {
@@ -67,23 +74,19 @@ export default function PosPage() {
   };
 
   const totals = useMemo(() => {
-    return items.reduce(
-      (acc, item) => {
-        const a = calculateSaleItemAmounts({
-          quantity: Number(item?.quantity) || 0,
-          saleRate: Number(item?.saleRate) || 0,
-          discountPercent: Number(item?.discountPercent) || 0,
-          taxPercent: Number(item?.taxPercent) || 0,
-        });
-        acc.gross += a.grossAmount;
-        acc.discount += a.discountAmount;
-        acc.tax += a.taxAmount;
-        acc.net += a.netAmount;
-        return acc;
-      },
-      { gross: 0, discount: 0, tax: 0, net: 0 },
-    );
-  }, [items]);
+    const gross = (items ?? []).reduce((sum, item) => {
+      const packPart =
+        (Number(item?.packQuantity) || 0) * (Number(item?.saleRate) || 0);
+      const loosePart =
+        (Number(item?.looseQuantity) || 0) * (Number(item?.looseRate) || 0);
+      return sum + packPart + loosePart;
+    }, 0);
+    const discount = round2(gross * (Number(discountPercent) / 100));
+    const taxable = gross - discount;
+    const tax = round2(taxable * (Number(taxPercent) / 100));
+    const net = round2(taxable + tax);
+    return { gross, discount, tax, net };
+  }, [items, discountPercent, taxPercent]);
 
   const onSubmit = async (data: SaleFormOutput) => {
     setStockError(null);
@@ -111,8 +114,8 @@ export default function PosPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50/50">
-      <div className="flex-1 max-w-7xl mx-auto w-full px-4 py-6 space-y-4">
+    <div className="flex flex-col min-h-screen bg-transparent">
+      <div className="flex-1 max-w-7xl mx-auto w-full  pb-6 space-y-4">
         <PosHeader register={register} saleNoPreview={saleNoPreview} />
 
         <StockError message={stockError} />
@@ -122,12 +125,10 @@ export default function PosPage() {
           className="flex flex-col flex-1 space-y-4"
         >
           <ItemsTable
-            showAdvanced={showAdvanced}
-            onToggleAdvanced={() => setShowAdvanced((v) => !v)}
             onAddItem={handleAddItem}
             fields={fields}
             control={control}
-            register={register}
+            setValue={setValue}
             onRemove={remove}
             errors={errors}
             entryRowRef={entryRowRef}
@@ -138,6 +139,10 @@ export default function PosPage() {
 
       <PosFooter
         totals={totals}
+        discountPercent={discountPercent}
+        taxPercent={taxPercent}
+        onDiscountPercentChange={(v) => setValue("discountPercent", v)}
+        onTaxPercentChange={(v) => setValue("taxPercent", v)}
         isSubmitting={isSubmitting}
         handleSubmit={handleSubmit}
         onSubmit={onSubmit}

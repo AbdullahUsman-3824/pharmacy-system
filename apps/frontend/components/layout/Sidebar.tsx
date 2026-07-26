@@ -13,12 +13,14 @@ import {
   BarChart3,
   ChevronsLeft,
   ChevronsRight,
+  ReceiptText as Receipt,
 } from "lucide-react";
 import { navItems } from "@/lib/data";
 import type { NavKey } from "@/lib/types";
 
 const icons: Record<NavKey, React.ElementType> = {
   dashboard: LayoutDashboard,
+  pos: Receipt,
   products: Package,
   stock: Boxes,
   sale: ShoppingCart,
@@ -46,7 +48,7 @@ export function Sidebar() {
   return (
     <aside
       className={`shrink-0 border-r border-border bg-surface-sidebar transition-[width] duration-200 ${
-        collapsed ? "w-[72px]" : "w-[236px]"
+        collapsed ? "w-[54px]" : "w-[236px]"
       }`}
     >
       <nav className="flex h-full flex-col gap-1 px-2 py-4">
@@ -81,7 +83,7 @@ export function Sidebar() {
                   : "text-ink-700 hover:bg-surface-sunken"
               } ${collapsed ? "justify-center" : ""}`}
             >
-              <Icon size={18} strokeWidth={2} className="shrink-0" />
+              <Icon size={18} className="shrink-0" />
               {!collapsed && <span>{item.label}</span>}
             </Link>
           );

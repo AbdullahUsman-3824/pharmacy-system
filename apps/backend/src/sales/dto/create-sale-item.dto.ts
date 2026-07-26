@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsInt, IsNumber, IsString, Min, ValidateIf } from 'class-validator';
 import { CreateSaleItemInput } from '@repo/shared';
 
 export class CreateSaleItemDto implements CreateSaleItemInput {
@@ -11,8 +11,8 @@ export class CreateSaleItemDto implements CreateSaleItemInput {
 
   @Type(() => Number)
   @IsInt()
-  @Min(1)
-  quantity!: number;
+  @Min(0)
+  packQuantity!: number;
 
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
@@ -20,33 +20,22 @@ export class CreateSaleItemDto implements CreateSaleItemInput {
   saleRate!: number;
 
   @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  looseQuantity!: number;
+
+  // Only required to be a meaningful rate if looseQuantity > 0 — still
+  // validated as a number either way since the frontend always sends 0.
+  @ValidateIf((dto: CreateSaleItemDto) => dto.looseQuantity > 0)
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  looseRate!: number;
+
+  @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   grossAmount!: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  discountPercent?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  discountAmount?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  taxPercent?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  taxAmount?: number;
 
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })

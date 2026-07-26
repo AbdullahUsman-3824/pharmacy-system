@@ -1,5 +1,6 @@
 export type NavKey =
   | "dashboard"
+  | "pos"
   | "products"
   | "stock"
   | "sale"

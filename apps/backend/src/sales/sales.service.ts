@@ -21,10 +21,10 @@ export class SalesService {
         );
       }
 
-      let grossTotal = 0;
-      let discountTotal = 0;
-      let taxTotal = 0;
-      let netTotal = 0;
+      // Same product+batch entered more than once in the same invoice gets
+      // merged into a single line before any stock/DB work happens — pack
+      // and loose quantities are summed independently.
+      const mergedItems = this.mergeDuplicateItems(dto.items);
 
       const sale = await tx.sale.create({
         data: {
@@ -37,7 +37,9 @@ export class SalesService {
         },
       });
 
-      for (const item of dto.items) {
+      let grossTotal = 0;
+
+      for (const item of mergedItems) {
         this.validateSaleItemAmounts(item);
 
         if (dto.type === SaleType.SALE_RETURN) {
@@ -49,16 +51,23 @@ export class SalesService {
         await this.createSaleItem(tx, sale.id, batch.id, item);
 
         grossTotal += item.grossAmount;
-        discountTotal += item.discountAmount ?? 0;
-        taxTotal += item.taxAmount ?? 0;
-        netTotal += item.netAmount;
       }
+
+      const discountPercent = dto.discountPercent ?? 0;
+      const taxPercent = dto.taxPercent ?? 0;
+
+      const discountTotal = this.round2(grossTotal * (discountPercent / 100));
+      const taxableAmount = grossTotal - discountTotal;
+      const taxTotal = this.round2(taxableAmount * (taxPercent / 100));
+      const netTotal = this.round2(taxableAmount + taxTotal);
 
       return this.updateSaleTotals(
         tx,
         sale.id,
         grossTotal,
+        discountPercent,
         discountTotal,
+        taxPercent,
         taxTotal,
         netTotal,
       );
@@ -67,9 +76,7 @@ export class SalesService {
 
   async findAll() {
     const sales = await this.prisma.sale.findMany({
-      where: {
-        deletedAt: null,
-      },
+      where: { deletedAt: null },
       select: {
         id: true,
         saleNumber: true,
@@ -77,19 +84,22 @@ export class SalesService {
         date: true,
         customerName: true,
         grossAmount: true,
+        discountPercent: true,
         discountAmount: true,
+        taxPercent: true,
         taxAmount: true,
         netAmount: true,
       },
-      orderBy: {
-        date: 'desc',
-      },
+      orderBy: { date: 'desc' },
     });
 
     return sales.map((s) => ({
       ...s,
       grossAmount: Number(s.grossAmount),
+      discountPercent:
+        s.discountPercent !== null ? Number(s.discountPercent) : null,
       discountAmount: Number(s.discountAmount),
+      taxPercent: s.taxPercent !== null ? Number(s.taxPercent) : null,
       taxAmount: Number(s.taxAmount),
       netAmount: Number(s.netAmount),
     }));
@@ -115,15 +125,17 @@ export class SalesService {
     return {
       ...sale,
       grossAmount: Number(sale.grossAmount),
+      discountPercent:
+        sale.discountPercent !== null ? Number(sale.discountPercent) : null,
       discountAmount: Number(sale.discountAmount),
+      taxPercent: sale.taxPercent !== null ? Number(sale.taxPercent) : null,
       taxAmount: Number(sale.taxAmount),
       netAmount: Number(sale.netAmount),
       items: sale.items.map((item) => ({
         ...item,
         saleRate: Number(item.saleRate),
+        looseRate: item.looseRate !== null ? Number(item.looseRate) : null,
         grossAmount: Number(item.grossAmount),
-        discountAmount: Number(item.discountAmount),
-        taxAmount: Number(item.taxAmount),
         netAmount: Number(item.netAmount),
         batch: {
           ...item.batch,
@@ -139,11 +151,60 @@ export class SalesService {
     return `${type}-${Date.now()}`;
   }
 
+  /**
+   * Collapses duplicate product+batch lines from the same invoice into a
+   * single merged line, summing packQuantity and looseQuantity separately.
+   */
+  private mergeDuplicateItems(items: any[]): any[] {
+    const grouped = new Map<string, any>();
+
+    for (const item of items) {
+      const key = `${item.productId}|${item.batchId}`;
+      const existing = grouped.get(key);
+
+      if (!existing) {
+        grouped.set(key, { ...item });
+        continue;
+      }
+
+      if (
+        Number(existing.saleRate) !== Number(item.saleRate) ||
+        Number(existing.looseRate) !== Number(item.looseRate)
+      ) {
+        throw new BadRequestException(
+          `Conflicting rate for the same product/batch in one invoice (batch ${item.batchId})`,
+        );
+      }
+
+      existing.packQuantity += item.packQuantity;
+      existing.looseQuantity += item.looseQuantity;
+      existing.grossAmount += item.grossAmount;
+      existing.netAmount += item.netAmount;
+    }
+
+    return Array.from(grouped.values());
+  }
+
   private validateSaleItemAmounts(item: any): void {
-    const expectedGross = item.quantity * item.saleRate;
+    if (item.packQuantity <= 0 && item.looseQuantity <= 0) {
+      throw new BadRequestException(
+        `Line for batch ${item.batchId} must have a pack or loose quantity greater than 0`,
+      );
+    }
+
+    const expectedGross =
+      item.packQuantity * item.saleRate +
+      item.looseQuantity * (item.looseRate || 0);
+
     if (Math.abs(expectedGross - item.grossAmount) > 0.01) {
       throw new BadRequestException(
         `Gross amount mismatch for batch ${item.batchId}`,
+      );
+    }
+    // No per-item discount/tax — gross equals net at the line level.
+    if (Math.abs(item.grossAmount - item.netAmount) > 0.01) {
+      throw new BadRequestException(
+        `Net amount must equal gross amount at the line level for batch ${item.batchId}`,
       );
     }
   }
@@ -154,39 +215,98 @@ export class SalesService {
     saleType: SaleType,
   ): Promise<any> {
     const batch = await tx.batch.findFirst({
-      where: {
-        id: item.batchId,
-        deletedAt: null,
-      },
+      where: { id: item.batchId, deletedAt: null },
+      include: { product: true },
     });
 
     if (!batch) {
       throw new NotFoundException(`Batch ${item.batchId} not found`);
     }
 
-    if (saleType === SaleType.SALE && batch.currentQuantity < item.quantity) {
-      throw new BadRequestException({
-        message: `Insufficient stock in batch ${batch.batchNumber}. Available: ${batch.currentQuantity}, requested: ${item.quantity}.`,
-        code: 'INSUFFICIENT_STOCK',
-        batchId: batch.id,
-        available: batch.currentQuantity,
-        requested: item.quantity,
+    const packingSize = Number(batch.product.packingSize) || 1;
+
+    if (saleType === SaleType.SALE) {
+      const { currentQuantityDelta, looseQuantityDelta } =
+        this.computeStockDeltaForSale(batch, item, packingSize);
+
+      await tx.batch.update({
+        where: { id: batch.id },
+        data: {
+          currentQuantity: { increment: currentQuantityDelta },
+          looseQuantity: { increment: looseQuantityDelta },
+        },
+      });
+    } else {
+      // SALE_RETURN — restore stock as-is: returned packs go back to
+      // currentQuantity, returned loose units go back to looseQuantity.
+      // We don't attempt to re-combine loose units into whole packs.
+      await tx.batch.update({
+        where: { id: batch.id },
+        data: {
+          currentQuantity: { increment: item.packQuantity },
+          looseQuantity: { increment: item.looseQuantity },
+        },
       });
     }
 
-    const quantityDelta =
-      saleType === SaleType.SALE ? -item.quantity : item.quantity;
-
-    await tx.batch.update({
-      where: { id: batch.id },
-      data: {
-        currentQuantity: {
-          increment: quantityDelta,
-        },
-      },
-    });
-
     return batch;
+  }
+
+  /**
+   * Computes how currentQuantity (whole packs) and looseQuantity should
+   * change to fulfill one line's packQuantity + looseQuantity, throwing if
+   * there isn't enough combined stock.
+   */
+  private computeStockDeltaForSale(
+    batch: any,
+    item: any,
+    packingSize: number,
+  ): { currentQuantityDelta: number; looseQuantityDelta: number } {
+    // 1. The explicit pack portion comes straight out of currentQuantity.
+    if (batch.currentQuantity < item.packQuantity) {
+      throw new BadRequestException({
+        message: `Insufficient stock in batch ${batch.batchNumber}. Available: ${batch.currentQuantity} packs, requested: ${item.packQuantity}.`,
+        code: 'INSUFFICIENT_STOCK',
+        batchId: batch.id,
+        available: batch.currentQuantity,
+        requested: item.packQuantity,
+      });
+    }
+
+    const remainingPacksAfterPackSale =
+      batch.currentQuantity - item.packQuantity;
+
+    // 2. The loose portion comes out of the existing loose remainder first,
+    //    then breaks open whole packs from what's left.
+    const availableForLoose =
+      batch.looseQuantity + remainingPacksAfterPackSale * packingSize;
+
+    if (availableForLoose < item.looseQuantity) {
+      throw new BadRequestException({
+        message: `Insufficient stock in batch ${batch.batchNumber}. Available: ${availableForLoose} loose units, requested: ${item.looseQuantity}.`,
+        code: 'INSUFFICIENT_STOCK',
+        batchId: batch.id,
+        available: availableForLoose,
+        requested: item.looseQuantity,
+      });
+    }
+
+    let currentQuantityDelta = -item.packQuantity;
+    let looseQuantityDelta = 0;
+
+    if (item.looseQuantity <= batch.looseQuantity) {
+      looseQuantityDelta = -item.looseQuantity;
+    } else {
+      const shortfall = item.looseQuantity - batch.looseQuantity;
+      const packsToBreak = Math.ceil(shortfall / packingSize);
+      currentQuantityDelta -= packsToBreak;
+
+      const looseAfterBreaking =
+        batch.looseQuantity + packsToBreak * packingSize - item.looseQuantity;
+      looseQuantityDelta = looseAfterBreaking - batch.looseQuantity;
+    }
+
+    return { currentQuantityDelta, looseQuantityDelta };
   }
 
   private async validateReturnQuantity(
@@ -215,29 +335,39 @@ export class SalesService {
       where: {
         productId: item.productId,
         batchId: item.batchId,
-        sale: {
-          type: SaleType.SALE_RETURN,
-          originalSaleId,
-        },
+        sale: { type: SaleType.SALE_RETURN, originalSaleId },
       },
     });
 
-    const alreadyReturned = previousReturns.reduce(
-      (sum: number, r: any) => sum + r.quantity,
+    const alreadyReturnedPacks = previousReturns.reduce(
+      (sum: number, r: any) => sum + r.packQuantity,
+      0,
+    );
+    const alreadyReturnedLoose = previousReturns.reduce(
+      (sum: number, r: any) => sum + r.looseQuantity,
       0,
     );
 
-    const availableToReturn = originalItem.quantity - alreadyReturned;
+    const availablePacksToReturn =
+      originalItem.packQuantity - alreadyReturnedPacks;
+    const availableLooseToReturn =
+      originalItem.looseQuantity - alreadyReturnedLoose;
 
-    if (item.quantity > availableToReturn) {
+    if (
+      item.packQuantity > availablePacksToReturn ||
+      item.looseQuantity > availableLooseToReturn
+    ) {
       throw new BadRequestException({
-        message: `Return quantity exceeds what's available to return for this item. Originally sold: ${originalItem.quantity}, already returned: ${alreadyReturned}, available: ${availableToReturn}.`,
+        message: `Return quantity exceeds what's available to return for this item.`,
         code: 'RETURN_QUANTITY_EXCEEDS_ORIGINAL',
         productId: item.productId,
         batchId: item.batchId,
-        originalQuantity: originalItem.quantity,
-        alreadyReturned,
-        availableToReturn,
+        originalPackQuantity: originalItem.packQuantity,
+        originalLooseQuantity: originalItem.looseQuantity,
+        alreadyReturnedPacks,
+        alreadyReturnedLoose,
+        availablePacksToReturn,
+        availableLooseToReturn,
       });
     }
   }
@@ -253,13 +383,11 @@ export class SalesService {
         saleId,
         productId: item.productId,
         batchId,
+        packQuantity: item.packQuantity,
         saleRate: item.saleRate,
-        quantity: item.quantity,
+        looseQuantity: item.looseQuantity,
+        looseRate: item.looseQuantity > 0 ? item.looseRate : null,
         grossAmount: item.grossAmount,
-        discountPercent: item.discountPercent ?? null,
-        discountAmount: item.discountAmount ?? 0,
-        taxPercent: item.taxPercent ?? null,
-        taxAmount: item.taxAmount ?? 0,
         netAmount: item.netAmount,
       },
     });
@@ -269,7 +397,9 @@ export class SalesService {
     tx: any,
     saleId: string,
     grossTotal: number,
+    discountPercent: number,
     discountTotal: number,
+    taxPercent: number,
     taxTotal: number,
     netTotal: number,
   ): Promise<any> {
@@ -277,7 +407,9 @@ export class SalesService {
       where: { id: saleId },
       data: {
         grossAmount: grossTotal,
+        discountPercent,
         discountAmount: discountTotal,
+        taxPercent,
         taxAmount: taxTotal,
         netAmount: netTotal,
       },
@@ -290,5 +422,9 @@ export class SalesService {
         },
       },
     });
+  }
+
+  private round2(value: number): number {
+    return Math.round(value * 100) / 100;
   }
 }

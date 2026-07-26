@@ -51,6 +51,27 @@ export class ProductsService {
     return product;
   }
 
+  async search(query: string, limit = 20) {
+    return this.prisma.product.findMany({
+      where: {
+        deletedAt: null,
+        OR: [
+          { name: { contains: query, mode: 'insensitive' } },
+          { generic: { name: { contains: query, mode: 'insensitive' } } },
+          { company: { name: { contains: query, mode: 'insensitive' } } },
+        ],
+      },
+      include: {
+        company: true,
+        type: true,
+        group: true,
+        generic: true,
+      },
+      orderBy: { name: 'asc' },
+      take: limit,
+    });
+  }
+
   async update(id: string, dto: UpdateProductDto) {
     await this.findOne(id);
 

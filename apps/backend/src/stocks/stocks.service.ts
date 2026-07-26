@@ -143,17 +143,28 @@ export class StockService {
           gt: 0,
         },
       },
+      include: {
+        // needed for packingSize — POS uses this to compute the per-unit
+        // (loose) rate and to know how many loose units one pack breaks into
+        product: {
+          select: {
+            packingSize: true,
+          },
+        },
+      },
       orderBy: {
         expiryDate: 'asc', // FEFO
       },
     });
 
     const mappedBatches = batches.map((b) => ({
-      batchId: b.id, // renamed to match BatchStockLine's `batchId` field, not `id`
+      batchId: b.id,
       batchNumber: b.batchNumber,
       expiryDate: b.expiryDate,
       currentQuantity: b.currentQuantity,
-      purchaseRate: Number(b.purchaseRate), // Decimal -> number, matches shared type's promise
+      looseQuantity: b.looseQuantity,
+      packingSize: Number(b.product.packingSize),
+      purchaseRate: Number(b.purchaseRate), 
       saleRate: Number(b.saleRate),
     }));
 

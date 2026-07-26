@@ -4,9 +4,12 @@ import {
   IsArray,
   IsDateString,
   IsEnum,
+  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
+  Min,
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
@@ -33,6 +36,20 @@ export class CreateSaleDto implements CreateSaleInput {
   @IsOptional()
   @IsString()
   remarks?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  discountPercent?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  taxPercent?: number;
 
   @IsArray()
   @ArrayMinSize(1)

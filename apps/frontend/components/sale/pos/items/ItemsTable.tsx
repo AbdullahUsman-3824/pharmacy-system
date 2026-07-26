@@ -3,7 +3,7 @@
 import {
   Control,
   FieldErrors,
-  UseFormRegister,
+  UseFormSetValue,
   FieldArrayWithId,
   Merge,
   FieldError,
@@ -12,16 +12,14 @@ import {
 import { SaleFormInput, SaleItemValues } from "@/schemas/sale-form";
 import { SaleItemRow, SaleEntryRow, SaleEntryRowRef } from "../";
 import { getColumns } from "@/constants/sale/table-columns";
-import { SlidersHorizontal, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { forwardRef, Ref } from "react";
 
 interface ItemsTableProps {
-  showAdvanced: boolean;
-  onToggleAdvanced: () => void;
   onAddItem: (item: SaleItemValues) => void;
   fields: FieldArrayWithId<SaleFormInput, "items", "id">[];
   control: Control<SaleFormInput>;
-  register: UseFormRegister<SaleFormInput>;
+  setValue: UseFormSetValue<SaleFormInput>;
   onRemove: (index: number) => void;
   errors: FieldErrors<SaleFormInput>;
   entryRowRef: Ref<SaleEntryRowRef>;
@@ -31,12 +29,10 @@ interface ItemsTableProps {
 export const ItemsTable = forwardRef<HTMLDivElement, ItemsTableProps>(
   (
     {
-      showAdvanced,
-      onToggleAdvanced,
       onAddItem,
       fields,
       control,
-      register,
+      setValue,
       onRemove,
       errors,
       entryRowRef,
@@ -44,7 +40,7 @@ export const ItemsTable = forwardRef<HTMLDivElement, ItemsTableProps>(
     },
     ref,
   ) => {
-    const columns = getColumns(showAdvanced);
+    const columns = getColumns();
 
     return (
       <div
@@ -52,17 +48,7 @@ export const ItemsTable = forwardRef<HTMLDivElement, ItemsTableProps>(
         className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col flex-1 min-h-[400px]"
       >
         {/* Table Header Controls */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 shrink-0 bg-gray-50/50 rounded-t-xl">
-          <button
-            type="button"
-            onClick={onToggleAdvanced}
-            className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            <SlidersHorizontal className="w-4 h-4" />
-            <span className="font-medium">
-              {showAdvanced ? "Hide" : "Show"} discount &amp; tax fields
-            </span>
-          </button>
+        <div className="flex items-center justify-end px-4 py-3 border-b border-gray-200 shrink-0 bg-gray-50/50 rounded-t-xl">
           <button
             type="button"
             onClick={handleAddButtonClick}
@@ -103,13 +89,12 @@ export const ItemsTable = forwardRef<HTMLDivElement, ItemsTableProps>(
               {/* Add Entry Row */}
               <SaleEntryRow
                 ref={entryRowRef}
-                showAdvanced={showAdvanced}
                 onAdd={onAddItem}
+                existingItems={fields as unknown as SaleItemValues[]}
               />
 
               {/* Existing Items */}
               {fields.map((field, index) => {
-                // Get errors for this specific item and cast to the expected type
                 const itemErrors = errors.items?.[index] as
                   | Merge<FieldError, FieldErrorsImpl<SaleItemValues>>
                   | undefined;
@@ -119,10 +104,9 @@ export const ItemsTable = forwardRef<HTMLDivElement, ItemsTableProps>(
                     key={field.id}
                     index={index}
                     control={control}
-                    register={register}
+                    setValue={setValue}
                     onRemove={() => onRemove(index)}
                     itemErrors={itemErrors}
-                    showAdvanced={showAdvanced}
                   />
                 );
               })}

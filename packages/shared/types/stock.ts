@@ -85,8 +85,10 @@ export interface BatchStockLine {
   batchNumber: string;
   expiryDate?: string | null;
   currentQuantity: number;
+  looseQuantity: number;
   purchaseRate: number;
   saleRate: number;
+  packingSize: number;
 }
 
 export interface ProductStockView {

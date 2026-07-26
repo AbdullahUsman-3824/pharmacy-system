@@ -1,12 +1,14 @@
 "use client";
 
-import { Combobox } from "./ui/Combobox";
-import { useProducts } from "../hooks/useProducts";
+import { useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
+
+import { Combobox } from "./ui/Combobox";
+import { useSearchProducts } from "../hooks/useProducts";
 
 interface Props {
   value: string;
-  onChange: (id: string) => void;
+  onChange: (id: string, name: string) => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   placeholder?: string;
   className?: string;
@@ -16,37 +18,46 @@ export function ProductSelect({
   value,
   onChange,
   onKeyDown,
-  placeholder = "Search product...",
+  placeholder = "Scan barcode, medicine, generic...",
   className = "",
 }: Props) {
-  const { data: products, isLoading } = useProducts();
+  const [search, setSearch] = useState("");
 
-  const options = (products ?? []).map((p) => ({
-    id: p.id,
-    label: p.name,
-  }));
+  const { data: products = [], isLoading } = useSearchProducts(search);
 
-  if (isLoading) {
-    return (
-      <div className={`relative ${className}`}>
-        <div className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-400">
-          <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
-          Loading products...
-        </div>
-      </div>
-    );
-  }
+  const options = useMemo(
+    () =>
+      products.map((p) => ({
+        id: p.id,
+        label: p.name,
+      })),
+    [products],
+  );
+
+  const handleChange = (id: string) => {
+    setSearch("");
+    const product = products.find((p) => p.id === id);
+    if (product) {
+      onChange(id, product.name);
+    }
+  };
 
   return (
     <div className={`relative ${className}`}>
       <Combobox
         value={value}
-        onChange={onChange}
         options={options}
+        onChange={handleChange}
+        search={search}
+        onSearchChange={setSearch}
         isLoading={isLoading}
         placeholder={placeholder}
-        onKeyDown={onKeyDown} // ✅ PASS IT THROUGH
+        onKeyDown={onKeyDown}
       />
+
+      {isLoading && (
+        <Loader2 className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-blue-500" />
+      )}
     </div>
   );
 }
