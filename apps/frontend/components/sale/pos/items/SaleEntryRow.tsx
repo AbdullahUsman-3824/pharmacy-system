@@ -6,8 +6,9 @@ import {
   useState,
   useEffect,
   useImperativeHandle,
+  useMemo,
 } from "react";
-import { X } from "lucide-react";
+import { Check, X, CircleAlert, AlertCircle } from "lucide-react";
 import { saleItemSchema, SaleItemValues } from "@/schemas/sale-form";
 import { ProductSelect } from "@/components/ProductSelect";
 import { useProductStock } from "@/hooks/useStock";
@@ -15,18 +16,22 @@ import { useProductStock } from "@/hooks/useStock";
 interface EntryRowState {
   productId: string;
   productName: string;
+  productDisplayName: string;
   batchId: string;
   batchNumber: string;
   expiryDate: string;
   packQuantity: string;
   looseQuantity: string;
-  saleRate: string; // per pack
-  looseRate: string; // per loose unit, derived
+  saleRate: string;
+  looseRate: string;
+  discountPercent: string;
+  taxPercent: string;
 }
 
 const blankEntry: EntryRowState = {
   productId: "",
   productName: "",
+  productDisplayName: "",
   batchId: "",
   batchNumber: "",
   expiryDate: "",
@@ -34,13 +39,12 @@ const blankEntry: EntryRowState = {
   looseQuantity: "",
   saleRate: "",
   looseRate: "",
+  discountPercent: "0",
+  taxPercent: "0",
 };
 
 interface Props {
   onAdd: (item: SaleItemValues) => void;
-  // Items already committed to this sale (not yet saved), used to compute
-  // expected remaining stock per batch so the cashier can't oversell within
-  // the current transaction.
   existingItems?: SaleItemValues[];
 }
 
@@ -48,36 +52,30 @@ export interface SaleEntryRowRef {
   commit: () => void;
 }
 
-function formatCompactExpiry(dateStr?: string | null) {
+function formatExpiry(dateStr?: string | null) {
   if (!dateStr) return "—";
   const d = new Date(dateStr);
-  const month = d.toLocaleDateString("en-US", { month: "short" });
-  const year = String(d.getFullYear()).slice(-2);
-  return `${month}-${year}`;
+  if (isNaN(d.getTime())) return "Invalid";
+  return d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
 }
 
 type ExpiryStatus = "expired" | "near" | "safe";
 
 function getExpiryStatus(dateStr?: string): ExpiryStatus {
   if (!dateStr) return "safe";
-  const daysLeft =
-    (new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "safe";
+  const daysLeft = (d.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
   if (daysLeft < 0) return "expired";
   if (daysLeft <= 90) return "near";
   return "safe";
 }
 
-// Neutral by default — only near/expired batches get called out in color.
 const expiryColorClass: Record<ExpiryStatus, string> = {
   expired: "text-red-600 font-medium",
   near: "text-orange-600 font-medium",
-  safe: "text-gray-600",
+  safe: "text-gray-700",
 };
-
-// Tailwind arbitrary variants to hide native number-input spinners on
-// read-only rate fields, so they look like plain text, not editable inputs.
-const noSpinnerClass =
-  "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
 
 export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
   ({ onAdd, existingItems = [] }, ref) => {
@@ -88,8 +86,14 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
     const packQtyRef = useRef<HTMLInputElement>(null);
 
     const { data: stock } = useProductStock(entry.productId);
-    const batches = stock?.batches ?? [];
-    const selectedBatch = batches.find((b) => b.batchId === entry.batchId);
+
+    const batches = useMemo(() => stock?.batches ?? [], [stock?.batches]);
+
+    const selectedBatch = useMemo(
+      () => batches.find((b) => b.batchId === entry.batchId),
+      [batches, entry.batchId],
+    );
+
     const packingSize = selectedBatch?.packingSize ?? 1;
 
     function usedPacksForBatch(batchId: string) {
@@ -97,19 +101,18 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
         .filter((i) => i.batchId === batchId)
         .reduce((sum, i) => sum + Number(i.packQuantity || 0), 0);
     }
+
     function usedLooseForBatch(batchId: string) {
       return existingItems
         .filter((i) => i.batchId === batchId)
         .reduce((sum, i) => sum + Number(i.looseQuantity || 0), 0);
     }
 
-    // Base "expected stock" per batch — already-committed lines in this
-    // sale subtracted from backend stock. Shown directly to the cashier and
-    // also used inside the batch dropdown per-option.
     function expectedStockFor(batch: (typeof batches)[number]) {
       return {
         packs: batch.currentQuantity - usedPacksForBatch(batch.batchId),
         loose: (batch.looseQuantity ?? 0) - usedLooseForBatch(batch.batchId),
+        total: batch.currentQuantity,
       };
     }
 
@@ -117,11 +120,10 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
       ? expectedStockFor(selectedBatch)
       : null;
 
-    // When a product is picked, auto-select the FEFO-first batch.
+    // Auto-select FEFO batch when product is chosen
     useEffect(() => {
       if (!entry.productId || batches.length === 0) return;
       if (entry.batchId) return;
-
       const first = batches[0];
       setEntry((prev) => ({
         ...prev,
@@ -129,10 +131,9 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
         batchNumber: first.batchNumber,
         expiryDate: first.expiryDate ?? "",
       }));
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [entry.productId, batches.length]);
+    }, [entry.productId, batches, entry.batchId]);
 
-    // Recompute pack/loose rate whenever the batch changes.
+    // Update rates when batch changes
     useEffect(() => {
       if (!selectedBatch) return;
       const packRate = Number(selectedBatch.saleRate);
@@ -141,8 +142,7 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
         saleRate: packRate.toFixed(2),
         looseRate: (packRate / packingSize).toFixed(2),
       }));
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [entry.batchId]);
+    }, [selectedBatch, packingSize]);
 
     function set<K extends keyof EntryRowState>(
       key: K,
@@ -152,7 +152,12 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
     }
 
     function handleProductChange(productId: string, productName?: string) {
-      setEntry({ ...blankEntry, productId, productName: productName ?? "" });
+      setEntry({
+        ...blankEntry,
+        productId,
+        productName: productName ?? "",
+        productDisplayName: productName ?? "",
+      });
       setErrors({});
       requestAnimationFrame(() => packQtyRef.current?.focus());
     }
@@ -169,8 +174,6 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
       setErrors((prev) => ({ ...prev, packQuantity: "", looseQuantity: "" }));
     }
 
-    // Validates against the *effective* remaining stock — the pack portion
-    // being entered can free up loose units too, mirroring backend logic.
     function validateQuantities(packQty: number, looseQty: number) {
       const nextErrors: Record<string, string> = {};
       if (selectedBatch) {
@@ -230,6 +233,12 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
       const result = saleItemSchema.safeParse({
         ...entry,
         expiryDate: entry.expiryDate || undefined,
+        packQuantity: packQty,
+        looseQuantity: looseQty,
+        saleRate: Number(entry.saleRate) || 0,
+        looseRate: Number(entry.looseRate) || 0,
+        discountPercent: Number(entry.discountPercent) || 0,
+        taxPercent: Number(entry.taxPercent) || 0,
       });
 
       if (!result.success) {
@@ -260,8 +269,6 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
       const container = containerRef.current;
       if (!container) return;
 
-      // Keyboard-first path: Product -> Pack Qty -> Loose Qty -> Commit.
-      // Batch stays outside this path since it's rarely changed.
       const inputs = Array.from(
         container.querySelectorAll<HTMLElement>('[data-nav="true"]'),
       );
@@ -282,158 +289,218 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
           title={message}
           className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-red-100 text-red-600 text-[10px] font-bold cursor-help shrink-0"
         >
-          !
+          <CircleAlert />
         </span>
       );
     }
 
     const expiryStatus = getExpiryStatus(entry.expiryDate);
+    const isProductSelected = !!entry.productId;
+    const isBatchSelected = !!entry.batchId;
+
+    const showInfo = isProductSelected && isBatchSelected && selectedExpected;
+
+    // Shared base styles
+    const containerBaseClass = "transition-colors duration-300 border-l-4";
+    const flashClass = flash
+      ? "bg-green-50/70 border-l-green-400"
+      : "bg-blue-50/30 border-l-blue-400 hover:bg-blue-50/50";
+
+    // Main row: no bottom border if info is shown, otherwise add it
+    const mainRowBottomBorder = showInfo ? "" : "border-b border-gray-200";
+    const mainRowClasses = `${containerBaseClass} ${flashClass} ${mainRowBottomBorder}`;
+
+    // Info row: same base + flash, always has bottom border to close the block
+    const infoRowClasses = `${containerBaseClass} ${flashClass} border-b border-gray-200`;
 
     return (
-      <tr
-        ref={containerRef}
-        onKeyDown={handleKeyDown}
-        className={`border-l-2 border-b border-gray-200 transition-colors duration-300 ${
-          flash
-            ? "bg-green-100 border-l-green-500"
-            : "bg-blue-50/60 border-l-blue-400 hover:bg-blue-50"
-        }`}
-      >
-        <td className="px-3 py-1.5">
-          <div className="flex items-center gap-1">
-            <ProductSelect
-              value={entry.productId}
-              onChange={handleProductChange}
-              data-nav="true"
-            />
-            {errors.productId && <ErrorIcon message={errors.productId} />}
-          </div>
-        </td>
-
-        {/* Batch — wide enough for Batch Number · Expiry · Expected Stock;
-            deliberately outside the Enter/Tab fast path. */}
-        <td className="px-3 py-1.5">
-          <select
-            value={entry.batchId}
-            onChange={(e) => handleBatchChange(e.target.value)}
-            disabled={!entry.productId || batches.length === 0}
-            className="w-full min-w-[220px] border rounded px-2 py-1 text-sm bg-white disabled:bg-gray-50"
-          >
-            {batches.length === 0 && <option value="">No stock</option>}
-            {batches.map((b) => {
-              const exp = expectedStockFor(b);
-              return (
-                <option key={b.batchId} value={b.batchId}>
-                  {b.batchNumber} · Exp: {formatCompactExpiry(b.expiryDate)} · {" "}
-                  {exp.packs} pk / {exp.loose} ls
-                </option>
-              );
-            })}
-          </select>
-        </td>
-
-        <td className="px-3 py-1.5 text-sm">
-          <div className={expiryColorClass[expiryStatus]}>
-            {formatCompactExpiry(entry.expiryDate)}
-          </div>
-        </td>
-
-        {/* Quantity group — Pack primary, Loose secondary, framed as one
-            logical concept rather than two unrelated fields. */}
-        <td className="px-3 py-1.5">
-          <div className="flex flex-col gap-1">
+      <>
+        {/* Main entry row */}
+        <tr
+          ref={containerRef}
+          onKeyDown={handleKeyDown}
+          className={mainRowClasses}
+        >
+          {/* Product */}
+          <td className="px-3 py-2">
             <div className="flex items-center gap-1">
-              <span className="text-[10px] text-gray-400 w-8 shrink-0">
-                Pack
-              </span>
-              <input
-                ref={packQtyRef}
-                type="number"
-                value={entry.packQuantity}
-                onChange={(e) => handlePackQtyChange(e.target.value)}
-                className={`w-full border rounded px-2 py-1 text-sm bg-white text-right font-medium ${
-                  errors.packQuantity ? "border-red-400" : ""
-                }`}
-                placeholder="0"
+              <ProductSelect
+                value={entry.productId}
+                onChange={handleProductChange}
                 data-nav="true"
+                className="h-9 w-full text-sm"
               />
-              {errors.packQuantity && (
-                <ErrorIcon message={errors.packQuantity} />
+              {errors.productId && <ErrorIcon message={errors.productId} />}
+            </div>
+          </td>
+
+          {/* Batch + Stock */}
+          <td className="px-3 py-2 align-middle">
+            <div className="flex flex-col">
+              <select
+                value={entry.batchId}
+                onChange={(e) => handleBatchChange(e.target.value)}
+                disabled={!isProductSelected || batches.length === 0}
+                className="h-8 w-full min-w-[100px] rounded-md border border-gray-300 px-2 text-sm bg-white disabled:bg-gray-50 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                {batches.length === 0 && <option value="">No stock</option>}
+                {batches.map((b) => (
+                  <option key={b.batchId} value={b.batchId}>
+                    {b.batchNumber}
+                  </option>
+                ))}
+              </select>
+              {selectedExpected && (
+                <div className="text-[11px] text-gray-500 mt-0.5">
+                  Stock: {selectedExpected.packs}/{selectedExpected.total}
+                </div>
               )}
             </div>
-            <div className="flex items-center gap-1">
-              <span className="text-[10px] text-gray-400 w-8 shrink-0">
-                Unit
-              </span>
-              <input
-                type="number"
-                value={entry.looseQuantity}
-                onChange={(e) => handleLooseQtyChange(e.target.value)}
-                disabled={!selectedBatch || packingSize <= 1}
-                className={`w-full border rounded px-1.5 py-0.5 text-xs bg-white text-right text-gray-600 disabled:bg-gray-50 ${
-                  errors.looseQuantity ? "border-red-400" : ""
-                }`}
-                placeholder="0"
-                data-nav="true"
-              />
-              {errors.looseQuantity && (
-                <ErrorIcon message={errors.looseQuantity} />
-              )}
-            </div>
-            {selectedExpected && (
-              <span className="text-[10px] text-gray-400">
-                Remaining: {selectedExpected.packs} packs ·{" "}
-                {selectedExpected.loose} loose
-              </span>
-            )}
-          </div>
-        </td>
+          </td>
 
-        {/* Rate group — Pack primary, Unit secondary and visibly derived. */}
-        <td className="px-3 py-1.5">
-          <div className="flex flex-col gap-0.5 items-end">
-            <input
-              type="number"
-              step="0.01"
-              value={entry.saleRate ? Number(entry.saleRate).toFixed(2) : ""}
-              readOnly
-              tabIndex={-1}
-              title="Rate per pack, set by the selected batch"
-              className={`w-full border-0 bg-transparent px-0 py-0.5 text-sm text-right font-medium text-gray-700 cursor-default focus:outline-none focus:ring-0 ${noSpinnerClass}`}
-              placeholder="0.00"
-            />
-            <span className="text-[10px] text-gray-400">/ Pack</span>
-            {packingSize > 1 && (
-              <>
-                <span
-                  title="Derived from pack rate ÷ packing size — not directly editable"
-                  className="text-xs text-gray-400 cursor-help"
-                >
-                  {entry.looseRate
-                    ? Number(entry.looseRate).toFixed(2)
-                    : "0.00"}
+          {/* Expiry */}
+          <td className="px-3 py-2 align-middle">
+            <div className={expiryColorClass[expiryStatus]}>
+              {formatExpiry(entry.expiryDate)}
+            </div>
+          </td>
+
+          {/* Pack Qty */}
+          <td className="px-3 py-2 align-middle">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-gray-400 w-8 shrink-0">
+                  Pack
                 </span>
-                <span className="text-[10px] text-gray-400">/ Unit</span>
-              </>
-            )}
-          </div>
-        </td>
+                <input
+                  ref={packQtyRef}
+                  type="number"
+                  value={entry.packQuantity}
+                  onChange={(e) => handlePackQtyChange(e.target.value)}
+                  className={`h-7 w-16 rounded-md border px-2 py-1 text-sm bg-white text-center font-medium focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${
+                    errors.packQuantity
+                      ? "border-red-400 ring-2 ring-red-400"
+                      : "border-gray-300"
+                  }`}
+                  placeholder="0"
+                  data-nav="true"
+                  title={errors.packQuantity || ""}
+                />
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-gray-400 w-8 shrink-0">
+                  Unit
+                </span>
+                <input
+                  type="number"
+                  value={entry.looseQuantity}
+                  onChange={(e) => handleLooseQtyChange(e.target.value)}
+                  disabled={!selectedBatch || packingSize <= 1}
+                  className={`h-7 w-16 rounded-md border px-2 py-1 text-sm bg-white text-center text-gray-600 disabled:bg-gray-50 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${
+                    errors.looseQuantity
+                      ? "border-red-400 ring-2 ring-red-400"
+                      : "border-gray-300"
+                  }`}
+                  placeholder="0"
+                  data-nav="true"
+                  title={errors.looseQuantity || ""}
+                />
+              </div>
+            </div>
+          </td>
 
-        <td className="px-3 py-1.5 text-right font-medium text-sm text-blue-700">
-          {netAmount.toFixed(2)}
-        </td>
+          {/* Rate */}
+          <td className="px-3 py-2 align-middle">
+            <div className="flex flex-col items-end">
+              <span className="text-sm font-medium text-gray-700">
+                {entry.saleRate ? Number(entry.saleRate).toFixed(2) : "0.00"}
+              </span>
+              <span className="text-[10px] text-gray-400">Per Pack</span>
+              {packingSize > 1 && (
+                <>
+                  <span className="text-xs font-medium text-gray-500 mt-0.5">
+                    {entry.looseRate
+                      ? Number(entry.looseRate).toFixed(2)
+                      : "0.00"}
+                  </span>
+                  <span className="text-[10px] text-gray-400">Per Unit</span>
+                </>
+              )}
+            </div>
+          </td>
 
-        <td className="px-3 py-1.5 text-center">
-          <button
-            type="button"
-            onClick={resetRow}
-            title="Clear entry"
-            className="text-gray-400 hover:text-red-600 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </td>
-      </tr>
+          {/* Amount */}
+          <td className="px-3 py-2 align-middle text-right">
+            <span className="text-sm font-bold text-blue-700">
+              {netAmount.toFixed(2)}
+            </span>
+          </td>
+
+          {/* Action */}
+          <td className="px-3 py-2 text-center">
+            <button
+              type="button"
+              onClick={resetRow}
+              title="Clear entry"
+              className="text-gray-400 hover:text-red-600 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </td>
+        </tr>
+
+        {/* Info row – appears below when product & batch are selected */}
+        {showInfo && (
+          <tr className={infoRowClasses}>
+            <td colSpan={7} className="px-4 py-2">
+              <div className="flex items-center flex-wrap gap-3 text-xs">
+                {/* FEFO indicator */}
+                {batches.length > 1 && (
+                  <div className="flex items-center gap-1.5 text-emerald-700 bg-emerald-50/80 px-2.5 py-1 rounded-full border border-emerald-200/60">
+                    <Check className="w-3.5 h-3.5" />
+                    <span className="font-medium">FEFO batch selected</span>
+                  </div>
+                )}
+
+                {/* Stock info with relative coloring */}
+                <div
+                  className={`flex items-center gap-2  ${
+                    selectedExpected.packs <= 5
+                      ? "text-red-600"
+                      : selectedExpected.packs <= 15
+                        ? "text-amber-600"
+                        : "text-green-600"
+                  }`}
+                >
+                  <span className="font-medium">Remaining Stock:</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-medium ">
+                      {selectedExpected.packs} Packs
+                    </span>
+                    <span className="text-gray-300">•</span>
+                    <span
+                      className={
+                        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-medium "
+                      }
+                    >
+                      {selectedExpected.loose} Units
+                    </span>
+                  </div>
+                </div>
+
+                {/* Out-of-stock warning */}
+                {selectedExpected.packs === 0 &&
+                  selectedExpected.loose === 0 && (
+                    <span className="text-red-600 font-semibold flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      Out of Stock
+                    </span>
+                  )}
+              </div>
+            </td>
+          </tr>
+        )}
+      </>
     );
   },
 );

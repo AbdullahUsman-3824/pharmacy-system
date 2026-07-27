@@ -6,12 +6,12 @@ export interface Column {
 
 export function getColumns(): Column[] {
   return [
-    { key: "product", label: "Product", width: "22%" },
-    { key: "batch", label: "Batch", width: "22%" },
-    { key: "expiry", label: "Expiry", width: "9%" },
-    { key: "quantity", label: "Quantity", width: "16%" },
-    { key: "rate", label: "Rate", width: "14%" },
-    { key: "net", label: "Net", width: "10%" },
-    { key: "actions", label: "", width: "7%" },
+    { key: "product", label: "Product", width: "35%" },
+    { key: "batch", label: "Batch", width: "15%" },
+    { key: "expiry", label: "Expiry", width: "10%" },
+    { key: "quantity", label: "Quantity", width: "15%" },
+    { key: "rate", label: "RATE (PKR)", width: "12%" },
+    { key: "net", label: "Net", width: "8%" },
+    { key: "actions", label: "", width: "5%" },
   ];
 }

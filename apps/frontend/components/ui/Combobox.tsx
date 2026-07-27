@@ -11,31 +11,30 @@ export interface ComboboxOption {
 
 interface ComboboxProps {
   value: string;
-  search: string;
-  onSearchChange: (value: string) => void;
-
   options: ComboboxOption[];
-
   onChange: (id: string) => void;
-
   isLoading?: boolean;
   placeholder?: string;
-
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  // Make search and onSearchChange optional
+  search?: string;
+  onSearchChange?: (value: string) => void;
 }
 
 export function Combobox({
   value,
-  search,
-  onSearchChange,
   options,
   onChange,
   isLoading,
   placeholder,
   onKeyDown,
+  search: externalSearch,
+  onSearchChange,
 }: ComboboxProps) {
   const [open, setOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+  // Internal search state when external is not provided
+  const [internalSearch, setInternalSearch] = useState("");
 
   const inputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -48,11 +47,13 @@ export function Combobox({
 
   const selected = options.find((o) => o.id === value);
 
+  // Use external search if provided, otherwise internal
+  const search = externalSearch ?? internalSearch;
+  const setSearch = onSearchChange ?? setInternalSearch;
+
   function updateRect() {
     if (!inputRef.current) return;
-
     const r = inputRef.current.getBoundingClientRect();
-
     setRect({
       top: r.bottom + 6,
       left: r.left,
@@ -76,9 +77,8 @@ export function Combobox({
       ) {
         return;
       }
-
       setOpen(false);
-      onSearchChange("");
+      setSearch(""); // clear search when closing
     };
 
     window.addEventListener("scroll", handleScroll, true);
@@ -90,7 +90,7 @@ export function Combobox({
       window.removeEventListener("resize", handleScroll);
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [open, onSearchChange]);
+  }, [open, setSearch]);
 
   return (
     <>
@@ -102,12 +102,13 @@ export function Combobox({
         className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
         onFocus={() => {
           setOpen(true);
-          onSearchChange("");
+          // Reset search when focusing (optional, you can keep it)
+          setSearch("");
         }}
         onChange={(e) => {
           setOpen(true);
           setHighlightedIndex(0);
-          onSearchChange(e.target.value);
+          setSearch(e.target.value);
         }}
         onKeyDown={(e) => {
           onKeyDown?.(e);
@@ -128,18 +129,15 @@ export function Combobox({
             case "Escape":
               e.preventDefault();
               setOpen(false);
-              onSearchChange("");
+              setSearch("");
               break;
 
             case "Enter":
               if (options.length === 0) return;
-
               e.preventDefault();
-
               onChange(options[highlightedIndex].id);
-
               setOpen(false);
-              onSearchChange("");
+              setSearch("");
               break;
           }
         }}
@@ -164,7 +162,7 @@ export function Combobox({
               </div>
             ) : options.length === 0 ? (
               <div className="px-3 py-2 text-sm text-gray-500">
-                No products found
+                No options found
               </div>
             ) : (
               options.map((option, index) => (
@@ -172,11 +170,9 @@ export function Combobox({
                   key={option.id}
                   onMouseDown={(e) => {
                     e.preventDefault();
-
                     onChange(option.id);
-
                     setOpen(false);
-                    onSearchChange("");
+                    setSearch("");
                   }}
                   className={`cursor-pointer px-3 py-2 ${
                     highlightedIndex === index
@@ -185,7 +181,6 @@ export function Combobox({
                   }`}
                 >
                   <div className="text-sm font-medium">{option.label}</div>
-
                   {option.sublabel && (
                     <div className="text-xs text-gray-500">
                       {option.sublabel}

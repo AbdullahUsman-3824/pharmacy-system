@@ -1,8 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
-
 import { Combobox } from "./ui/Combobox";
 import { useSearchProducts } from "../hooks/useProducts";
 
@@ -35,11 +33,11 @@ export function ProductSelect({
   );
 
   const handleChange = (id: string) => {
-    setSearch("");
     const product = products.find((p) => p.id === id);
     if (product) {
       onChange(id, product.name);
     }
+    setSearch("");
   };
 
   return (
@@ -54,10 +52,6 @@ export function ProductSelect({
         placeholder={placeholder}
         onKeyDown={onKeyDown}
       />
-
-      {isLoading && (
-        <Loader2 className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-blue-500" />
-      )}
     </div>
   );
 }

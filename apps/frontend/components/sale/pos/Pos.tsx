@@ -12,14 +12,15 @@ import {
   SaleItemValues,
 } from "@/schemas/sale-form";
 import { buildCreateSalePayload } from "./build-payload";
-import { previewSaleNumber } from "@/constants/sale/sale-number-preview";
-import { useCreateSale, useSales } from "@/hooks/useSale";
+import { useCreateSale } from "@/hooks/useSale";
 import {
   PosHeader,
   PosFooter,
   StockError,
   ItemsTable,
   SaleEntryRowRef,
+  SalePayment,
+  SaleSummary,
 } from ".";
 
 function round2(value: number): number {
@@ -29,14 +30,13 @@ function round2(value: number): number {
 export default function PosPage() {
   const router = useRouter();
   const createSale = useCreateSale();
-  const { data: sales } = useSales();
 
   const {
     register,
     control,
     handleSubmit,
     setValue,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<SaleFormInput, unknown, SaleFormOutput>({
     resolver: zodResolver(saleFormSchema),
     defaultValues: {
@@ -56,10 +56,6 @@ export default function PosPage() {
     0) as number;
   const taxPercent = (useWatch({ control, name: "taxPercent" }) ?? 0) as number;
 
-  const saleNoPreview = useMemo(
-    () => previewSaleNumber(SaleType.SALE, sales),
-    [sales],
-  );
   const [stockError, setStockError] = useState<string | null>(null);
   const entryRowRef = useRef<SaleEntryRowRef>(null);
 
@@ -115,29 +111,52 @@ export default function PosPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-transparent">
-      <div className="flex-1 max-w-7xl mx-auto w-full  pb-6 space-y-4">
-        <PosHeader register={register} saleNoPreview={saleNoPreview} />
+      <div className="flex-1 max-w-7xl mx-auto w-full -mt-2 pb-6">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+          <div className="space-y-2 lg:col-span-3">
+            <PosHeader register={register} />
 
-        <StockError message={stockError} />
+            <StockError message={stockError} />
 
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          className="flex flex-col flex-1 space-y-4"
-        >
-          <ItemsTable
-            onAddItem={handleAddItem}
-            fields={fields}
-            control={control}
-            setValue={setValue}
-            onRemove={remove}
-            errors={errors}
-            entryRowRef={entryRowRef}
-            handleAddButtonClick={handleAddButtonClick}
-          />
-        </form>
+            <form
+              onSubmit={handleSubmit(onSubmit)}
+              className="flex flex-col flex-1 space-y-4"
+            >
+              <ItemsTable
+                onAddItem={handleAddItem}
+                fields={fields}
+                control={control}
+                setValue={setValue}
+                onRemove={remove}
+                errors={errors}
+                entryRowRef={entryRowRef}
+                // handleAddButtonClick={handleAddButtonClick}
+              />
+            </form>
+          </div>
+
+          <div className="lg:col-span-1 flex flex-col gap-4 h-full">
+            <SaleSummary
+              itemsCount={4}
+              totalQuantity={11}
+              grossAmount={674.25}
+              discount={0}
+              tax={0}
+              netAmount={674.25}
+            />
+            <div className="flex-1">
+              <SalePayment
+                netAmount={674.25}
+                onComplete={(paid) => console.log("Paid:", paid)}
+                onPrint={() => console.log("Print")}
+                onSaveDraft={() => console.log("Save draft")}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
-      <PosFooter
+      {/* <PosFooter
         totals={totals}
         discountPercent={discountPercent}
         taxPercent={taxPercent}
@@ -146,7 +165,7 @@ export default function PosPage() {
         isSubmitting={isSubmitting}
         handleSubmit={handleSubmit}
         onSubmit={onSubmit}
-      />
+      /> */}
     </div>
   );
 }

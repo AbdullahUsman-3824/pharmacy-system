@@ -12,7 +12,6 @@ import {
 import { SaleFormInput, SaleItemValues } from "@/schemas/sale-form";
 import { SaleItemRow, SaleEntryRow, SaleEntryRowRef } from "../";
 import { getColumns } from "@/constants/sale/table-columns";
-import { Plus } from "lucide-react";
 import { forwardRef, Ref } from "react";
 
 interface ItemsTableProps {
@@ -23,21 +22,11 @@ interface ItemsTableProps {
   onRemove: (index: number) => void;
   errors: FieldErrors<SaleFormInput>;
   entryRowRef: Ref<SaleEntryRowRef>;
-  handleAddButtonClick: () => void;
 }
 
 export const ItemsTable = forwardRef<HTMLDivElement, ItemsTableProps>(
   (
-    {
-      onAddItem,
-      fields,
-      control,
-      setValue,
-      onRemove,
-      errors,
-      entryRowRef,
-      handleAddButtonClick,
-    },
+    { onAddItem, fields, control, setValue, onRemove, errors, entryRowRef },
     ref,
   ) => {
     const columns = getColumns();
@@ -45,20 +34,8 @@ export const ItemsTable = forwardRef<HTMLDivElement, ItemsTableProps>(
     return (
       <div
         ref={ref}
-        className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col flex-1 min-h-[400px]"
+        className="bg-white rounded-lg shadow-xs border border-gray-200 flex flex-col flex-1 min-h-[400px] overflow-hidden"
       >
-        {/* Table Header Controls */}
-        <div className="flex items-center justify-end px-4 py-3 border-b border-gray-200 shrink-0 bg-gray-50/50 rounded-t-xl">
-          <button
-            type="button"
-            onClick={handleAddButtonClick}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition shadow-sm hover:shadow-md"
-          >
-            <Plus className="w-4 h-4" />
-            Add Item
-          </button>
-        </div>
-
         {/* Table */}
         <div className="overflow-x-auto flex-1">
           <table className="w-full text-sm">
@@ -67,17 +44,15 @@ export const ItemsTable = forwardRef<HTMLDivElement, ItemsTableProps>(
                 <col key={col.key} style={{ width: col.width }} />
               ))}
             </colgroup>
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-gray-100/70 border-b border-gray-200">
+              <tr>
                 {columns.map((col) => (
                   <th
                     key={col.key}
                     className={`px-3 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider ${
                       ["product", "batch", "expiry"].includes(col.key)
                         ? "text-left"
-                        : col.key === "actions"
-                          ? "text-center"
-                          : "text-right"
+                        : "text-center"
                     }`}
                   >
                     {col.label}
@@ -116,7 +91,7 @@ export const ItemsTable = forwardRef<HTMLDivElement, ItemsTableProps>(
 
         {/* Table Footer Error */}
         {errors.items?.message && (
-          <div className="px-4 py-3 bg-red-50 border-t border-red-200 rounded-b-xl">
+          <div className="px-4 py-3 bg-red-50 border-t border-red-200">
             <p className="text-xs text-red-600 font-medium">
               {errors.items.message}
             </p>

@@ -94,7 +94,7 @@ export function SaleItemRow({
                 autoFocus
                 value={draftPack}
                 onChange={(e) => setDraftPack(Number(e.target.value) || 0)}
-                className="w-full border rounded px-2 py-1 text-sm bg-white text-right font-medium"
+                className="h-6 w-full border rounded px-2 py-1 text-sm bg-white text-right font-medium"
               />
             </div>
             <div className="flex items-center gap-1">
@@ -105,7 +105,7 @@ export function SaleItemRow({
                 type="number"
                 value={draftLoose}
                 onChange={(e) => setDraftLoose(Number(e.target.value) || 0)}
-                className="w-full border rounded px-1.5 py-0.5 text-xs bg-white text-right text-gray-600"
+                className="h-6 w-full border rounded px-1.5 py-0.5 text-xs bg-white text-right text-gray-600"
               />
             </div>
             {itemErrors?.packQuantity && (
@@ -115,12 +115,12 @@ export function SaleItemRow({
             )}
           </div>
         ) : (
-          <div className="text-sm text-right">
+          <div className="text-sm text-center">
             <span className="font-medium text-gray-800">
               {packQuantity} Pack
             </span>
             {looseQuantity > 0 && (
-              <span className="text-gray-500"> · {looseQuantity} Unit</span>
+              <span className="text-gray-600"> · {looseQuantity} Unit</span>
             )}
           </div>
         )}
@@ -135,7 +135,7 @@ export function SaleItemRow({
           <span className="text-[10px] text-gray-400">/ Pack</span>
           {looseQuantity > 0 && (
             <>
-              <span className="text-xs text-gray-400">
+              <span className="text-sm text-gray-600">
                 {looseRate.toFixed(2)}
               </span>
               <span className="text-[10px] text-gray-400">/ Unit</span>

@@ -23,13 +23,13 @@
   --color-brand-600: #2f6fed;
   --color-brand-700: #2559c7;
 
-  /* warn (low stock) */
+  /* warn */
   --color-warn-bg: #fef6e7;
   --color-warn-border: #f6e2b3;
   --color-warn-text: #a15c00;
   --color-warn-strong: #b8790a;
 
-  /* danger (near expiry) */
+  /* danger */
   --color-danger-bg: #fdeeee;
   --color-danger-border: #f3cfcf;
   --color-danger-text: #b3261e;
@@ -60,31 +60,34 @@ body {
   box-sizing: border-box;
 }
 
-/* thin scrollbars to match a tidy dashboard feel */
+/* thin scrollbars */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
+
 ::-webkit-scrollbar-thumb {
   background: #d8dbe0;
   border-radius: 8px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 @media print {
-  .print\\:hidden {
-    display: none !important;
-  }
   body {
     background: white !important;
   }
+
   .bg-slate-50\/50 {
     background: white !important;
   }
+
   .shadow-sm {
     box-shadow: none !important;
   }
+
   .border {
     border-color: #e5e7eb !important;
   }
