@@ -3,6 +3,7 @@ import "./globals.css";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { Providers } from "./providers";
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
   title: "Furqan Medicos — POS",
@@ -25,6 +26,7 @@ export default function RootLayout({
               <main className="flex-1 overflow-y-auto p-4">{children}</main>
             </div>
           </div>
+          <Toaster richColors position="top-right" />
         </Providers>
       </body>
     </html>

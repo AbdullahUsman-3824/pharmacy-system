@@ -9,7 +9,14 @@ import { StocksModule } from './stocks/stocks.module';
 import { SalesModule } from './sales/sales.module';
 
 @Module({
-  imports: [LookupsModule, PrismaModule, ProductsModule, SupplierModule, StocksModule, SalesModule],
+  imports: [
+    LookupsModule,
+    PrismaModule,
+    ProductsModule,
+    SupplierModule,
+    StocksModule,
+    SalesModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

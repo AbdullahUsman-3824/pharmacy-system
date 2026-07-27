@@ -34,16 +34,9 @@ const collapsedByDefaultOn = ["/sale"];
 export function Sidebar() {
   const pathname = usePathname();
 
-  const [prevPathname, setPrevPathname] = useState(pathname);
   const [collapsed, setCollapsed] = useState(() =>
-    collapsedByDefaultOn.includes(pathname),
+    collapsedByDefaultOn.some((p) => pathname.startsWith(p)),
   );
-
-  // route badla to render ke dauran hi collapsed reset kar do — koi useEffect nahi
-  if (pathname !== prevPathname) {
-    setPrevPathname(pathname);
-    setCollapsed(collapsedByDefaultOn.some((p) => pathname.startsWith(p)));
-  }
 
   return (
     <aside

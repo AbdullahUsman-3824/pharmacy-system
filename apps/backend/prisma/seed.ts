@@ -1,105 +1,163 @@
-// import 'dotenv/config';
-// import { Pool } from 'pg';
-// import { PrismaPg } from '@prisma/adapter-pg';
-// import { PrismaClient } from '../src/generated/prisma/client';
+import 'dotenv/config';
+import { Pool } from 'pg';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '../src/generated/prisma/client';
 
-// const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-// const adapter = new PrismaPg(pool);
-// const prisma = new PrismaClient({ adapter });
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
-// async function main() {
-//   await prisma.company.upsert({
-//     where: { code: 'CMP001' },
-//     update: {},
-//     create: {
-//       code: 'CMP001',
-//       name: 'GSK',
-//     },
-//   });
+// ---- Lookup Data ----
 
-//   await prisma.company.upsert({
-//     where: { code: 'CMP002' },
-//     update: {},
-//     create: {
-//       code: 'CMP002',
-//       name: 'Abbott',
-//     },
-//   });
+const companies = [
+  'GSK',
+  'Abbott',
+  'Pfizer',
+  'Sanofi',
+  'Novartis',
+  'Getz Pharma',
+  'Highnoon Laboratories',
+  'Searle',
+  'Martin Dow',
+  'Hilton Pharma',
+  'Sami Pharmaceuticals',
+  "Wilson's",
+  'ATCO Laboratories',
+  'Barrett Hodgson',
+  'Bosch Pharmaceuticals',
+  'CCL Pharmaceuticals',
+  'Ferozsons Laboratories',
+  'Global Pharmaceuticals',
+  'Herbion',
+  'ICI Pakistan',
+  'Merck',
+  'OBS Pakistan',
+  'PharmEvo',
+  'Reckitt Benckiser',
+  'Schazoo Zaka',
+  'Tabros Pharma',
+  'Werrick Pharmaceuticals',
+  'Zafa Pharmaceuticals',
+];
 
-//   await prisma.productType.upsert({
-//     where: { code: 'TYPE001' },
-//     update: {},
-//     create: {
-//       code: 'TYPE001',
-//       name: 'Tablet',
-//     },
-//   });
+const productTypes = [
+  'Tablet',
+  'Syrup',
+  'Capsule',
+  'Injection',
+  'Ointment',
+  'Cream',
+  'Drops',
+  'Suspension',
+  'Powder',
+  'Sachet',
+  'Suppository',
+  'Inhaler',
+  'Lotion',
+  'Gel',
+  'Spray',
+  'Lozenge',
+];
 
-//   await prisma.productType.upsert({
-//     where: { code: 'TYPE002' },
-//     update: {},
-//     create: {
-//       code: 'TYPE002',
-//       name: 'Syrup',
-//     },
-//   });
+const productGroups = [
+  'Antibiotic',
+  'Painkiller / Analgesic',
+  'Antipyretic',
+  'Antacid',
+  'Antihistamine',
+  'Antidiabetic',
+  'Antihypertensive',
+  'Antidepressant',
+  'Antifungal',
+  'Antiviral',
+  'Anti-inflammatory',
+  'Vitamins & Supplements',
+  'Cough & Cold',
+  'Laxative',
+  'Antiemetic',
+  'Antispasmodic',
+  'Cardiac',
+  'Dermatological',
+  'Ophthalmic',
+  'ENT',
+  'Multivitamin',
+  'Antiseptic',
+  'Muscle Relaxant',
+  'Anticonvulsant',
+  'Antipsychotic',
+];
 
-//   await prisma.productGroup.upsert({
-//     where: { code: 'GRP001' },
-//     update: {},
-//     create: {
-//       code: 'GRP001',
-//       name: 'Antibiotic',
-//     },
-//   });
+const generics = [
+  'Paracetamol',
+  'Amoxicillin',
+  'Ibuprofen',
+  'Omeprazole',
+  'Metformin',
+  'Amlodipine',
+  'Atorvastatin',
+  'Azithromycin',
+  'Cetirizine',
+  'Ciprofloxacin',
+  'Diclofenac',
+  'Domperidone',
+  'Esomeprazole',
+  'Loratadine',
+  'Losartan',
+  'Metronidazole',
+  'Naproxen',
+  'Ranitidine',
+  'Simvastatin',
+  'Tramadol',
+  'Aspirin',
+  'Cephalexin',
+  'Clarithromycin',
+  'Dexamethasone',
+  'Doxycycline',
+  'Erythromycin',
+  'Fluconazole',
+  'Gabapentin',
+  'Hydrochlorothiazide',
+  'Insulin',
+  'Levofloxacin',
+  'Montelukast',
+  'Ondansetron',
+  'Prednisolone',
+  'Salbutamol',
+  'Vitamin B Complex',
+  'Vitamin C',
+  'Vitamin D3',
+  'Zinc Sulfate',
+];
 
-//   await prisma.productGroup.upsert({
-//     where: { code: 'GRP002' },
-//     update: {},
-//     create: {
-//       code: 'GRP002',
-//       name: 'Painkiller',
-//     },
-//   });
+// ---- Helper: seeds any lookup model with code + name pattern ----
 
-//   await prisma.generic.upsert({
-//     where: { code: 'GEN001' },
-//     update: {},
-//     create: {
-//       code: 'GEN001',
-//       name: 'Paracetamol',
-//     },
-//   });
+async function seedLookup(
+  modelName: 'company' | 'productType' | 'productGroup' | 'generic',
+  prefix: string,
+  values: string[],
+) {
+  for (let i = 0; i < values.length; i++) {
+    const code = `${prefix}${String(i + 1).padStart(3, '0')}`; // e.g. CMP001
+    await (prisma[modelName] as any).upsert({
+      where: { code },
+      update: {},
+      create: { code, name: values[i] },
+    });
+  }
+  console.log(`✅ ${modelName} seeded (${values.length} records)`);
+}
 
-//   await prisma.generic.upsert({
-//     where: { code: 'GEN002' },
-//     update: {},
-//     create: {
-//       code: 'GEN002',
-//       name: 'Amoxicillin',
-//     },
-//   });
+async function main() {
+  await seedLookup('company', 'CMP', companies);
+  await seedLookup('productType', 'TYPE', productTypes);
+  await seedLookup('productGroup', 'GRP', productGroups);
+  await seedLookup('generic', 'GEN', generics);
 
-//   await prisma.supplier.upsert({
-//     where: { code: 'SUP001' },
-//     update: {},
-//     create: {
-//       code: 'SUP001',
-//       name: 'Medline Pharma',
-//       contactPerson: 'Ali Khan',
-//       phone: '042-1234567',
-//       mobile: '0300-1234567',
-//       email: 'sales@medline.com',
-//       city: 'Lahore',
-//       address: 'Lahore',
-//     },
-//   });
+  console.log('✅ Seed completed');
+}
 
-//   console.log('✅ Seed completed');
-// }
-
-// main()
-//   .catch(console.error)
-//   .finally(async () => {
-//     await prisma.$disconnect();
-//   });
+main()
+  .catch(console.error)
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

@@ -11,9 +11,26 @@ import { Prisma } from '../generated/prisma/client';
 export class PrismaExceptionFilter implements ExceptionFilter {
   catch(exception: Prisma.PrismaClientKnownRequestError) {
     switch (exception.code) {
-      case 'P2002':
-        throw new ConflictException('A record with this value already exists.');
+      case 'P2002': {
+        const fields =
+          (exception.meta?.target as string[] | undefined) ??
+          (
+            exception.meta as {
+              driverAdapterError?: {
+                cause?: {
+                  constraint?: {
+                    fields?: string[];
+                  };
+                };
+              };
+            }
+          )?.driverAdapterError?.cause?.constraint?.fields;
 
+        throw new ConflictException({
+          message: 'Duplicate value.',
+          fields,
+        });
+      }
       case 'P2003':
         throw new BadRequestException('Invalid reference.');
 

@@ -6,12 +6,13 @@ import { useCreateProduct } from "@/hooks/useProducts";
 
 export default function NewProductPage() {
   const router = useRouter();
-  const { mutate: createProduct } = useCreateProduct();
+  const { mutateAsync: createProduct } = useCreateProduct();
 
   return (
     <div className="mx-auto max-w-4xl p-3">
-      <div className="mb-6 flex  justify-between items-center">
+      <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-ink-900">Add Product</h1>
+
         <button
           onClick={() => router.back()}
           className="text-sm text-brand hover:text-ink-700"
@@ -22,10 +23,8 @@ export default function NewProductPage() {
 
       <ProductForm
         mode="create"
-        onSubmit={(values) => {
-          createProduct(values, {
-            onSuccess: () => router.push("/products"),
-          });
+        onSubmit={async (values) => {
+          await createProduct(values);
         }}
         onCancel={() => router.back()}
       />

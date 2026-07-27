@@ -19,7 +19,7 @@ export type ProductFormMode = "create" | "edit" | "view";
 interface ProductFormProps {
   mode?: ProductFormMode;
   initialData?: ProductDto;
-  onSubmit: (values: CreateProductInput) => void;
+  onSubmit: (values: CreateProductInput) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -68,9 +68,15 @@ export function ProductForm({
     }
   }, [initialData, reset]);
 
-  function submit(values: ProductFormOutput) {
+  async function submit(values: ProductFormOutput) {
     if (isReadOnly) return;
-    onSubmit(values);
+
+    try {
+      await onSubmit(values);
+      reset();
+    } catch {
+      // Keep values intact so the user can fix the error.
+    }
   }
 
   const [packingSize, retailPrice, retailDiscount] = useWatch({

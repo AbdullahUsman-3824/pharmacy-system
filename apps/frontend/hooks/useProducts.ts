@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { productsApi } from "../lib/api/productsApi";
 import { CreateProductInput, UpdateProductInput } from "@repo/shared";
+import { AxiosError } from "axios";
+import { toast } from "sonner";
 
 /**
  * Full product list
@@ -39,8 +41,18 @@ export function useCreateProduct() {
 
   return useMutation({
     mutationFn: (input: CreateProductInput) => productsApi.create(input),
+
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      toast.success("Product added successfully.");
+    },
+
+    onError: (error) => {
+      const message =
+        error instanceof AxiosError
+          ? (error.response?.data?.message ?? "Failed to create product.")
+          : error.message;
+      toast.error(message);
     },
   });
 }
