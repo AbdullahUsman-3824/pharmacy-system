@@ -45,6 +45,11 @@ export default function NewStockVoucherPage() {
   const { data: vouchers } = useStockVouchers();
   const { data: products } = useProducts();
 
+  // Build a map of productId -> productName for display in the item rows
+  const productMap = Object.fromEntries(
+    (products ?? []).map((p) => [p.id, p.name]),
+  );
+
   const {
     register,
     control,
@@ -71,7 +76,7 @@ export default function NewStockVoucherPage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const columns = getColumns(showAdvanced);
 
-  // Use ref directly without state
+  // Ref to the entry row for programmatic actions
   const entryRowRef = useRef<StockVoucherEntryRowRef>(null);
 
   // --- Auto-fill supplier from the product currently being entered,
@@ -93,6 +98,13 @@ export default function NewStockVoucherPage() {
 
   function handleAddItem(item: StockVoucherItemValues) {
     insert(0, item);
+  }
+
+  // Called when the user clicks "Edit" on an existing item row.
+  // It removes the item from the list (already done by the row itself)
+  // and populates the entry row with the item's data for editing.
+  function handleEditItem(item: StockVoucherItemValues) {
+    entryRowRef.current?.setData(item);
   }
 
   const totals = items.reduce(
@@ -306,8 +318,10 @@ export default function NewStockVoucherPage() {
                     control={control}
                     register={register}
                     onRemove={() => remove(index)}
+                    onEdit={handleEditItem}
                     itemErrors={errors.items?.[index]}
                     showAdvanced={showAdvanced}
+                    products={productMap}
                   />
                 ))}
               </tbody>

@@ -11,14 +11,14 @@ export const ADVANCED_COLUMNS = [
   { key: "free", label: "Free", width: 70 },
   { key: "discPct", label: "Disc %", width: 80 },
   { key: "taxPct", label: "Tax %", width: 80 },
-  { key: "gross", label: "Gross", width: 90 },
-  { key: "discAmt", label: "Disc.Amt", width: 90 },
-  { key: "taxAmt", label: "Tax.Amt", width: 90 },
+  { key: "gross", label: "Gross", width: 80 },
+  { key: "discAmt", label: "Disc.Amt", width: 80 },
+  { key: "taxAmt", label: "Tax.Amt", width: 80 },
 ] as const;
 
 export const TAIL_COLUMNS = [
-  { key: "net", label: "Net", width: 100 },
-  { key: "actions", label: "", width: 50 },
+  { key: "net", label: "Net", width: 80 },
+  { key: "actions", label: "", width: 70 },
 ] as const;
 
 export function getColumns(showAdvanced: boolean) {

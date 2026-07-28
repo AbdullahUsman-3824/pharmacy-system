@@ -4,6 +4,8 @@ import { forwardRef, useRef, useState, useImperativeHandle } from "react";
 import { itemSchema, StockVoucherItemValues } from "@/schemas/stock-voucher";
 import { ProductSelect } from "@/components/ProductSelect";
 import { calculateItemAmounts } from "@/lib/stock-calculations";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 interface EntryRowState {
   productId: string;
@@ -22,11 +24,11 @@ const blankEntry: EntryRowState = {
   batchNumber: "",
   expiryDate: "",
   quantity: "",
-  freeQuantity: "0",
+  freeQuantity: "",
   purchaseRate: "",
   saleRate: "",
-  discountPercent: "0",
-  taxPercent: "0",
+  discountPercent: "",
+  taxPercent: "",
 };
 
 interface Props {
@@ -37,6 +39,7 @@ interface Props {
 
 export interface StockVoucherEntryRowRef {
   commit: () => void;
+  setData: (data: StockVoucherItemValues) => void;
 }
 
 export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
@@ -44,7 +47,6 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
     const [entry, setEntry] = useState<EntryRowState>(blankEntry);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const containerRef = useRef<HTMLTableRowElement>(null);
-    const expiryInputRef = useRef<HTMLInputElement>(null);
 
     function set<K extends keyof EntryRowState>(
       key: K,
@@ -87,6 +89,21 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
 
     useImperativeHandle(ref, () => ({
       commit,
+      setData: (data: StockVoucherItemValues) => {
+        setEntry({
+          productId: data.productId || "",
+          batchNumber: data.batchNumber || "",
+          expiryDate: data.expiryDate || "",
+          quantity: String(data.quantity ?? ""),
+          freeQuantity: String(data.freeQuantity ?? "0"),
+          purchaseRate: String(data.purchaseRate ?? ""),
+          saleRate: String(data.saleRate ?? ""),
+          discountPercent: String(data.discountPercent ?? "0"),
+          taxPercent: String(data.taxPercent ?? "0"),
+        });
+        // Clear any previous errors
+        setErrors({});
+      },
     }));
 
     function handleKeyDown(e: React.KeyboardEvent<HTMLTableRowElement>) {
@@ -156,14 +173,26 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
         </td>
         <td className="px-3 py-1.5">
           <div className="min-h-[60px] flex flex-col justify-center">
-            <input
-              ref={expiryInputRef}
-              type="date"
-              value={entry.expiryDate}
-              onChange={(e) => set("expiryDate", e.target.value)}
-              onFocus={handleExpiryFocus}
+            <DatePicker
+              selected={
+                entry.expiryDate ? new Date(entry.expiryDate + "-01") : null
+              }
+              // Append "-01" to create a valid date from "YYYY-MM"
+              onChange={(date: Date | null) => {
+                if (date) {
+                  // Format as "YYYY-MM" (e.g., "2026-07")
+                  const year = date.getFullYear();
+                  const month = String(date.getMonth() + 1).padStart(2, "0");
+                  set("expiryDate", `${year}-${month}`);
+                } else {
+                  set("expiryDate", "");
+                }
+              }}
+              dateFormat="MM/yyyy" // Display as "MM/YYYY"
+              showMonthYearPicker
               className="w-full border rounded px-2 py-1.5 text-sm bg-white cursor-pointer"
-              placeholder="Select expiry"
+              placeholderText="Select expiry"
+              onFocus={handleExpiryFocus}
             />
           </div>
         </td>
