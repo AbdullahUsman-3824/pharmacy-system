@@ -6,3 +6,4 @@ export * from "./items/SaleEntryRow";
 export * from "./items/SaleItemRow";
 export * from "./items/SalePayment";
 export * from "./items/SaleSummary";
+export * from "./items/PosTableFooterToolbar";

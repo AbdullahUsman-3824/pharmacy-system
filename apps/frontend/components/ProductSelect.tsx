@@ -10,6 +10,7 @@ interface Props {
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   placeholder?: string;
   className?: string;
+  dataNav?: string;
 }
 
 export function ProductSelect({
@@ -18,6 +19,7 @@ export function ProductSelect({
   onKeyDown,
   placeholder = "Scan barcode, medicine, generic...",
   className = "",
+  dataNav,
 }: Props) {
   const [search, setSearch] = useState("");
 
@@ -51,6 +53,7 @@ export function ProductSelect({
         isLoading={isLoading}
         placeholder={placeholder}
         onKeyDown={onKeyDown}
+        dataNav={dataNav}
       />
     </div>
   );

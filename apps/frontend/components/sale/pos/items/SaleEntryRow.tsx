@@ -50,6 +50,7 @@ interface Props {
 
 export interface SaleEntryRowRef {
   commit: () => void;
+  focus: () => void;
 }
 
 function formatExpiry(dateStr?: string | null) {
@@ -261,7 +262,17 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
       });
     };
 
-    useImperativeHandle(ref, () => ({ commit }));
+    const focus = () => {
+      containerRef.current
+        ?.querySelector<HTMLElement>('[data-nav="true"]')
+        ?.focus();
+    };
+    useImperativeHandle(ref, () => ({ commit, focus }));
+    useEffect(() => {
+      containerRef.current
+        ?.querySelector<HTMLElement>('[data-nav="true"]')
+        ?.focus();
+    }, []);
 
     function handleKeyDown(e: React.KeyboardEvent<HTMLTableRowElement>) {
       if (e.key !== "Enter") return;
@@ -323,11 +334,11 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
         >
           {/* Product */}
           <td className="px-3 py-2">
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 product-select">
               <ProductSelect
                 value={entry.productId}
                 onChange={handleProductChange}
-                data-nav="true"
+                dataNav="true"
                 className="h-9 w-full text-sm"
               />
               {errors.productId && <ErrorIcon message={errors.productId} />}

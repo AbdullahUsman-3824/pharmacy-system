@@ -13,6 +13,7 @@ import { SaleFormInput, SaleItemValues } from "@/schemas/sale-form";
 import { SaleItemRow, SaleEntryRow, SaleEntryRowRef } from "../";
 import { getColumns } from "@/constants/sale/table-columns";
 import { forwardRef, Ref } from "react";
+import { PosTableFooterToolbar } from "./PosTableFooterToolbar";
 
 interface ItemsTableProps {
   onAddItem: (item: SaleItemValues) => void;
@@ -22,11 +23,28 @@ interface ItemsTableProps {
   onRemove: (index: number) => void;
   errors: FieldErrors<SaleFormInput>;
   entryRowRef: Ref<SaleEntryRowRef>;
+  // new
+  heldCount: number;
+  onHold: () => void;
+  onRecallHeld: () => void;
+  onClear: () => void;
 }
 
 export const ItemsTable = forwardRef<HTMLDivElement, ItemsTableProps>(
   (
-    { onAddItem, fields, control, setValue, onRemove, errors, entryRowRef },
+    {
+      onAddItem,
+      fields,
+      control,
+      setValue,
+      onRemove,
+      errors,
+      entryRowRef,
+      heldCount,
+      onHold,
+      onRecallHeld,
+      onClear,
+    },
     ref,
   ) => {
     const columns = getColumns();
@@ -34,7 +52,7 @@ export const ItemsTable = forwardRef<HTMLDivElement, ItemsTableProps>(
     return (
       <div
         ref={ref}
-        className="bg-white rounded-lg shadow-xs border border-gray-200 flex flex-col flex-1 min-h-[400px] overflow-hidden"
+        className="flex flex-1 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xs"
       >
         {/* Table */}
         <div className="overflow-x-auto flex-1">
@@ -97,6 +115,15 @@ export const ItemsTable = forwardRef<HTMLDivElement, ItemsTableProps>(
             </p>
           </div>
         )}
+
+        {/* New: action toolbar + shortcut strip, pinned to bottom */}
+        <PosTableFooterToolbar
+          hasItems={fields.length > 0}
+          heldCount={heldCount}
+          onHold={onHold}
+          onRecallHeld={onRecallHeld}
+          onClear={onClear}
+        />
       </div>
     );
   },

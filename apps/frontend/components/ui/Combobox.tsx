@@ -19,6 +19,7 @@ interface ComboboxProps {
   // Make search and onSearchChange optional
   search?: string;
   onSearchChange?: (value: string) => void;
+  dataNav?: string;
 }
 
 export function Combobox({
@@ -30,6 +31,7 @@ export function Combobox({
   onKeyDown,
   search: externalSearch,
   onSearchChange,
+  dataNav,
 }: ComboboxProps) {
   const [open, setOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
@@ -97,6 +99,7 @@ export function Combobox({
       <input
         ref={inputRef}
         type="text"
+        data-nav={dataNav}
         value={open ? search : (selected?.label ?? "")}
         placeholder={placeholder}
         className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { useForm, useWatch, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
@@ -15,13 +15,15 @@ import { buildCreateSalePayload } from "./build-payload";
 import { useCreateSale } from "@/hooks/useSale";
 import {
   PosHeader,
-  PosFooter,
   StockError,
   ItemsTable,
   SaleEntryRowRef,
   SalePayment,
+  SalePaymentRef,
   SaleSummary,
+  SaleSummaryRef,
 } from ".";
+import { useHeldInvoices } from "@/hooks/useHeldInvoices";
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
@@ -36,6 +38,7 @@ export default function PosPage() {
     control,
     handleSubmit,
     setValue,
+    reset,
     formState: { errors },
   } = useForm<SaleFormInput, unknown, SaleFormOutput>({
     resolver: zodResolver(saleFormSchema),
@@ -55,9 +58,15 @@ export default function PosPage() {
   const discountPercent = (useWatch({ control, name: "discountPercent" }) ??
     0) as number;
   const taxPercent = (useWatch({ control, name: "taxPercent" }) ?? 0) as number;
+  const customerName = useWatch({ control, name: "customerName" });
 
   const [stockError, setStockError] = useState<string | null>(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [saleCompleted, setSaleCompleted] = useState(false);
+
   const entryRowRef = useRef<SaleEntryRowRef>(null);
+  const paymentRef = useRef<SalePaymentRef>(null);
+  const summaryRef = useRef<SaleSummaryRef>(null);
 
   const handleAddItem = (item: SaleItemValues) => {
     insert(0, item);
@@ -89,6 +98,7 @@ export default function PosPage() {
     const payload = buildCreateSalePayload(data);
     try {
       await createSale.mutateAsync(payload);
+      setSaleCompleted(true);
       router.push("/sale");
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
@@ -103,24 +113,113 @@ export default function PosPage() {
     }
   };
 
-  const handleAddButtonClick = () => {
-    if (entryRowRef.current) {
-      entryRowRef.current.commit();
+  // SalePayment hands back a plain (paidAmount: number) call — used only to
+  // sanity-check the cashier hasn't accepted less cash than the net amount.
+  // paidAmount itself is never persisted; it's purely for computing change.
+  const handleCompleteSale = (paidAmount: number) => {
+    if (paidAmount < totals.net) {
+      setPaymentError("Amount paid is less than the net amount.");
+      return;
+    }
+    setPaymentError(null);
+    handleSubmit(onSubmit)();
+  };
+
+  const { heldInvoices, hold, recall } = useHeldInvoices();
+
+  const handleHold = () => {
+    if (!items || items.length === 0) return;
+    hold({
+      customerName: customerName ?? "Walk-in Customer",
+      items: (items ?? []) as SaleFormInput["items"],
+    });
+    reset();
+  };
+
+  const handleRecallHeld = () => {
+    // Placeholder: recalls the most recently held cart.
+    // Swap for a picker modal once there's a proper "Recall held" list UI.
+    const last = heldInvoices[heldInvoices.length - 1];
+    if (last) {
+      const recalled = recall(last.id);
+      if (recalled) {
+        reset({ items: recalled.items });
+      }
     }
   };
 
+  const handleClear = () => {
+    reset();
+  };
+
+  // Global POS keyboard shortcuts. Each F-key is prevented from its browser
+  // default (F5 refresh, etc.) since the cashier is expected to stay inside
+  // the POS screen the whole time. This effect re-subscribes on every render
+  // so the handlers below always see fresh state via closure — fine here
+  // since the listener itself is cheap and POS re-renders aren't hot-path.
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement;
+      const isTyping =
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.tagName === "SELECT" ||
+        target.isContentEditable;
+
+      switch (e.key) {
+        case "F5":
+          e.preventDefault();
+          paymentRef.current?.complete();
+          break;
+        case "F6":
+          e.preventDefault();
+          handleHold();
+          break;
+        case "F8":
+          e.preventDefault();
+          summaryRef.current?.openDiscountEditor();
+          break;
+        case "F9":
+          e.preventDefault();
+          handleRecallHeld();
+          break;
+        case "F10":
+          e.preventDefault();
+          summaryRef.current?.openTaxEditor();
+          break;
+        case "Delete":
+          if (e.ctrlKey) {
+            e.preventDefault();
+            handleClear();
+          }
+          break;
+        case "/":
+          if (!isTyping) {
+            e.preventDefault();
+            entryRowRef.current?.focus();
+          }
+          break;
+        default:
+          break;
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  });
+
   return (
-    <div className="flex flex-col min-h-screen bg-transparent">
+   <div className="flex flex-col min-h-[calc(100vh-64px)] bg-transparent">
       <div className="flex-1 max-w-7xl mx-auto w-full -mt-2 pb-6">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
-          <div className="space-y-2 lg:col-span-3">
+          <div className="flex flex-col lg:col-span-3 min-h-0">
             <PosHeader register={register} />
 
             <StockError message={stockError} />
 
             <form
               onSubmit={handleSubmit(onSubmit)}
-              className="flex flex-col flex-1 space-y-4"
+              className="flex flex-1 flex-col overflow-hidden"
             >
               <ItemsTable
                 onAddItem={handleAddItem}
@@ -130,42 +229,47 @@ export default function PosPage() {
                 onRemove={remove}
                 errors={errors}
                 entryRowRef={entryRowRef}
-                // handleAddButtonClick={handleAddButtonClick}
+                heldCount={heldInvoices.length}
+                onHold={handleHold}
+                onRecallHeld={handleRecallHeld}
+                onClear={handleClear}
               />
             </form>
           </div>
 
           <div className="lg:col-span-1 flex flex-col gap-4 h-full">
             <SaleSummary
-              itemsCount={4}
-              totalQuantity={11}
-              grossAmount={674.25}
-              discount={0}
-              tax={0}
-              netAmount={674.25}
+              ref={summaryRef}
+              itemsCount={items?.length ?? 0}
+              totalQuantity={(items ?? []).reduce(
+                (sum, item) =>
+                  sum +
+                  (Number(item?.packQuantity) || 0) +
+                  (Number(item?.looseQuantity) || 0),
+                0,
+              )}
+              grossAmount={totals.gross}
+              discount={totals.discount}
+              tax={totals.tax}
+              netAmount={totals.net}
+              discountPercent={discountPercent}
+              taxPercent={taxPercent}
+              onDiscountPercentChange={(v) => setValue("discountPercent", v)}
+              onTaxPercentChange={(v) => setValue("taxPercent", v)}
             />
             <div className="flex-1">
               <SalePayment
-                netAmount={674.25}
-                onComplete={(paid) => console.log("Paid:", paid)}
+                ref={paymentRef}
+                netAmount={totals.net}
+                saleCompleted={saleCompleted}
+                onComplete={handleCompleteSale}
                 onPrint={() => console.log("Print")}
-                onSaveDraft={() => console.log("Save draft")}
+                paymentError={paymentError}
               />
             </div>
           </div>
         </div>
       </div>
-
-      {/* <PosFooter
-        totals={totals}
-        discountPercent={discountPercent}
-        taxPercent={taxPercent}
-        onDiscountPercentChange={(v) => setValue("discountPercent", v)}
-        onTaxPercentChange={(v) => setValue("taxPercent", v)}
-        isSubmitting={isSubmitting}
-        handleSubmit={handleSubmit}
-        onSubmit={onSubmit}
-      /> */}
     </div>
   );
 }
