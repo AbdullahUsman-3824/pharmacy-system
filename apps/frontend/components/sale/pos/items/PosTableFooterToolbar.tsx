@@ -71,8 +71,8 @@ export function PosTableFooterToolbar({
         <ShortcutHint keys="F5" label="Complete sale" />
         <ShortcutHint keys="F6" label="Hold" />
         <ShortcutHint keys="F9" label="Recall" />
-        <ShortcutHint keys="Del" label="Remove line" />
-        <ShortcutHint keys="↑ ↓" label="Navigate rows" />
+        {/* <ShortcutHint keys="Del" label="Remove line" />
+        <ShortcutHint keys="↑ ↓" label="Navigate rows" /> */}
       </div>
     </>
   );

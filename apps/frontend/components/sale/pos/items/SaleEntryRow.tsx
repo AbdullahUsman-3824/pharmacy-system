@@ -269,9 +269,7 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
     };
     useImperativeHandle(ref, () => ({ commit, focus }));
     useEffect(() => {
-      containerRef.current
-        ?.querySelector<HTMLElement>('[data-nav="true"]')
-        ?.focus();
+      focus();
     }, []);
 
     function handleKeyDown(e: React.KeyboardEvent<HTMLTableRowElement>) {
@@ -312,17 +310,21 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
     const showInfo = isProductSelected && isBatchSelected && selectedExpected;
 
     // Shared base styles
-    const containerBaseClass = "transition-colors duration-300 border-l-4";
+    const containerBaseClass = "transition-colors duration-300 relative";
+    const innerBorderClass = flash
+      ? "shadow-[inset_4px_0_0_0_#4ade80]"
+      : "shadow-[inset_4px_0_0_0_#60a5fa]";
+
     const flashClass = flash
-      ? "bg-green-50/70 border-l-green-400"
-      : "bg-blue-50/30 border-l-blue-400 hover:bg-blue-50/50";
+      ? "bg-green-50/70"
+      : "bg-blue-50/30 hover:bg-blue-50/50";
 
     // Main row: no bottom border if info is shown, otherwise add it
     const mainRowBottomBorder = showInfo ? "" : "border-b border-gray-200";
-    const mainRowClasses = `${containerBaseClass} ${flashClass} ${mainRowBottomBorder}`;
+    const mainRowClasses = `${containerBaseClass} ${innerBorderClass} ${flashClass} ${mainRowBottomBorder}`;
 
-    // Info row: same base + flash, always has bottom border to close the block
-    const infoRowClasses = `${containerBaseClass} ${flashClass} border-b border-gray-200`;
+    // Info row: always has a bottom border to close the block
+    const infoRowClasses = `${containerBaseClass} ${innerBorderClass} ${flashClass} border-b border-gray-200`;
 
     return (
       <>

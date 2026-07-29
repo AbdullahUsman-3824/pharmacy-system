@@ -3,7 +3,6 @@
 import { useState, useRef, useMemo, useEffect } from "react";
 import { useForm, useWatch, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter } from "next/navigation";
 import { SaleType } from "@repo/shared";
 import {
   saleFormSchema,
@@ -24,13 +23,13 @@ import {
   SaleSummaryRef,
 } from ".";
 import { useHeldInvoices } from "@/hooks/useHeldInvoices";
+import { SaleCompleteModal, CompletedSale } from ".";
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
 export default function PosPage() {
-  const router = useRouter();
   const createSale = useCreateSale();
 
   const {
@@ -62,7 +61,9 @@ export default function PosPage() {
 
   const [stockError, setStockError] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
-  const [saleCompleted, setSaleCompleted] = useState(false);
+  const [completedSale, setCompletedSale] = useState<CompletedSale | null>(
+    null,
+  );
 
   const entryRowRef = useRef<SaleEntryRowRef>(null);
   const paymentRef = useRef<SalePaymentRef>(null);
@@ -97,9 +98,12 @@ export default function PosPage() {
     setStockError(null);
     const payload = buildCreateSalePayload(data);
     try {
-      await createSale.mutateAsync(payload);
-      setSaleCompleted(true);
-      router.push("/sale");
+      const result = await createSale.mutateAsync(payload);
+      // Show the confirmation modal instead of navigating away — the
+      // cashier needs to see the generated saleNumber and confirm the
+      // bill before moving on, and staying on this screen keeps the next
+      // walk-in customer's checkout just one "New sale" click away.
+      setCompletedSale(result as unknown as CompletedSale);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       const responseData = error?.response?.data;
@@ -123,6 +127,18 @@ export default function PosPage() {
     }
     setPaymentError(null);
     handleSubmit(onSubmit)();
+  };
+
+  const handleNewSale = () => {
+    setCompletedSale(null);
+    reset();
+    // Ready immediately for the next customer.
+    requestAnimationFrame(() => entryRowRef.current?.focus());
+  };
+
+  const handlePrint = () => {
+    // TODO: wire real print/receipt logic once print format is decided.
+    console.log("Print", completedSale);
   };
 
   const { heldInvoices, hold, recall } = useHeldInvoices();
@@ -151,14 +167,13 @@ export default function PosPage() {
   const handleClear = () => {
     reset();
   };
-
-  // Global POS keyboard shortcuts. Each F-key is prevented from its browser
-  // default (F5 refresh, etc.) since the cashier is expected to stay inside
-  // the POS screen the whole time. This effect re-subscribes on every render
-  // so the handlers below always see fresh state via closure — fine here
-  // since the listener itself is cheap and POS re-renders aren't hot-path.
+  
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      // Don't fire shortcuts while the completion modal is up — only
+      // Enter/Escape should matter there, and we're not wiring those yet.
+      if (completedSale) return;
+
       const target = e.target as HTMLElement;
       const isTyping =
         target.tagName === "INPUT" ||
@@ -261,15 +276,23 @@ export default function PosPage() {
               <SalePayment
                 ref={paymentRef}
                 netAmount={totals.net}
-                saleCompleted={saleCompleted}
+                saleCompleted={!!completedSale}
                 onComplete={handleCompleteSale}
-                onPrint={() => console.log("Print")}
+                onPrint={handlePrint}
                 paymentError={paymentError}
               />
             </div>
           </div>
         </div>
       </div>
+
+      {completedSale && (
+        <SaleCompleteModal
+          sale={completedSale}
+          onPrint={handlePrint}
+          onNewSale={handleNewSale}
+        />
+      )}
     </div>
   );
 }

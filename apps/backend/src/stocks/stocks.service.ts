@@ -30,7 +30,11 @@ export class StockService {
         },
       });
 
-      for (const item of dto.items) {
+      // Merge duplicate items within the same voucher to avoid
+      // creating / incrementing the same batch twice in one transaction.
+      const mergedItems = this.mergeDuplicateItems(dto.items);
+
+      for (const item of mergedItems) {
         const expiryDate = item.expiryDate ? new Date(item.expiryDate) : null;
 
         this.validateVoucherItemAmounts(item);
@@ -62,7 +66,7 @@ export class StockService {
     });
   }
 
-  async findAll() {
+  async findAll(params?: { skip?: number; take?: number }) {
     const vouchers = await this.prisma.stockVoucher.findMany({
       where: {
         deletedAt: null,
@@ -81,6 +85,8 @@ export class StockService {
       orderBy: {
         date: 'desc',
       },
+      skip: params?.skip,
+      take: params?.take ?? 100,
     });
 
     // convert Decimal -> number here, once, so every consumer gets real numbers
@@ -164,7 +170,7 @@ export class StockService {
       currentQuantity: b.currentQuantity,
       looseQuantity: b.looseQuantity,
       packingSize: Number(b.product.packingSize),
-      purchaseRate: Number(b.purchaseRate), 
+      purchaseRate: Number(b.purchaseRate),
       saleRate: Number(b.saleRate),
     }));
 
@@ -178,16 +184,92 @@ export class StockService {
     };
   }
 
+  async softDelete(id: string) {
+    const voucher = await this.prisma.stockVoucher.findFirst({
+      where: { id, deletedAt: null },
+    });
+
+    if (!voucher) {
+      throw new NotFoundException(`Voucher ${id} not found`);
+    }
+
+    return this.prisma.stockVoucher.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+  }
+
   private generateVoucherNumber(type: StockVoucherType): string {
-    // TODO: Replace with proper numbering service
-    return `${type}-${Date.now()}`;
+    // TODO: Replace with proper numbering service.
+    // Appending a short random suffix prevents collisions when two vouchers
+    // are created in the same millisecond.
+    return `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  /**
+   * Collapses duplicate product+batch lines from the same voucher into a
+   * single merged line, summing quantity and freeQuantity separately.
+   * This prevents creating or incrementing the same batch twice within one
+   * voucher transaction.
+   */
+  private mergeDuplicateItems(items: any[]): any[] {
+    const grouped = new Map<string, any>();
+
+    for (const item of items) {
+      const key = `${item.productId}|${item.batchNumber}`;
+      const existing = grouped.get(key);
+
+      if (!existing) {
+        grouped.set(key, { ...item });
+        continue;
+      }
+
+      // Rates must match for duplicates to be merged
+      if (
+        Number(existing.purchaseRate) !== Number(item.purchaseRate) ||
+        Number(existing.saleRate) !== Number(item.saleRate)
+      ) {
+        throw new BadRequestException(
+          `Conflicting rate for the same product/batch in one voucher (batch ${item.batchNumber})`,
+        );
+      }
+
+      existing.quantity += item.quantity;
+      existing.freeQuantity =
+        (existing.freeQuantity ?? 0) + (item.freeQuantity ?? 0);
+      existing.grossAmount += item.grossAmount;
+      existing.netAmount += item.netAmount;
+      existing.discountAmount =
+        (existing.discountAmount ?? 0) + (item.discountAmount ?? 0);
+      existing.taxAmount = (existing.taxAmount ?? 0) + (item.taxAmount ?? 0);
+    }
+
+    return Array.from(grouped.values());
   }
 
   private validateVoucherItemAmounts(item: any): void {
-    const expectedGross = item.quantity * item.purchaseRate;
+    // Prevent negative quantities and rates
+    if (item.quantity < 0) {
+      throw new BadRequestException(
+        `Quantity must be non-negative for batch ${item.batchNumber}`,
+      );
+    }
+    if ((item.freeQuantity ?? 0) < 0) {
+      throw new BadRequestException(
+        `Free quantity must be non-negative for batch ${item.batchNumber}`,
+      );
+    }
+    if (item.purchaseRate < 0) {
+      throw new BadRequestException(
+        `Purchase rate must be non-negative for batch ${item.batchNumber}`,
+      );
+    }
+
+    // Validate gross amount = quantity * purchaseRate with rounding tolerance
+    const expectedGross = this.round2(item.quantity * item.purchaseRate);
     if (Math.abs(expectedGross - item.grossAmount) > 0.01) {
       throw new BadRequestException(
-        `Gross amount mismatch for batch ${item.batchNumber}`,
+        `Gross amount mismatch for batch ${item.batchNumber}: expected ${expectedGross}, got ${item.grossAmount}`,
       );
     }
   }
@@ -226,8 +308,8 @@ export class StockService {
       });
     } else {
       const rateChanged =
-        Number(batch.purchaseRate) !== item.purchaseRate ||
-        Number(batch.saleRate) !== item.saleRate;
+        Number(batch.purchaseRate) !== Number(item.purchaseRate) ||
+        Number(batch.saleRate) !== Number(item.saleRate);
 
       if (rateChanged && !item.confirmRateUpdate) {
         throw new BadRequestException({
@@ -334,5 +416,9 @@ export class StockService {
         },
       },
     });
+  }
+
+  private round2(value: number): number {
+    return parseFloat(value.toFixed(2));
   }
 }

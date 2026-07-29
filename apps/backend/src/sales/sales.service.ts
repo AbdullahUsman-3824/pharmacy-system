@@ -12,7 +12,7 @@ export class SalesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async createSale(dto: CreateSaleDto) {
-    return this.prisma.$transaction(async (tx) => {
+    const sale = await this.prisma.$transaction(async (tx) => {
       const saleNumber = this.generateSaleNumber(dto.type);
 
       if (dto.type === SaleType.SALE_RETURN && !dto.originalSaleId) {
@@ -21,12 +21,9 @@ export class SalesService {
         );
       }
 
-      // Same product+batch entered more than once in the same invoice gets
-      // merged into a single line before any stock/DB work happens — pack
-      // and loose quantities are summed independently.
       const mergedItems = this.mergeDuplicateItems(dto.items);
 
-      const sale = await tx.sale.create({
+      const createdSale = await tx.sale.create({
         data: {
           saleNumber,
           type: dto.type,
@@ -48,7 +45,7 @@ export class SalesService {
 
         const batch = await this.resolveBatchForSale(tx, item, dto.type);
 
-        await this.createSaleItem(tx, sale.id, batch.id, item);
+        await this.createSaleItem(tx, createdSale.id, batch.id, item);
 
         grossTotal += item.grossAmount;
       }
@@ -57,13 +54,13 @@ export class SalesService {
       const taxPercent = dto.taxPercent ?? 0;
 
       const discountTotal = this.round2(grossTotal * (discountPercent / 100));
-      const taxableAmount = grossTotal - discountTotal;
+      const taxableAmount = this.round2(grossTotal - discountTotal);
       const taxTotal = this.round2(taxableAmount * (taxPercent / 100));
       const netTotal = this.round2(taxableAmount + taxTotal);
 
       return this.updateSaleTotals(
         tx,
-        sale.id,
+        createdSale.id,
         grossTotal,
         discountPercent,
         discountTotal,
@@ -72,9 +69,11 @@ export class SalesService {
         netTotal,
       );
     });
+
+    return this.serializeSale(sale);
   }
 
-  async findAll() {
+  async findAll(params?: { skip?: number; take?: number }) {
     const sales = await this.prisma.sale.findMany({
       where: { deletedAt: null },
       select: {
@@ -91,6 +90,8 @@ export class SalesService {
         netAmount: true,
       },
       orderBy: { date: 'desc' },
+      skip: params?.skip,
+      take: params?.take ?? 100,
     });
 
     return sales.map((s) => ({
@@ -122,6 +123,30 @@ export class SalesService {
       throw new NotFoundException(`Sale ${id} not found`);
     }
 
+    return this.serializeSale(sale);
+  }
+
+  async softDelete(id: string) {
+    const sale = await this.prisma.sale.findFirst({
+      where: { id, deletedAt: null },
+    });
+
+    if (!sale) {
+      throw new NotFoundException(`Sale ${id} not found`);
+    }
+
+    return this.prisma.sale.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+  }
+
+  private generateSaleNumber(type: SaleType): string {
+    // TODO: Replace with proper numbering service
+    return `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  private serializeSale(sale: any) {
     return {
       ...sale,
       grossAmount: Number(sale.grossAmount),
@@ -131,8 +156,9 @@ export class SalesService {
       taxPercent: sale.taxPercent !== null ? Number(sale.taxPercent) : null,
       taxAmount: Number(sale.taxAmount),
       netAmount: Number(sale.netAmount),
-      items: sale.items.map((item) => ({
+      items: sale.items.map((item: any) => ({
         ...item,
+        productName: item.product?.name,
         saleRate: Number(item.saleRate),
         looseRate: item.looseRate !== null ? Number(item.looseRate) : null,
         grossAmount: Number(item.grossAmount),
@@ -144,11 +170,6 @@ export class SalesService {
         },
       })),
     };
-  }
-
-  private generateSaleNumber(type: SaleType): string {
-    // TODO: Replace with proper numbering service
-    return `${type}-${Date.now()}`;
   }
 
   /**
@@ -167,9 +188,16 @@ export class SalesService {
         continue;
       }
 
+      const existingSaleRate = Number(existing.saleRate);
+      const itemSaleRate = Number(item.saleRate);
+      const existingLooseRate =
+        existing.looseRate === null ? null : Number(existing.looseRate);
+      const itemLooseRate =
+        item.looseRate === null ? null : Number(item.looseRate);
+
       if (
-        Number(existing.saleRate) !== Number(item.saleRate) ||
-        Number(existing.looseRate) !== Number(item.looseRate)
+        existingSaleRate !== itemSaleRate ||
+        existingLooseRate !== itemLooseRate
       ) {
         throw new BadRequestException(
           `Conflicting rate for the same product/batch in one invoice (batch ${item.batchId})`,
@@ -186,19 +214,27 @@ export class SalesService {
   }
 
   private validateSaleItemAmounts(item: any): void {
+    // Prevent negative quantities
+    if (item.packQuantity < 0 || item.looseQuantity < 0) {
+      throw new BadRequestException(
+        `Quantities must be non-negative for batch ${item.batchId}`,
+      );
+    }
+
     if (item.packQuantity <= 0 && item.looseQuantity <= 0) {
       throw new BadRequestException(
         `Line for batch ${item.batchId} must have a pack or loose quantity greater than 0`,
       );
     }
 
-    const expectedGross =
+    const expectedGross = this.round2(
       item.packQuantity * item.saleRate +
-      item.looseQuantity * (item.looseRate || 0);
+        item.looseQuantity * (item.looseRate || 0),
+    );
 
     if (Math.abs(expectedGross - item.grossAmount) > 0.01) {
       throw new BadRequestException(
-        `Gross amount mismatch for batch ${item.batchId}`,
+        `Gross amount mismatch for batch ${item.batchId}: expected ${expectedGross}, got ${item.grossAmount}`,
       );
     }
     // No per-item discount/tax — gross equals net at the line level.
@@ -262,6 +298,13 @@ export class SalesService {
     item: any,
     packingSize: number,
   ): { currentQuantityDelta: number; looseQuantityDelta: number } {
+    // Guard against invalid packingSize
+    if (packingSize <= 0) {
+      throw new BadRequestException(
+        `Invalid packingSize (${packingSize}) for product in batch ${batch.batchNumber}`,
+      );
+    }
+
     // 1. The explicit pack portion comes straight out of currentQuantity.
     if (batch.currentQuantity < item.packQuantity) {
       throw new BadRequestException({
@@ -314,6 +357,13 @@ export class SalesService {
     originalSaleId: string,
     item: any,
   ): Promise<void> {
+    // Prevent negative return quantities
+    if (item.packQuantity < 0 || item.looseQuantity < 0) {
+      throw new BadRequestException(
+        `Return quantities must be non-negative for batch ${item.batchId}`,
+      );
+    }
+
     const originalItem = await tx.saleItem.findFirst({
       where: {
         saleId: originalSaleId,
@@ -425,6 +475,6 @@ export class SalesService {
   }
 
   private round2(value: number): number {
-    return Math.round(value * 100) / 100;
+    return parseFloat(value.toFixed(2));
   }
 }
