@@ -22,8 +22,8 @@ import {
   SaleSummary,
   SaleSummaryRef,
 } from ".";
-import { useHeldInvoices } from "@/hooks/useHeldInvoices";
-import { SaleCompleteModal, CompletedSale } from ".";
+import { useHeldInvoices } from "@/lib/context/HeldInvoicesContext";
+import { RecallHeldPopover, SaleCompleteModal, CompletedSale } from "./";
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
@@ -52,7 +52,15 @@ export default function PosPage() {
     },
   });
 
-  const { fields, insert, remove } = useFieldArray({ control, name: "items" });
+  // `replace` is used any time the whole items array needs swapping out
+  // (recall, clear) instead of reset({ items }) — reset() alone left
+  // useFieldArray's internal keyed state out of sync with the form's real
+  // values once handleAddItem's insert() ran afterward, which is exactly
+  // why recalled items were dropping out on a subsequent hold.
+  const { fields, insert, remove, replace } = useFieldArray({
+    control,
+    name: "items",
+  });
   const items = useWatch({ control, name: "items" });
   const discountPercent = (useWatch({ control, name: "discountPercent" }) ??
     0) as number;
@@ -64,6 +72,7 @@ export default function PosPage() {
   const [completedSale, setCompletedSale] = useState<CompletedSale | null>(
     null,
   );
+  const [showRecallPopover, setShowRecallPopover] = useState(false);
 
   const entryRowRef = useRef<SaleEntryRowRef>(null);
   const paymentRef = useRef<SalePaymentRef>(null);
@@ -99,10 +108,6 @@ export default function PosPage() {
     const payload = buildCreateSalePayload(data);
     try {
       const result = await createSale.mutateAsync(payload);
-      // Show the confirmation modal instead of navigating away — the
-      // cashier needs to see the generated saleNumber and confirm the
-      // bill before moving on, and staying on this screen keeps the next
-      // walk-in customer's checkout just one "New sale" click away.
       setCompletedSale(result as unknown as CompletedSale);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
@@ -117,9 +122,6 @@ export default function PosPage() {
     }
   };
 
-  // SalePayment hands back a plain (paidAmount: number) call — used only to
-  // sanity-check the cashier hasn't accepted less cash than the net amount.
-  // paidAmount itself is never persisted; it's purely for computing change.
   const handleCompleteSale = (paidAmount: number) => {
     if (paidAmount < totals.net) {
       setPaymentError("Amount paid is less than the net amount.");
@@ -131,8 +133,8 @@ export default function PosPage() {
 
   const handleNewSale = () => {
     setCompletedSale(null);
+    replace([]);
     reset();
-    // Ready immediately for the next customer.
     requestAnimationFrame(() => entryRowRef.current?.focus());
   };
 
@@ -143,36 +145,47 @@ export default function PosPage() {
 
   const { heldInvoices, hold, recall } = useHeldInvoices();
 
-  const handleHold = () => {
+  // Snapshots the current cart into the held list. Used both for the
+  // explicit F6/"Hold invoice" action and silently before switching to a
+  // recalled cart, so nothing the cashier was working on is ever lost.
+  const holdCurrentCart = () => {
     if (!items || items.length === 0) return;
     hold({
       customerName: customerName ?? "Walk-in Customer",
-      items: (items ?? []) as SaleFormInput["items"],
+      items: items as SaleFormInput["items"],
+      netAmount: totals.net,
     });
+    replace([]);
     reset();
   };
 
-  const handleRecallHeld = () => {
-    // Placeholder: recalls the most recently held cart.
-    // Swap for a picker modal once there's a proper "Recall held" list UI.
-    const last = heldInvoices[heldInvoices.length - 1];
-    if (last) {
-      const recalled = recall(last.id);
-      if (recalled) {
-        reset({ items: recalled.items });
-      }
+  const handleOpenRecall = () => {
+    setShowRecallPopover(true);
+  };
+
+  const handleSelectHeld = (id: string) => {
+    // If the cashier already has items in progress for someone else,
+    // auto-hold that cart first — silent, no confirm — before loading the
+    // one they picked. Nothing typed so far is lost.
+    if (items && items.length > 0) {
+      holdCurrentCart();
     }
+    const recalled = recall(id);
+    if (recalled) {
+      replace(recalled.items);
+      setValue("customerName", recalled.customerName);
+    }
+    setShowRecallPopover(false);
   };
 
   const handleClear = () => {
+    replace([]);
     reset();
   };
-  
+
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      // Don't fire shortcuts while the completion modal is up — only
-      // Enter/Escape should matter there, and we're not wiring those yet.
-      if (completedSale) return;
+      if (completedSale || showRecallPopover) return;
 
       const target = e.target as HTMLElement;
       const isTyping =
@@ -188,7 +201,7 @@ export default function PosPage() {
           break;
         case "F6":
           e.preventDefault();
-          handleHold();
+          holdCurrentCart();
           break;
         case "F8":
           e.preventDefault();
@@ -196,7 +209,7 @@ export default function PosPage() {
           break;
         case "F9":
           e.preventDefault();
-          handleRecallHeld();
+          handleOpenRecall();
           break;
         case "F10":
           e.preventDefault();
@@ -224,7 +237,7 @@ export default function PosPage() {
   });
 
   return (
-   <div className="flex flex-col min-h-[calc(100vh-64px)] bg-transparent">
+    <div className="flex flex-col min-h-[calc(100vh-64px)] bg-transparent">
       <div className="flex-1 max-w-7xl mx-auto w-full -mt-2 pb-6">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
           <div className="flex flex-col lg:col-span-3 min-h-0">
@@ -245,8 +258,8 @@ export default function PosPage() {
                 errors={errors}
                 entryRowRef={entryRowRef}
                 heldCount={heldInvoices.length}
-                onHold={handleHold}
-                onRecallHeld={handleRecallHeld}
+                onHold={holdCurrentCart}
+                onRecallHeld={handleOpenRecall}
                 onClear={handleClear}
               />
             </form>
@@ -285,6 +298,14 @@ export default function PosPage() {
           </div>
         </div>
       </div>
+
+      {showRecallPopover && (
+        <RecallHeldPopover
+          heldInvoices={heldInvoices}
+          onSelect={handleSelectHeld}
+          onClose={() => setShowRecallPopover(false)}
+        />
+      )}
 
       {completedSale && (
         <SaleCompleteModal

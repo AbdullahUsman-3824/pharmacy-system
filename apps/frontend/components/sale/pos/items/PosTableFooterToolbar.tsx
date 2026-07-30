@@ -44,9 +44,9 @@ export function PosTableFooterToolbar({
               {heldCount}
             </span>
           )}
-          <kbd className="ml-1 rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 text-xs text-gray-500">
+          <span className="ml-1 rounded border border-gray-300 bg-gray-50 px-1.5 py-0.5 text-xs text-gray-500">
             F9
-          </kbd>
+          </span>
         </button>
 
         <div className="ml-auto">
@@ -81,9 +81,9 @@ export function PosTableFooterToolbar({
 function ShortcutHint({ keys, label }: { keys: string; label: string }) {
   return (
     <span className="flex items-center gap-1.5">
-      <kbd className="rounded border border-gray-200 bg-white px-1.5 py-0.5 font-mono text-[11px] text-gray-500">
+      <span className="rounded border border-gray-200 bg-white px-1.5 py-0.5 font-mono text-[11px] text-gray-500">
         {keys}
-      </kbd>
+      </span>
       {label}
     </span>
   );

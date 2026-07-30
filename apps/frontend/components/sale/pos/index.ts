@@ -8,3 +8,4 @@ export * from "./items/SalePayment";
 export * from "./items/SaleSummary";
 export * from "./items/PosTableFooterToolbar";
 export * from "./items/SaleCompleteModal";
+export * from "./items/RecallHeldPopover";

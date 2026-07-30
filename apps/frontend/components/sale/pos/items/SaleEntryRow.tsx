@@ -309,6 +309,12 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
 
     const showInfo = isProductSelected && isBatchSelected && selectedExpected;
 
+    // Fires when a product is chosen but has zero batches at all — the
+    // case showInfo silently skipped, since isBatchSelected can never
+    // become true when the FEFO auto-select effect has nothing to pick.
+    const showNoStock =
+      isProductSelected && !isBatchSelected && batches.length === 0;
+
     // Shared base styles
     const containerBaseClass = "transition-colors duration-300 relative";
     const innerBorderClass = flash
@@ -319,8 +325,9 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
       ? "bg-green-50/70"
       : "bg-blue-50/30 hover:bg-blue-50/50";
 
-    // Main row: no bottom border if info is shown, otherwise add it
-    const mainRowBottomBorder = showInfo ? "" : "border-b border-gray-200";
+    // Main row: no bottom border if an info/no-stock row follows it
+    const mainRowBottomBorder =
+      showInfo || showNoStock ? "" : "border-b border-gray-200";
     const mainRowClasses = `${containerBaseClass} ${innerBorderClass} ${flashClass} ${mainRowBottomBorder}`;
 
     // Info row: always has a bottom border to close the block
@@ -509,6 +516,18 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
                       Out of Stock
                     </span>
                   )}
+              </div>
+            </td>
+          </tr>
+        )}
+
+        {/* No-stock row – product has no batches to sell from at all */}
+        {showNoStock && (
+          <tr className={infoRowClasses}>
+            <td colSpan={7} className="px-4 py-2">
+              <div className="flex items-center gap-1.5 text-red-600 text-xs font-semibold">
+                <AlertCircle className="w-3.5 h-3.5" />
+                Out of stock — no batches available for this product
               </div>
             </td>
           </tr>
