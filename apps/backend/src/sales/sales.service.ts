@@ -13,13 +13,13 @@ export class SalesService {
 
   async createSale(dto: CreateSaleDto) {
     const sale = await this.prisma.$transaction(async (tx) => {
-      const saleNumber = this.generateSaleNumber(dto.type);
-
       if (dto.type === SaleType.SALE_RETURN && !dto.originalSaleId) {
         throw new BadRequestException(
           'originalSaleId is required for SALE_RETURN',
         );
       }
+
+      const saleNumber = await this.generateSaleNumber(tx, dto.type);
 
       const mergedItems = this.mergeDuplicateItems(dto.items);
 
@@ -74,36 +74,47 @@ export class SalesService {
   }
 
   async findAll(params?: { skip?: number; take?: number }) {
-    const sales = await this.prisma.sale.findMany({
-      where: { deletedAt: null },
-      select: {
-        id: true,
-        saleNumber: true,
-        type: true,
-        date: true,
-        customerName: true,
-        grossAmount: true,
-        discountPercent: true,
-        discountAmount: true,
-        taxPercent: true,
-        taxAmount: true,
-        netAmount: true,
-      },
-      orderBy: { date: 'desc' },
-      skip: params?.skip,
-      take: params?.take ?? 100,
-    });
+    const skip = params?.skip ?? 0;
+    const take = params?.take ?? 100;
 
-    return sales.map((s) => ({
-      ...s,
-      grossAmount: Number(s.grossAmount),
-      discountPercent:
-        s.discountPercent !== null ? Number(s.discountPercent) : null,
-      discountAmount: Number(s.discountAmount),
-      taxPercent: s.taxPercent !== null ? Number(s.taxPercent) : null,
-      taxAmount: Number(s.taxAmount),
-      netAmount: Number(s.netAmount),
-    }));
+    const [sales, total] = await this.prisma.$transaction([
+      this.prisma.sale.findMany({
+        where: { deletedAt: null },
+        select: {
+          id: true,
+          saleNumber: true,
+          type: true,
+          date: true,
+          customerName: true,
+          grossAmount: true,
+          discountPercent: true,
+          discountAmount: true,
+          taxPercent: true,
+          taxAmount: true,
+          netAmount: true,
+        },
+        orderBy: { date: 'desc' },
+        skip,
+        take,
+      }),
+      this.prisma.sale.count({ where: { deletedAt: null } }),
+    ]);
+
+    return {
+      data: sales.map((s) => ({
+        ...s,
+        grossAmount: Number(s.grossAmount),
+        discountPercent:
+          s.discountPercent !== null ? Number(s.discountPercent) : null,
+        discountAmount: Number(s.discountAmount),
+        taxPercent: s.taxPercent !== null ? Number(s.taxPercent) : null,
+        taxAmount: Number(s.taxAmount),
+        netAmount: Number(s.netAmount),
+      })),
+      total,
+      skip,
+      take,
+    };
   }
 
   async findOne(id: string) {
@@ -126,6 +137,142 @@ export class SalesService {
     return this.serializeSale(sale);
   }
 
+  async findBySaleNumber(saleNumber: string) {
+    const sale = await this.prisma.sale.findFirst({
+      where: {
+        saleNumber: { equals: saleNumber, mode: 'insensitive' },
+        deletedAt: null,
+      },
+      include: {
+        items: {
+          include: {
+            batch: true,
+            product: true,
+          },
+        },
+      },
+    });
+
+    if (!sale) {
+      throw new NotFoundException(`Sale ${saleNumber} not found`);
+    }
+
+    return this.serializeSale(sale);
+  }
+
+  /**
+   * Lightweight typeahead for the return page's search box. Deliberately
+   * returns only list-display fields — no items/batches — so it stays
+   * cheap to call on every keystroke. Only matches original SALEs, since
+   * only those can be returned against.
+   */
+  async searchSales(query: string, limit = 10) {
+    const trimmed = query?.trim();
+    if (!trimmed) {
+      return [];
+    }
+
+    const sales = await this.prisma.sale.findMany({
+      where: {
+        deletedAt: null,
+        type: SaleType.SALE,
+        saleNumber: { contains: trimmed, mode: 'insensitive' },
+      },
+      select: {
+        id: true,
+        saleNumber: true,
+        customerName: true,
+        date: true,
+        netAmount: true,
+      },
+      orderBy: { date: 'desc' },
+      take: limit,
+    });
+
+    return sales.map((s) => ({
+      ...s,
+      netAmount: Number(s.netAmount),
+    }));
+  }
+
+  /**
+   * Returns, per line item of the original sale, how much is still
+   * eligible to be returned. Drives the /sale/return page so the
+   * frontend can cap quantities before submit instead of round-tripping
+   * a 400 from createSale.
+   */
+  async getReturnableItems(originalSaleId: string) {
+    const originalSale = await this.prisma.sale.findFirst({
+      where: { id: originalSaleId, deletedAt: null },
+      include: {
+        items: {
+          include: { product: true, batch: true },
+        },
+      },
+    });
+
+    if (!originalSale) {
+      throw new NotFoundException(`Sale ${originalSaleId} not found`);
+    }
+
+    if ((originalSale.type as string) !== (SaleType.SALE as string)) {
+      throw new BadRequestException(
+        `Sale ${originalSaleId} is not an original sale and cannot be returned against`,
+      );
+    }
+
+    const previousReturns = await this.prisma.saleItem.findMany({
+      where: {
+        sale: { type: SaleType.SALE_RETURN, originalSaleId, deletedAt: null },
+      },
+    });
+
+    const returnedByKey = new Map<
+      string,
+      { packQuantity: number; looseQuantity: number }
+    >();
+
+    for (const r of previousReturns) {
+      const key = `${r.productId}|${r.batchId}`;
+      const existing = returnedByKey.get(key) ?? {
+        packQuantity: 0,
+        looseQuantity: 0,
+      };
+      existing.packQuantity += r.packQuantity;
+      existing.looseQuantity += r.looseQuantity;
+      returnedByKey.set(key, existing);
+    }
+
+    return {
+      saleId: originalSale.id,
+      saleNumber: originalSale.saleNumber,
+      items: originalSale.items.map((item) => {
+        const key = `${item.productId}|${item.batchId}`;
+        const alreadyReturned = returnedByKey.get(key) ?? {
+          packQuantity: 0,
+          looseQuantity: 0,
+        };
+
+        return {
+          productId: item.productId,
+          productName: item.product?.name,
+          batchId: item.batchId,
+          batchNumber: item.batch?.batchNumber,
+          saleRate: Number(item.saleRate),
+          looseRate: item.looseRate !== null ? Number(item.looseRate) : null,
+          originalPackQuantity: item.packQuantity,
+          originalLooseQuantity: item.looseQuantity,
+          alreadyReturnedPacks: alreadyReturned.packQuantity,
+          alreadyReturnedLoose: alreadyReturned.looseQuantity,
+          availablePacksToReturn:
+            item.packQuantity - alreadyReturned.packQuantity,
+          availableLooseToReturn:
+            item.looseQuantity - alreadyReturned.looseQuantity,
+        };
+      }),
+    };
+  }
+
   async softDelete(id: string) {
     const sale = await this.prisma.sale.findFirst({
       where: { id, deletedAt: null },
@@ -141,9 +288,25 @@ export class SalesService {
     });
   }
 
-  private generateSaleNumber(type: SaleType): string {
-    // TODO: Replace with proper numbering service
-    return `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  private async generateSaleNumber(tx: any, type: SaleType): Promise<string> {
+    const dateKey = this.formatDateKey(new Date());
+    const prefix = type === SaleType.SALE ? 'SL' : 'RT';
+
+    const counter = await tx.saleNumberCounter.upsert({
+      where: { type_dateKey: { type, dateKey } },
+      create: { type, dateKey, seq: 1 },
+      update: { seq: { increment: 1 } },
+    });
+
+    const seq = String(counter.seq).padStart(4, '0');
+    return `${prefix}-${dateKey}-${seq}`;
+  }
+
+  private formatDateKey(date: Date): string {
+    const yy = String(date.getFullYear()).slice(-2);
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${yy}${mm}${dd}`;
   }
 
   private serializeSale(sale: any) {
@@ -214,7 +377,6 @@ export class SalesService {
   }
 
   private validateSaleItemAmounts(item: any): void {
-    // Prevent negative quantities
     if (item.packQuantity < 0 || item.looseQuantity < 0) {
       throw new BadRequestException(
         `Quantities must be non-negative for batch ${item.batchId}`,
@@ -237,7 +399,6 @@ export class SalesService {
         `Gross amount mismatch for batch ${item.batchId}: expected ${expectedGross}, got ${item.grossAmount}`,
       );
     }
-    // No per-item discount/tax — gross equals net at the line level.
     if (Math.abs(item.grossAmount - item.netAmount) > 0.01) {
       throw new BadRequestException(
         `Net amount must equal gross amount at the line level for batch ${item.batchId}`,
@@ -273,9 +434,6 @@ export class SalesService {
         },
       });
     } else {
-      // SALE_RETURN — restore stock as-is: returned packs go back to
-      // currentQuantity, returned loose units go back to looseQuantity.
-      // We don't attempt to re-combine loose units into whole packs.
       await tx.batch.update({
         where: { id: batch.id },
         data: {
@@ -288,24 +446,17 @@ export class SalesService {
     return batch;
   }
 
-  /**
-   * Computes how currentQuantity (whole packs) and looseQuantity should
-   * change to fulfill one line's packQuantity + looseQuantity, throwing if
-   * there isn't enough combined stock.
-   */
   private computeStockDeltaForSale(
     batch: any,
     item: any,
     packingSize: number,
   ): { currentQuantityDelta: number; looseQuantityDelta: number } {
-    // Guard against invalid packingSize
     if (packingSize <= 0) {
       throw new BadRequestException(
         `Invalid packingSize (${packingSize}) for product in batch ${batch.batchNumber}`,
       );
     }
 
-    // 1. The explicit pack portion comes straight out of currentQuantity.
     if (batch.currentQuantity < item.packQuantity) {
       throw new BadRequestException({
         message: `Insufficient stock in batch ${batch.batchNumber}. Available: ${batch.currentQuantity} packs, requested: ${item.packQuantity}.`,
@@ -319,8 +470,6 @@ export class SalesService {
     const remainingPacksAfterPackSale =
       batch.currentQuantity - item.packQuantity;
 
-    // 2. The loose portion comes out of the existing loose remainder first,
-    //    then breaks open whole packs from what's left.
     const availableForLoose =
       batch.looseQuantity + remainingPacksAfterPackSale * packingSize;
 
@@ -357,7 +506,6 @@ export class SalesService {
     originalSaleId: string,
     item: any,
   ): Promise<void> {
-    // Prevent negative return quantities
     if (item.packQuantity < 0 || item.looseQuantity < 0) {
       throw new BadRequestException(
         `Return quantities must be non-negative for batch ${item.batchId}`,

@@ -74,3 +74,12 @@ model SaleItem {
     @@index([batchId])
     @@index([saleId])
 }
+
+model SaleNumberCounter {
+  id      String   @id @default(cuid())
+  type    SaleType
+  dateKey String
+  seq     Int      @default(0)
+
+  @@unique([type, dateKey])
+}

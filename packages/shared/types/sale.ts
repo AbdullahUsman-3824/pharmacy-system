@@ -59,3 +59,62 @@ export interface SaleDto {
   deletedAt?: string | null;
   items?: SaleItemDto[];
 }
+
+// --- Added for /sale, /sale/[id], /sale/return pages ---
+
+export interface SaleItemBatchDto {
+  id: string;
+  batchNumber: string;
+  expiryDate?: string | null;
+  purchaseRate: number;
+  saleRate: number;
+  openingQuantity: number;
+  currentQuantity: number;
+  looseQuantity: number;
+  manufacturingDate?: string | null;
+  isActive: boolean;
+}
+
+export interface SaleItemDetailDto extends SaleItemDto {
+  productName?: string;
+  batch: SaleItemBatchDto;
+}
+
+export interface SaleDetailDto extends Omit<SaleDto, "items"> {
+  items: SaleItemDetailDto[];
+}
+
+export interface SaleListResponse {
+  data: SaleDto[];
+  total: number;
+  skip: number;
+  take: number;
+}
+
+export interface SaleSearchDto {
+  id: string;
+  saleNumber: string;
+  customerName: string;
+  date: string;
+}
+
+export interface ReturnableItemDto {
+  productId: string;
+  productName?: string;
+  batchId: string;
+  batchNumber?: string;
+  saleRate: number;
+  looseRate: number | null;
+  originalPackQuantity: number;
+  originalLooseQuantity: number;
+  alreadyReturnedPacks: number;
+  alreadyReturnedLoose: number;
+  availablePacksToReturn: number;
+  availableLooseToReturn: number;
+}
+
+export interface ReturnableSaleDto {
+  saleId: string;
+  saleNumber: string;
+  items: ReturnableItemDto[];
+}
