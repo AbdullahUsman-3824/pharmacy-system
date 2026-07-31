@@ -13,9 +13,14 @@ export const navItems: NavItem[] = [
   { key: "products", label: "Products Master", href: "/products" },
   { key: "stock", label: "Stock", href: "/stock" },
   { key: "sale", label: "Sale", href: "/sale" },
-  { key: "customers", label: "Customers", href: "/customers" },
+  {
+    key: "customers",
+    label: "Customers",
+    href: "/customers",
+    comingSoon: true,
+  },
   { key: "suppliers", label: "Suppliers", href: "/suppliers" },
-  { key: "reports", label: "Reports", href: "/reports" },
+  { key: "reports", label: "Reports", href: "/reports", comingSoon: true },
 ];
 
 export const dashboardStats: StatCardData[] = [

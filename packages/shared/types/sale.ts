@@ -60,7 +60,6 @@ export interface SaleDto {
   items?: SaleItemDto[];
 }
 
-// --- Added for /sale, /sale/[id], /sale/return pages ---
 
 export interface SaleItemBatchDto {
   id: string;
@@ -91,13 +90,6 @@ export interface SaleListResponse {
   take: number;
 }
 
-export interface SaleSearchDto {
-  id: string;
-  saleNumber: string;
-  customerName: string;
-  date: string;
-}
-
 export interface ReturnableItemDto {
   productId: string;
   productName?: string;
@@ -117,4 +109,12 @@ export interface ReturnableSaleDto {
   saleId: string;
   saleNumber: string;
   items: ReturnableItemDto[];
+}
+
+export interface SaleSearchResultDto {
+  id: string;
+  saleNumber: string;
+  customerName: string;
+  date: string;
+  netAmount: number;
 }

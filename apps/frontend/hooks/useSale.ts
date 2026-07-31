@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { saleApi } from "../lib/api/saleApi";
 import { CreateSaleInput } from "@repo/shared";
 import { stockKeys } from "./useStock";
+import { useDebounce } from "./useDebounce";
 
 export const saleKeys = {
   sales: (params?: { skip?: number; take?: number }) =>
@@ -11,6 +12,18 @@ export const saleKeys = {
   search: (query: string) => ["sale-search", query] as const,
   returnable: (id: string) => ["sale", id, "returnable"] as const,
 };
+
+export function useSaleSearch(query: string) {
+  const debounced = useDebounce(query, 300);
+  const trimmed = debounced.trim();
+
+  return useQuery({
+    queryKey: saleKeys.search(trimmed),
+    queryFn: () => saleApi.search(trimmed),
+    enabled: trimmed.length >= 2,
+    placeholderData: (prev) => prev,
+  });
+}
 
 export function useSales(params?: { skip?: number; take?: number }) {
   return useQuery({
@@ -27,27 +40,11 @@ export function useSaleDetail(id: string) {
   });
 }
 
-export function useSaleById(id: string) {
-  return useSaleDetail(id);
-}
-
 export function useSaleBySaleNumber(saleNumber: string) {
   return useQuery({
     queryKey: saleKeys.saleByNumber(saleNumber),
     queryFn: () => saleApi.getBySaleNumber(saleNumber),
     enabled: !!saleNumber,
-  });
-}
-
-export function useSaleByNumber(saleNumber: string) {
-  return useSaleBySaleNumber(saleNumber);
-}
-
-export function useSaleSearch(query: string) {
-  return useQuery({
-    queryKey: saleKeys.search(query),
-    queryFn: () => saleApi.search(query),
-    enabled: query.trim().length >= 2,
   });
 }
 

@@ -1,3 +1,4 @@
+// lib/types.ts
 export type NavKey =
   | "dashboard"
   | "pos"
@@ -12,6 +13,7 @@ export interface NavItem {
   key: NavKey;
   label: string;
   href: string;
+  comingSoon?: boolean;
 }
 
 export interface StatCardData {

@@ -64,20 +64,30 @@ export function Sidebar() {
         {navItems.map((item) => {
           const Icon = icons[item.key];
           const active = pathname.startsWith(item.href);
+          const isComingSoon = item.comingSoon;
 
           return (
             <Link
               key={item.key}
-              href={item.href}
+              href={isComingSoon ? "/coming-soon" : item.href}
               title={collapsed ? item.label : undefined}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              className={`relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                 active
                   ? "bg-brand-50 text-brand-700"
                   : "text-ink-700 hover:bg-surface-sunken"
               } ${collapsed ? "justify-center" : ""}`}
             >
               <Icon size={18} className="shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
+              {!collapsed && (
+                <>
+                  <span>{item.label}</span>
+                  {isComingSoon && (
+                    <span className="ml-auto text-[10px] font-semibold uppercase tracking-wider bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full">
+                      Soon
+                    </span>
+                  )}
+                </>
+              )}
             </Link>
           );
         })}
