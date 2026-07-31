@@ -7,6 +7,7 @@ import { ProductsModule } from './products/products.module';
 import { SupplierModule } from './suppliers/suppliers.module';
 import { StocksModule } from './stocks/stocks.module';
 import { SalesModule } from './sales/sales.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { SalesModule } from './sales/sales.module';
     SupplierModule,
     StocksModule,
     SalesModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],
