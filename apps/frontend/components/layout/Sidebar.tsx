@@ -40,7 +40,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`shrink-0 border-r border-border bg-surface-sidebar transition-[width] duration-200 ${
+      className={`shrink-0 border-r border-[var(--color-border)] bg-[var(--color-sidebar)] transition-[width] duration-200 ${
         collapsed ? "w-[54px]" : "w-[236px]"
       }`}
     >
@@ -48,7 +48,7 @@ export function Sidebar() {
         <button
           type="button"
           onClick={() => setCollapsed((c) => !c)}
-          className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-ink-500 hover:bg-surface-sunken ${
+          className={`flex items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2.5 text-sm font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-sidebar-hover)] transition-colors duration-200 ${
             collapsed ? "justify-center" : ""
           }`}
         >
@@ -71,10 +71,10 @@ export function Sidebar() {
               key={item.key}
               href={isComingSoon ? "/coming-soon" : item.href}
               title={collapsed ? item.label : undefined}
-              className={`relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              className={`relative flex items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2.5 text-sm font-medium transition-colors duration-200 ${
                 active
-                  ? "bg-brand-50 text-brand-700"
-                  : "text-ink-700 hover:bg-surface-sunken"
+                  ? "bg-[var(--color-primary-soft)] text-[var(--color-primary)]"
+                  : "text-[var(--color-text-secondary)] hover:bg-[var(--color-sidebar-hover)]"
               } ${collapsed ? "justify-center" : ""}`}
             >
               <Icon size={18} className="shrink-0" />
@@ -82,7 +82,7 @@ export function Sidebar() {
                 <>
                   <span>{item.label}</span>
                   {isComingSoon && (
-                    <span className="ml-auto text-[10px] font-semibold uppercase tracking-wider bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full">
+                    <span className="ml-auto text-[10px] font-semibold uppercase tracking-wider bg-[var(--color-warning-soft)] text-[var(--color-warning-text)] px-1.5 py-0.5 rounded-full">
                       Soon
                     </span>
                   )}

@@ -430,8 +430,6 @@ export class StockService {
       nearExpiryOnly,
       groupId,
       typeId,
-      sortBy = 'name',
-      sortDir = 'asc',
       page = 1,
       pageSize = 20,
     } = query;

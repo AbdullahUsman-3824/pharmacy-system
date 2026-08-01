@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useParams } from "next/navigation";
-import { ProductForm } from "@/components/products/ProductForm";
+import { ProductForm } from "@/components/features/products/ProductForm";
 import { useProduct, useUpdateProduct } from "@/hooks/useProducts";
 
 export default function EditProductPage() {

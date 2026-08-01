@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { cn } from "@/lib/cn";
 
 const tabs = [
   { label: "Products", href: "/products" },
@@ -15,23 +16,25 @@ export function ProductsTabs() {
   const pathname = usePathname();
 
   return (
-    <div className="flex gap-6 border-b border-border">
+    <nav className="flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-card)] p-1 shadow-[var(--shadow-xs)]">
       {tabs.map((tab) => {
         const active = pathname === tab.href;
+
         return (
           <Link
             key={tab.href}
             href={tab.href}
-            className={`-mb-px border-b-2 pb-3 text-sm font-medium ${
+            className={cn(
+              "rounded-[var(--radius-sm)] px-4 py-2 text-sm font-medium transition-all duration-200",
               active
-                ? "border-brand text-brand"
-                : "border-transparent text-ink-500 hover:text-ink-700"
-            }`}
+                ? "bg-[var(--color-primary)] text-white shadow-[var(--shadow-sm)]"
+                : "text-[var(--color-text-muted)] hover:bg-[var(--color-background-muted)] hover:text-[var(--color-text)]",
+            )}
           >
             {tab.label}
           </Link>
         );
       })}
-    </div>
+    </nav>
   );
 }

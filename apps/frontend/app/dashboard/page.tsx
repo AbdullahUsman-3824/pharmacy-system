@@ -1,12 +1,23 @@
 "use client";
 
 import { useEffect } from "react";
-import { toast } from "sonner";
 import { RefreshCw } from "lucide-react";
-import { StatCard } from "@/components/dashboard/StatCard";
-import { RecentSales } from "@/components/dashboard/RecentSales";
+import { toast } from "sonner";
+
+import Button from "@/components/ui/button";
+
+import { PageContainer, PageHeader, PageSection } from "@/components/layout";
+
+import { StatGrid } from "@/components/shared/stat-grid";
+
+import { StatCard } from "@/components/features/dashboard/stat-card";
+import { RecentSales } from "@/components/features/dashboard/recent-sales";
+
+import LoadingState from "@/components/shared/loading-state";
+
 import { useDashboard } from "@/hooks/useDashboard";
-import type { StatCardData, RecentSale } from "@/lib/types";
+
+import type { RecentSale, StatCardData } from "@/lib/types";
 
 export default function DashboardPage() {
   const { data, isLoading, isFetching, isError, refetch } = useDashboard();
@@ -17,34 +28,17 @@ export default function DashboardPage() {
     if (nearExpiryCount && nearExpiryCount > 0) {
       toast.warning(
         `${nearExpiryCount} batch${nearExpiryCount === 1 ? "" : "es"} expiring within 30 days`,
-        {
-          description:
-            "Stock module me check karein — FEFO order me nikalna hai.",
-          duration: 6000,
-        },
+        { duration: 6000 },
       );
     }
   }, [nearExpiryCount]);
 
   if (isLoading) {
-    return (
-      <div className="grid grid-cols-4 gap-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-24 rounded-lg bg-muted animate-pulse" />
-        ))}
-      </div>
-    );
+    return <LoadingState message="Loading dashboard..." />;
   }
 
   if (isError || !data) {
-    return (
-      <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-        Dashboard data load nahi ho saki.{" "}
-        <button onClick={() => refetch()} className="underline">
-          Retry
-        </button>
-      </div>
-    );
+    return <div>Error loading dashboard.</div>;
   }
 
   const stats: (StatCardData & { id: string })[] = [
@@ -74,36 +68,41 @@ export default function DashboardPage() {
     },
   ];
 
-  const recentSalesForTable: RecentSale[] = data.recentSales.map((s) => ({
-    id: s.id,
-    invoice: s.saleNumber,
-    amount: `Rs ${s.totalAmount.toLocaleString()}`,
+  const recentSales: RecentSale[] = data.recentSales.map((sale) => ({
+    id: sale.id,
+    invoice: sale.saleNumber,
+    amount: `Rs ${sale.totalAmount.toLocaleString()}`,
   }));
 
   return (
-    <>
-      <div className="flex items-center justify-end">
-        <button
+    <PageContainer>
+      <PageHeader
+        title="Dashboard"
+        description="Overview of today's pharmacy activity."
+      >
+        <Button
+          variant="secondary"
           onClick={() => refetch()}
           disabled={isFetching}
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
         >
           <RefreshCw
-            className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`}
+            className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
           />
           Refresh
-        </button>
-      </div>
+        </Button>
+      </PageHeader>
 
-      <div className="grid grid-cols-4 gap-4 mt-2">
-        {stats.map((stat) => (
-          <StatCard key={stat.id} {...stat} />
-        ))}
-      </div>
+      <PageSection>
+        <StatGrid>
+          {stats.map((stat) => (
+            <StatCard key={stat.id} {...stat} />
+          ))}
+        </StatGrid>
+      </PageSection>
 
-      <div className="mt-4">
-        <RecentSales sales={recentSalesForTable} />
-      </div>
-    </>
+      <PageSection title="Recent Sales">
+        <RecentSales sales={recentSales} />
+      </PageSection>
+    </PageContainer>
   );
 }

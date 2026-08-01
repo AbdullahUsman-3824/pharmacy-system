@@ -1,49 +1,167 @@
 @import "tailwindcss";
 
-@theme {
-  /* surfaces */
-  --color-surface-page: #f4f5f7;
-  --color-surface-card: #ffffff;
-  --color-surface-sunken: #f8f9fb;
-  --color-surface-sidebar: #ffffff;
+:root {
+  /* ==========================================================
+     TYPOGRAPHY
+     ========================================================== */
 
-  /* borders */
-  --color-border: #e6e8ec;
-  --color-border-soft: #d2d4d6;
-
-  /* text / ink */
-  --color-ink-900: #111418;
-  --color-ink-700: #3a3f47;
-  --color-ink-500: #6b7280;
-  --color-ink-400: #9aa0aa;
-
-  /* brand */
-  --color-brand: #2f6fed;
-  --color-brand-50: #eaf1fe;
-  --color-brand-600: #2f6fed;
-  --color-brand-700: #2559c7;
-
-  /* warn */
-  --color-warn-bg: #fef6e7;
-  --color-warn-border: #f6e2b3;
-  --color-warn-text: #a15c00;
-  --color-warn-strong: #b8790a;
-
-  /* danger */
-  --color-danger-bg: #fdeeee;
-  --color-danger-border: #f3cfcf;
-  --color-danger-text: #b3261e;
-  --color-danger-strong: #c22b22;
-
-  --color-success: #1aa153;
-
-  /* shadows */
-  --shadow-panel: 0 1px 2px rgba(16, 24, 40, 0.04);
-  --shadow-card: 0 1px 3px rgba(16, 24, 40, 0.06);
-
-  /* font */
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter,
+  --font-sans:
+    Inter, "Segoe UI", -apple-system, BlinkMacSystemFont,
     system-ui, sans-serif;
+
+  /* ==========================================================
+     PRIMARY BRAND
+     Pharmacy Blue
+     ========================================================== */
+
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-active: #1e40af;
+  --color-primary-soft: #eff6ff;
+  --color-primary-border: #bfdbfe;
+
+  /* ==========================================================
+     BACKGROUNDS
+     ========================================================== */
+
+  --color-background: #f6f8fb;
+  --color-background-muted: #f9fafb;
+
+  --color-card: #ffffff;
+  --color-card-hover: #fcfcfd;
+
+  --color-sidebar: #ffffff;
+  --color-sidebar-hover: #f4f7fb;
+  --color-sidebar-active: #eaf2ff;
+
+  --color-header: #ffffff;
+
+  /* ==========================================================
+     TEXT
+     ========================================================== */
+
+  --color-text: #111827;
+  --color-text-secondary: #374151;
+  --color-text-muted: #6b7280;
+  --color-text-placeholder: #9ca3af;
+  --color-text-disabled: #c0c4cc;
+
+  /* ==========================================================
+     BORDER
+     ========================================================== */
+
+  --color-border: #e5e7eb;
+  --color-border-light: #f1f5f9;
+  --color-border-dark: #d1d5db;
+
+  /* ==========================================================
+     SUCCESS
+     ========================================================== */
+
+  --color-success: #16a34a;
+  --color-success-soft: #ecfdf5;
+  --color-success-border: #bbf7d0;
+  --color-success-text: #15803d;
+
+  /* ==========================================================
+     WARNING
+     ========================================================== */
+
+  --color-warning: #d97706;
+  --color-warning-soft: #fff7ed;
+  --color-warning-border: #fed7aa;
+  --color-warning-text: #b45309;
+
+  /* ==========================================================
+     DANGER
+     ========================================================== */
+
+  --color-danger: #dc2626;
+  --color-danger-soft: #fef2f2;
+  --color-danger-border: #fecaca;
+  --color-danger-text: #b91c1c;
+
+  /* ==========================================================
+     INFO
+     ========================================================== */
+
+  --color-info: #0284c7;
+  --color-info-soft: #f0f9ff;
+  --color-info-border: #bae6fd;
+  --color-info-text: #0369a1;
+
+  /* ==========================================================
+     TABLE STATES
+     ========================================================== */
+
+  --color-row-hover: #f8fafc;
+  --color-row-selected: #eff6ff;
+
+  /* ==========================================================
+     INPUTS
+     ========================================================== */
+
+  --color-input: #ffffff;
+  --color-input-hover: #ffffff;
+  --color-input-focus: #ffffff;
+
+  /* ==========================================================
+     SHADOWS
+     ========================================================== */
+
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.03);
+
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05);
+
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06);
+
+  --shadow-lg: 0 10px 24px rgba(15, 23, 42, 0.08);
+
+  /* ==========================================================
+     RADIUS
+     ========================================================== */
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* ==========================================================
+     TRANSITIONS
+     ========================================================== */
+
+  --transition-fast: 150ms ease;
+  --transition-normal: 220ms ease;
+
+  /* ==========================================================
+     LAYOUT
+     ========================================================== */
+
+  --page-padding: 2rem;
+  --section-gap: 1.5rem;
+  --card-padding: 1.5rem;
+
+  --sidebar-width: 18rem;
+  --header-height: 64px;
+
+
+  /* Compatibility */
+
+--color-surface-page: var(--color-background);
+--color-surface-card: var(--color-card);
+--color-surface-sidebar: var(--color-sidebar);
+
+--color-brand: var(--color-primary);
+--color-brand-600: var(--color-primary);
+--color-brand-700: var(--color-primary-hover);
+
+--color-ink-900: var(--color-text);
+--color-ink-700: var(--color-text-secondary);
+--color-ink-500: var(--color-text-muted);
+
+--color-warn-bg: var(--color-warning-soft);
+--color-danger-bg: var(--color-danger-soft);
 }
 
 html,
@@ -52,43 +170,68 @@ body {
 }
 
 body {
-  background-color: var(--color-surface-page);
-  color: var(--color-ink-900);
+  background: var(--color-background);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
-/* thin scrollbars */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+::selection {
+  background: var(--color-primary);
+  color: white;
 }
 
-::-webkit-scrollbar-thumb {
-  background: #d8dbe0;
-  border-radius: 8px;
+/* ==========================================================
+   SCROLLBARS
+   ========================================================== */
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* ==========================================================
+   FOCUS
+   ========================================================== */
+
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ==========================================================
+   PRINT
+   ========================================================== */
+
 @media print {
   body {
     background: white !important;
+    color: black !important;
   }
 
-  .bg-slate-50\/50 {
-    background: white !important;
-  }
-
-  .shadow-sm {
+  * {
     box-shadow: none !important;
   }
-
-  .border {
-    border-color: #e5e7eb !important;
-  }
 }
+
+

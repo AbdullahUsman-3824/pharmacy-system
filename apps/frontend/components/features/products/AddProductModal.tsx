@@ -1,6 +1,6 @@
 "use client";
 
-import { Dialog } from "@/components/ui/Dialog";
+import { Dialog } from "@/components/ui/dialog";
 import { ProductForm } from "./ProductForm";
 import { useCreateProduct } from "@/hooks/useProducts";
 

@@ -1,4 +1,5 @@
-import { ProductsTabs } from "@/components/products/ProductsTabs";
+import { ProductsTabs } from "@/components/features/products/ProductsTabs";
+import { PageContainer, PageHeader, PageSection } from "@/components/layout";
 
 export default function ProductsLayout({
   children,
@@ -6,9 +7,15 @@ export default function ProductsLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-4">
-      <ProductsTabs />
-      {children}
-    </div>
+    <PageContainer>
+      <PageHeader
+        title="Products Catalog"
+        description="Maintain your product catalog and related information."
+      />
+      <PageSection>
+        <ProductsTabs />
+        {children}
+      </PageSection>
+    </PageContainer>
   );
 }

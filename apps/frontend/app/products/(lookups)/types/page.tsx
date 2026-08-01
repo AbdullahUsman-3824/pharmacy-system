@@ -1,4 +1,4 @@
-import { LookupTable } from "@/components/products/lookup/LookupTable";
+import { LookupTable } from "@/components/features/products/lookup/LookupTable";
 import { LookupType } from "@repo/shared/types/lookups";
 
 export default function TypesPage() {

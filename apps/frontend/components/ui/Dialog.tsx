@@ -1,43 +1,98 @@
-"use client";
-
-import { X } from "lucide-react";
-import { useEffect } from "react";
+import { ReactNode, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 interface DialogProps {
-  open: boolean;
+  isOpen: boolean;
   onClose: () => void;
-  title: string;
-  children: React.ReactNode;
-  widthClassName?: string;
+  title?: string;
+  children: ReactNode;
+  size?: "sm" | "md" | "lg" | "xl";
+  closeOnOverlayClick?: boolean;
 }
 
-export function Dialog({ open, onClose, title, children, widthClassName = "max-w-xl" }: DialogProps) {
+const Dialog = ({
+  isOpen,
+  onClose,
+  title,
+  children,
+  size = "md",
+  closeOnOverlayClick = true,
+}: DialogProps) => {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) {
+        onClose();
+      }
+    };
 
-  if (!open) return null;
+    if (isOpen) {
+      document.addEventListener("keydown", handleEscape);
+      document.body.style.overflow = "hidden";
+    }
 
-  return (
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "unset";
+    };
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  const sizes = {
+    sm: "max-w-md",
+    md: "max-w-lg",
+    lg: "max-w-2xl",
+    xl: "max-w-4xl",
+  };
+
+  const handleOverlayClick = () => {
+    if (closeOnOverlayClick) {
+      onClose();
+    }
+  };
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
-      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-200"
+      onClick={handleOverlayClick}
     >
       <div
-        className={`w-full ${widthClassName} rounded-2xl border border-border bg-surface-card p-6 shadow-card`}
+        ref={dialogRef}
+        className={`${sizes[size]} w-full mx-4 bg-[var(--color-card)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] transition-transform duration-200 transform`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-ink-900">{title}</h2>
-          <button onClick={onClose} className="text-ink-400 hover:text-ink-700">
-            <X size={18} />
-          </button>
-        </div>
-        {children}
+        {title && (
+          <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)]">
+            <h2 className="text-lg font-semibold text-[var(--color-text)]">
+              {title}
+            </h2>
+            <button
+              onClick={onClose}
+              className="text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors duration-200"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+        )}
+        <div className="px-6 py-4">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
-}
+};
+
+export default Dialog;

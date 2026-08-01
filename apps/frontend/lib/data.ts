@@ -10,7 +10,7 @@ import type {
 export const navItems: NavItem[] = [
   { key: "dashboard", label: "Dashboard", href: "/dashboard" },
   { key: "pos", label: "POS", href: "/pos" },
-  { key: "products", label: "Products Master", href: "/products" },
+  { key: "products", label: "Products Catalog", href: "/products" },
   { key: "stock", label: "Stock", href: "/stock" },
   { key: "sale", label: "Sale", href: "/sale" },
   {
