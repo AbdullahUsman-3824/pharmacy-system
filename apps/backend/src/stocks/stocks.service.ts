@@ -5,7 +5,12 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateStockVoucherDto } from './dto/create-stock-voucher.dto';
-import { StockVoucherType } from '@repo/shared';
+import {
+  StockVoucherType,
+  InventoryListQuery,
+  InventoryListResponse,
+  InventoryProductDto,
+} from '@repo/shared';
 
 @Injectable()
 export class StockService {
@@ -206,12 +211,6 @@ export class StockService {
     return `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   }
 
-  /**
-   * Collapses duplicate product+batch lines from the same voucher into a
-   * single merged line, summing quantity and freeQuantity separately.
-   * This prevents creating or incrementing the same batch twice within one
-   * voucher transaction.
-   */
   private mergeDuplicateItems(items: any[]): any[] {
     const grouped = new Map<string, any>();
 
@@ -420,5 +419,131 @@ export class StockService {
 
   private round2(value: number): number {
     return parseFloat(value.toFixed(2));
+  }
+
+  async getInventoryList(
+    query: InventoryListQuery,
+  ): Promise<InventoryListResponse> {
+    const {
+      search,
+      lowStockOnly,
+      nearExpiryOnly,
+      groupId,
+      typeId,
+      sortBy = 'name',
+      sortDir = 'asc',
+      page = 1,
+      pageSize = 20,
+    } = query;
+
+    const now = new Date();
+    const expiryThreshold = new Date(now);
+    expiryThreshold.setDate(expiryThreshold.getDate() + 30);
+
+    const products = await this.prisma.product.findMany({
+      where: {
+        deletedAt: null,
+        ...(groupId && { groupId }),
+        ...(typeId && { typeId }),
+        ...(search && {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { code: { contains: search, mode: 'insensitive' } },
+            { barcode: { contains: search, mode: 'insensitive' } },
+          ],
+        }),
+      },
+      include: {
+        batches: {
+          where: { deletedAt: null },
+          orderBy: { expiryDate: 'asc' }, // nulls sort last by default in Prisma/Postgres asc
+        },
+      },
+    });
+
+    let mapped: InventoryProductDto[] = products.map((p) => {
+      const totalQuantity = p.batches.reduce(
+        (sum, b) => sum + b.currentQuantity,
+        0,
+      );
+      const nearestBatch = p.batches.find((b) => b.currentQuantity > 0);
+      const hasNearExpiryBatch = p.batches.some(
+        (b) =>
+          b.currentQuantity > 0 &&
+          b.expiryDate !== null &&
+          b.expiryDate <= expiryThreshold &&
+          b.expiryDate >= now,
+      );
+
+      return {
+        productId: p.id,
+        code: p.code,
+        barcode: p.barcode,
+        name: p.name,
+        shelfNo: p.shelfNo,
+        totalQuantity,
+        retailRate: p.retailRate ? Number(p.retailRate) : null,
+        minimumStock: p.minimumStock,
+        isLowStock: totalQuantity <= p.minimumStock,
+        nearestExpiryDate: nearestBatch?.expiryDate
+          ? nearestBatch.expiryDate.toISOString()
+          : null,
+        hasNearExpiryBatch,
+        batches: p.batches.map((b) => ({
+          batchId: b.id,
+          batchNumber: b.batchNumber,
+          expiryDate: b.expiryDate ? b.expiryDate.toISOString() : null,
+          currentQuantity: b.currentQuantity,
+          purchaseRate: b.purchaseRate ? Number(b.purchaseRate) : null,
+          saleRate: b.saleRate ? Number(b.saleRate) : null,
+        })),
+      };
+    });
+    console.log('Products:', products.length);
+    console.log('Mapped:', mapped.length);
+    console.log({
+      lowStockOnly,
+      nearExpiryOnly,
+    });
+
+    if (lowStockOnly) {
+      mapped = mapped.filter((p) => p.isLowStock);
+      console.log('After lowStock:', mapped.length);
+    }
+
+    if (nearExpiryOnly) {
+      mapped = mapped.filter((p) => p.hasNearExpiryBatch);
+      console.log('After nearExpiry:', mapped.length);
+    }
+
+    // mapped.sort((a, b) => {
+    //   const dir = sortDir === 'asc' ? 1 : -1;
+    //   switch (sortBy) {
+    //     case 'totalQuantity':
+    //       return (a.totalQuantity - b.totalQuantity) * dir;
+    //     case 'retailRate':
+    //       return ((a.retailRate ?? 0) - (b.retailRate ?? 0)) * dir;
+    //     case 'nearestExpiryDate':
+    //       return (
+    //         ((a.nearestExpiryDate ?? '') > (b.nearestExpiryDate ?? '')
+    //           ? 1
+    //           : -1) * dir
+    //       );
+    //     default:
+    //       return a.name.localeCompare(b.name) * dir;
+    //   }
+    // });
+    console.log({
+      page,
+      pageSize,
+      total: mapped.length,
+    });
+    const total = mapped.length;
+    const start = (Number(page) - 1) * Number(pageSize);
+    const items = mapped.slice(start, start + Number(pageSize));
+
+    console.log('Items:', items.length);
+
+    return { items, total, page, pageSize };
   }
 }

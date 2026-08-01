@@ -1,6 +1,7 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { StockService } from './stocks.service';
 import { CreateStockVoucherDto } from './dto/create-stock-voucher.dto';
+import { InventoryListQueryDto } from './dto/inventory-list-query.dto';
 
 @Controller('stocks')
 export class StockController {
@@ -24,5 +25,10 @@ export class StockController {
   @Get('products/:productId/stock')
   getProductStock(@Param('productId') productId: string) {
     return this.stockService.getProductStock(productId);
+  }
+
+  @Get('inventory')
+  getInventory(@Query() query: InventoryListQueryDto) {
+    return this.stockService.getInventoryList(query);
   }
 }

@@ -4,3 +4,4 @@ export * from "./types/supplier";
 export * from "./types/stock";
 export * from "./types/sale";
 export * from "./types/dashboard";
+export * from "./types/inventory";
