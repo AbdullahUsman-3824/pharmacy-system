@@ -4,11 +4,11 @@ export type NavKey =
   | "pos"
   | "products"
   | "stock"
-  | "sale"
+  | "sales"
   | "customers"
   | "suppliers"
   | "reports";
-
+  
 export interface NavItem {
   key: NavKey;
   label: string;

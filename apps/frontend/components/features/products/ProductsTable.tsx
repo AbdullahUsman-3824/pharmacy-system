@@ -4,26 +4,24 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
 
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-
+import { DataTable, DataTableColumn } from "@/components/shared/data-table";
 import { useProducts, useDeleteProduct } from "@/hooks/useProducts";
 import { useLookup } from "@/hooks/useLookups";
 import { LookupEntity, LookupType } from "@repo/shared/types/lookups";
 import { SearchBar } from "./SearchBar";
+
+type Product = ReturnType<typeof useProducts>["data"] extends
+  | (infer P)[]
+  | undefined
+  ? P
+  : never;
 
 function buildLookupMap(items: LookupEntity[]) {
   return new Map(items.map((item) => [item.id, item.name]));
 }
 
 export function ProductsTable() {
-  const { data: products = [] } = useProducts();
+  const { data: products = [], isLoading } = useProducts();
 
   const { data: companies = [] } = useLookup(LookupType.Company);
   const { data: types = [] } = useLookup(LookupType.ProductType);
@@ -62,6 +60,69 @@ export function ProductsTable() {
     }
   }
 
+  const columns: DataTableColumn<Product>[] = [
+    {
+      key: "index",
+      title: "#",
+      width: 60,
+      render: (_row, index) => index + 1,
+    },
+    {
+      key: "name",
+      dataKey: "name",
+      title: "Name",
+      render: (row) => (
+        <Link
+          href={`/products/${row.id}`}
+          className="font-medium text-[var(--color-text)] hover:text-[var(--color-primary)]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {row.name}
+        </Link>
+      ),
+    },
+    {
+      key: "company",
+      title: "Company",
+      render: (row) => companyMap.get(row.companyId ?? "") ?? "—",
+    },
+    {
+      key: "type",
+      title: "Type",
+      render: (row) => typeMap.get(row.typeId ?? "") ?? "—",
+    },
+    {
+      key: "generic",
+      title: "Generic",
+      render: (row) => genericMap.get(row.genericId ?? "") ?? "—",
+    },
+    {
+      key: "retailPrice",
+      dataKey: "retailPrice",
+      title: "Retail Price",
+      align: "right",
+      width: 140,
+      render: (row) => `Rs ${Number(row.retailPrice).toLocaleString()}`,
+    },
+    {
+      key: "actions",
+      title: "",
+      width: 40,
+      align: "center",
+      render: (row) => (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDelete(row.id);
+          }}
+          className="text-[var(--color-text-placeholder)] transition-colors hover:text-[var(--color-danger-text)]"
+        >
+          <Trash2 size={16} />
+        </button>
+      ),
+    },
+  ];
+
   return (
     <div className="flex flex-col gap-4">
       <SearchBar
@@ -71,71 +132,13 @@ export function ProductsTable() {
         count={filtered.length}
       />
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>#</TableHead>
-            <TableHead>Name</TableHead>
-            <TableHead>Company</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>Generic</TableHead>
-            <TableHead className="text-right">Retail Price</TableHead>
-            <TableHead className="w-10" />
-          </TableRow>
-        </TableHeader>
-
-        <TableBody>
-          {filtered.length === 0 ? (
-            <TableRow>
-              <TableCell
-                colSpan={6}
-                className="py-8 text-center text-[var(--color-text-muted)]"
-              >
-                No products found.
-              </TableCell>
-            </TableRow>
-          ) : (
-            filtered.map((product, id) => (
-              <TableRow key={product.id}>
-                <TableCell>{id + 1}</TableCell>
-                <TableCell>
-                  <Link
-                    href={`/products/${product.id}`}
-                    className="font-medium text-[var(--color-text)] hover:text-[var(--color-primary)]"
-                  >
-                    {product.name}
-                  </Link>
-                </TableCell>
-
-                <TableCell>
-                  {companyMap.get(product.companyId ?? "") ?? "—"}
-                </TableCell>
-
-                <TableCell>
-                  {typeMap.get(product.typeId ?? "") ?? "—"}
-                </TableCell>
-
-                <TableCell>
-                  {genericMap.get(product.genericId ?? "") ?? "—"}
-                </TableCell>
-
-                <TableCell className="text-right font-medium text-[var(--color-text)]">
-                  Rs {Number(product.retailPrice).toLocaleString()}
-                </TableCell>
-
-                <TableCell>
-                  <button
-                    onClick={() => handleDelete(product.id)}
-                    className="text-[var(--color-text-placeholder)] transition-colors hover:text-[var(--color-danger-text)]"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+      <DataTable
+        columns={columns}
+        data={filtered}
+        loading={isLoading}
+        emptyTitle="No products found"
+        emptyDescription="Try adjusting your search."
+      />
     </div>
   );
 }

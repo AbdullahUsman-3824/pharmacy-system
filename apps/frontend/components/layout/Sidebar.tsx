@@ -23,13 +23,13 @@ const icons: Record<NavKey, React.ElementType> = {
   pos: Receipt,
   products: Package,
   stock: Boxes,
-  sale: ShoppingCart,
+  sales: ShoppingCart,
   customers: Users,
   suppliers: Truck,
   reports: BarChart3,
 };
 
-const collapsedByDefaultOn = ["/sale"];
+const collapsedByDefaultOn = ["/sales"];
 
 export function Sidebar() {
   const pathname = usePathname();

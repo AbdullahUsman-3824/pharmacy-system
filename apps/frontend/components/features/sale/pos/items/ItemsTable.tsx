@@ -10,7 +10,7 @@ import {
   FieldErrorsImpl,
 } from "react-hook-form";
 import { SaleFormInput, SaleItemValues } from "@/schemas/sale-form";
-import { SaleItemRow, SaleEntryRow, SaleEntryRowRef } from "../";
+import { SaleItemRow, SaleEntryRow, SaleEntryRowRef } from "..";
 import { getColumns } from "@/constants/sale/table-columns";
 import { forwardRef, Ref } from "react";
 import { PosTableFooterToolbar } from "./PosTableFooterToolbar";

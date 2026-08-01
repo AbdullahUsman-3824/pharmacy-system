@@ -9,17 +9,21 @@ import {
   type ProductFormInput,
   type ProductFormOutput,
 } from "./productSchema";
-import { SelectWithQuickAdd } from "./SelectWithQuickAdd";
 import { useLookup, useCreateLookup } from "@/hooks/useLookups";
 import { useSuppliers } from "@/hooks/useSuppliers";
 import { LookupType, CreateProductInput, ProductDto } from "@repo/shared";
+import Button from "@/components/ui/button";
+import Checkbox from "@/components/ui/checkbox";
+import Input from "@/components/ui/input";
+import { FormSection } from "@/components/ui/form-section";
+import { LookupSelect } from "@/components/ui/lookup-select";
 
 export type ProductFormMode = "create" | "edit" | "view";
 
 interface ProductFormProps {
   mode?: ProductFormMode;
   initialData?: ProductDto;
-  onSubmit: (values: CreateProductInput) => Promise<void>;
+  onSubmit: (values: CreateProductInput) => void | Promise<void>;
   onCancel: () => void;
 }
 
@@ -28,6 +32,13 @@ const DEFAULT_VALUES: Partial<ProductFormInput> = {
   nivFormulary: false,
   packingSize: 1,
 };
+
+function toLookupOptions(items: Array<{ id: string; name: string }>) {
+  return items.map((item) => ({
+    value: item.id,
+    label: item.name,
+  }));
+}
 
 export function ProductForm({
   mode,
@@ -47,6 +58,12 @@ export function ProductForm({
   const { mutate: createType } = useCreateLookup(LookupType.ProductType);
   const { mutate: createGroup } = useCreateLookup(LookupType.ProductGroup);
   const { mutate: createGeneric } = useCreateLookup(LookupType.Generic);
+
+  const companyOptions = toLookupOptions(companies);
+  const typeOptions = toLookupOptions(types);
+  const groupOptions = toLookupOptions(groups);
+  const genericOptions = toLookupOptions(generics);
+  const supplierOptions = toLookupOptions(suppliers);
 
   const {
     register,
@@ -105,416 +122,292 @@ export function ProductForm({
       onSubmit={handleSubmit(submit, (errors) => {
         console.log("Validation Errors:", errors);
       })}
-      className="flex flex-col gap-5"
+      className="flex flex-col gap-2"
     >
       <fieldset disabled={isReadOnly} className="contents">
-        <div className="grid grid-cols-2 gap-6">
-          <div className="flex flex-col gap-3 ">
-            <Controller
-              name="companyId"
-              control={control}
-              render={({ field }) => (
-                <SelectWithQuickAdd
-                  label="Company *"
-                  placeholder="Select company"
-                  options={companies}
-                  value={field.value ?? null}
-                  onChange={field.onChange}
-                  disabled={isReadOnly}
-                  onQuickAdd={(n) =>
-                    createCompany(n, {
-                      onSuccess: (c) => field.onChange(c.id),
-                    })
-                  }
+        <div className="grid gap-6 xl:grid-cols-2">
+          <div className="space-y-6">
+            <FormSection
+              title="Product identity"
+              description="Core lookup values and identifiers for the catalog record."
+            >
+              <div className="space-y-4">
+                <Controller
+                  name="companyId"
+                  control={control}
+                  render={({ field }) => (
+                    <LookupSelect
+                      label="Company *"
+                      placeholder="Select company"
+                      options={companyOptions}
+                      value={field.value ?? null}
+                      onChange={field.onChange}
+                      error={errors.companyId?.message}
+                      disabled={isReadOnly}
+                      onQuickAdd={(name) =>
+                        createCompany(name, {
+                          onSuccess: (company) => field.onChange(company.id),
+                        })
+                      }
+                    />
+                  )}
                 />
-              )}
-            />
-            {errors.companyId && (
-              <p className="text-xs text-danger-strong">
-                {errors.companyId.message}
-              </p>
-            )}
 
-            <Controller
-              name="typeId"
-              control={control}
-              render={({ field }) => (
-                <SelectWithQuickAdd
-                  label="Type *"
-                  placeholder="Select type"
-                  options={types}
-                  value={field.value ?? null}
-                  onChange={field.onChange}
-                  disabled={isReadOnly}
-                  onQuickAdd={(n) =>
-                    createType(n, { onSuccess: (t) => field.onChange(t.id) })
-                  }
+                <Controller
+                  name="typeId"
+                  control={control}
+                  render={({ field }) => (
+                    <LookupSelect
+                      label="Type *"
+                      placeholder="Select type"
+                      options={typeOptions}
+                      value={field.value ?? null}
+                      onChange={field.onChange}
+                      error={errors.typeId?.message}
+                      disabled={isReadOnly}
+                      onQuickAdd={(name) =>
+                        createType(name, {
+                          onSuccess: (type) => field.onChange(type.id),
+                        })
+                      }
+                    />
+                  )}
                 />
-              )}
-            />
-            {errors.typeId && (
-              <p className="text-xs text-danger-strong">
-                {errors.typeId.message}
-              </p>
-            )}
 
-            <div>
-              <label className="mb-1.5 block text-sm text-ink-500">
-                Code *
-              </label>
-              <input
-                {...register("code")}
-                placeholder="Product code"
-                className="w-full rounded-lg border border-border bg-surface-sunken px-3 py-2.5 text-sm focus:outline-none disabled:bg-gray-100 disabled:text-ink-500"
-              />
-              {errors.code && (
-                <p className="text-xs text-danger-strong">
-                  {errors.code.message}
-                </p>
-              )}
-            </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Input
+                    label="Code *"
+                    placeholder="Product code"
+                    error={errors.code?.message}
+                    {...register("code")}
+                  />
+                  <Input
+                    label="Name *"
+                    placeholder="e.g. Panadol 500mg"
+                    error={errors.name?.message}
+                    {...register("name")}
+                  />
+                </div>
 
-            <div>
-              <label className="mb-1.5 block text-sm text-ink-500">
-                Name *
-              </label>
-              <input
-                {...register("name")}
-                placeholder="e.g. Panadol 500mg"
-                className="w-full rounded-lg border border-border bg-surface-sunken px-3 py-2.5 text-sm focus:outline-none disabled:bg-gray-100 disabled:text-ink-500"
-              />
-              {errors.name && (
-                <p className="text-xs text-danger-strong">
-                  {errors.name.message}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-sm text-ink-500">
-                Barcode
-              </label>
-              <input
-                {...register("barcode")}
-                className="w-full rounded-lg border border-border bg-surface-sunken px-3 py-2.5 text-sm focus:outline-none disabled:bg-gray-100 disabled:text-ink-500"
-              />
-              {errors.barcode && (
-                <p className="text-xs text-danger-strong">
-                  {errors.barcode.message}
-                </p>
-              )}
-            </div>
-
-            <Controller
-              name="groupId"
-              control={control}
-              render={({ field }) => (
-                <SelectWithQuickAdd
-                  label="Group"
-                  placeholder="Select group"
-                  options={groups}
-                  value={field.value ?? null}
-                  onChange={field.onChange}
-                  disabled={isReadOnly}
-                  onQuickAdd={(n) =>
-                    createGroup(n, { onSuccess: (g) => field.onChange(g.id) })
-                  }
+                <Input
+                  label="Barcode"
+                  error={errors.barcode?.message}
+                  {...register("barcode")}
                 />
-              )}
-            />
-            {errors.groupId && (
-              <p className="text-xs text-danger-strong">
-                {errors.groupId.message}
-              </p>
-            )}
-            <Controller
-              name="genericId"
-              control={control}
-              render={({ field }) => (
-                <SelectWithQuickAdd
-                  label="Generic"
-                  placeholder="Select generic"
-                  options={generics}
-                  value={field.value ?? null}
-                  onChange={field.onChange}
-                  disabled={isReadOnly}
-                  onQuickAdd={(n) =>
-                    createGeneric(n, {
-                      onSuccess: (g) => field.onChange(g.id),
-                    })
-                  }
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Controller
+                    name="groupId"
+                    control={control}
+                    render={({ field }) => (
+                      <LookupSelect
+                        label="Group"
+                        placeholder="Select group"
+                        options={groupOptions}
+                        value={field.value ?? null}
+                        onChange={field.onChange}
+                        error={errors.groupId?.message}
+                        disabled={isReadOnly}
+                        onQuickAdd={(name) =>
+                          createGroup(name, {
+                            onSuccess: (group) => field.onChange(group.id),
+                          })
+                        }
+                      />
+                    )}
+                  />
+
+                  <Controller
+                    name="genericId"
+                    control={control}
+                    render={({ field }) => (
+                      <LookupSelect
+                        label="Generic"
+                        placeholder="Select generic"
+                        options={genericOptions}
+                        value={field.value ?? null}
+                        onChange={field.onChange}
+                        error={errors.genericId?.message}
+                        disabled={isReadOnly}
+                        onQuickAdd={(name) =>
+                          createGeneric(name, {
+                            onSuccess: (generic) => field.onChange(generic.id),
+                          })
+                        }
+                      />
+                    )}
+                  />
+                </div>
+
+                <Controller
+                  name="defaultSupplierId"
+                  control={control}
+                  render={({ field }) => (
+                    <LookupSelect
+                      label="Supplier"
+                      placeholder="Select supplier"
+                      options={supplierOptions}
+                      value={field.value ?? null}
+                      onChange={field.onChange}
+                      disabled={isReadOnly}
+                    />
+                  )}
                 />
-              )}
-            />
-            {errors.genericId && (
-              <p className="text-xs text-danger-strong">
-                {errors.genericId.message}
-              </p>
-            )}
-            <Controller
-              name="defaultSupplierId"
-              control={control}
-              render={({ field }) => (
-                <SelectWithQuickAdd
-                  label="Supplier"
-                  placeholder="Select supplier"
-                  options={suppliers}
-                  value={field.value ?? null}
-                  onChange={field.onChange}
-                  disabled={isReadOnly}
-                />
-              )}
-            />
+              </div>
+            </FormSection>
+
+            <FormSection
+              title="Catalog details"
+              description="Reference data that appears on product and invoice records."
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                <Input label="Reg. No." {...register("registrationNo")} />
+                <Input label="Org. Ref." {...register("originalReference")} />
+              </div>
+            </FormSection>
           </div>
 
-          <div className="flex flex-col gap-4">
-            <div className="rounded-lg border border-border-soft p-4 relative">
-              <p className="mb-3 text-sm font-semibold text-ink-700 absolute -top-3 bg-surface-page px-2">
-                Packing
-              </p>
-              <div className="flex flex-col gap-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1 block text-xs text-ink-500">
-                      Size *
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      step={1}
-                      {...register("packingSize", {
-                        valueAsNumber: true,
-                        min: {
-                          value: 1,
-                          message: "Packing size must be greater than 0",
-                        },
-                      })}
-                      className="w-full rounded-lg border border-border bg-surface-sunken px-3 py-2 text-sm focus:outline-none disabled:bg-gray-100 disabled:text-ink-500"
-                    />
-                    {errors.packingSize && (
-                      <p className="text-xs text-danger-strong">
-                        {errors.packingSize.message}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-ink-500">
-                      Retail Price
-                    </label>
-                    <input
-                      type="number"
-                      step="any"
-                      {...register("retailPrice")}
-                      className="w-full rounded-lg border border-border bg-surface-sunken px-3 py-2 text-sm focus:outline-none disabled:bg-gray-100 disabled:text-ink-500"
-                    />
-                    {errors.retailPrice && (
-                      <p className="text-xs text-danger-strong">
-                        {errors.retailPrice.message}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1 block text-xs text-ink-500">
-                      Retail Dis. %
-                    </label>
-                    <input
-                      type="number"
-                      max={100}
-                      step="any"
-                      {...register("retailDiscount")}
-                      className="w-full rounded-lg border border-border bg-surface-sunken px-3 py-2 text-sm focus:outline-none disabled:bg-gray-100 disabled:text-ink-500"
-                    />
-                    {errors.retailDiscount && (
-                      <p className="text-xs text-danger-strong">
-                        {errors.retailDiscount.message}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-ink-500">
-                      Trade Price
-                    </label>
-                    <input
-                      type="number"
-                      readOnly
-                      {...register("tradePrice")}
-                      className="w-full rounded-lg border border-border bg-gray-100 px-3 py-2 text-sm focus:outline-none"
-                    />
-                    {errors.tradePrice && (
-                      <p className="text-xs text-danger-strong">
-                        {errors.tradePrice.message}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div className="space-y-6">
+            <FormSection
+              title="Packing & pricing"
+              description="Pack size and the derived retail/trade pricing fields."
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                <Input
+                  type="number"
+                  label="Size *"
+                  min={1}
+                  step={1}
+                  error={errors.packingSize?.message}
+                  {...register("packingSize", {
+                    valueAsNumber: true,
+                    min: {
+                      value: 1,
+                      message: "Packing size must be greater than 0",
+                    },
+                  })}
+                />
 
-            <div className="rounded-lg border border-border-soft p-4 relative mt-2">
-              <p className="mb-3 text-sm font-semibold text-ink-700 absolute -top-3 bg-surface-page px-2">
-                Unit Rate
-              </p>
-              <div className="flex flex-col gap-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1 block text-xs text-ink-500">
-                      Retail Rate
-                    </label>
-                    <input
-                      type="number"
-                      readOnly
-                      {...register("retailRate")}
-                      className="w-full rounded-lg border border-border bg-gray-100 px-3 py-2 text-sm focus:outline-none"
+                <Input
+                  type="number"
+                  label="Retail Price"
+                  step="any"
+                  error={errors.retailPrice?.message}
+                  {...register("retailPrice")}
+                />
+
+                <Input
+                  type="number"
+                  label="Retail Dis. %"
+                  min={0}
+                  max={100}
+                  step="any"
+                  error={errors.retailDiscount?.message}
+                  {...register("retailDiscount")}
+                />
+
+                <Input
+                  type="number"
+                  label="Trade Price"
+                  readOnly
+                  error={errors.tradePrice?.message}
+                  className="bg-[var(--color-background-muted)] text-[var(--color-text-secondary)]"
+                  {...register("tradePrice")}
+                />
+
+                <Input
+                  type="number"
+                  label="Retail Rate"
+                  readOnly
+                  error={errors.retailRate?.message}
+                  className="bg-[var(--color-background-muted)] text-[var(--color-text-secondary)]"
+                  {...register("retailRate")}
+                />
+
+                <Input
+                  type="number"
+                  label="Trade Rate"
+                  readOnly
+                  error={errors.tradeRate?.message}
+                  className="bg-[var(--color-background-muted)] text-[var(--color-text-secondary)]"
+                  {...register("tradeRate")}
+                />
+
+                <Input
+                  type="number"
+                  label="Counter Rate %"
+                  min={0}
+                  max={100}
+                  step="any"
+                  error={errors.counterRatePercent?.message}
+                  {...register("counterRatePercent")}
+                />
+
+                <Input
+                  type="number"
+                  label="Org. Rate %"
+                  min={0}
+                  max={100}
+                  step="any"
+                  error={errors.orgRatePercent?.message}
+                  {...register("orgRatePercent")}
+                />
+              </div>
+            </FormSection>
+
+            <FormSection
+              title="Inventory & flags"
+              description="Stock limits and product availability controls."
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                <Input
+                  type="number"
+                  label="Min. Level"
+                  min={0}
+                  step={1}
+                  error={errors.minimumStock?.message}
+                  {...register("minimumStock")}
+                />
+                <Input
+                  type="number"
+                  label="Max. Level"
+                  min={0}
+                  step={1}
+                  error={errors.maximumStock?.message}
+                  {...register("maximumStock")}
+                />
+                <Input
+                  type="number"
+                  label="Shelf No."
+                  min={1}
+                  step={1}
+                  error={errors.shelfNo?.message}
+                  {...register("shelfNo")}
+                />
+
+                <div className="rounded-[var(--radius-md)] border border-[var(--color-border-light)] bg-[var(--color-background-muted)]/40 p-4">
+                  <div className="space-y-3">
+                    <Checkbox
+                      label="NIV Formulary"
+                      {...register("nivFormulary")}
                     />
-                    {errors.retailRate && (
-                      <p className="text-xs text-danger-strong">
-                        {errors.retailRate.message}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-ink-500">
-                      Trade Rate
-                    </label>
-                    <input
-                      type="number"
-                      readOnly
-                      {...register("tradeRate")}
-                      className="w-full rounded-lg border border-border bg-gray-100 px-3 py-2 text-sm focus:outline-none"
-                    />
-                    {errors.tradeRate && (
-                      <p className="text-xs text-danger-strong">
-                        {errors.tradeRate.message}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1 block text-xs text-ink-500">
-                      Counter Rate %
-                    </label>
-                    <input
-                      type="number"
-                      {...register("counterRatePercent")}
-                      className="w-full rounded-lg border border-border bg-surface-sunken px-3 py-2 text-sm focus:outline-none disabled:bg-gray-100 disabled:text-ink-500"
-                    />
-                    {errors.counterRatePercent && (
-                      <p className="text-xs text-danger-strong">
-                        {errors.counterRatePercent.message}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-ink-500">
-                      Org. Rate %
-                    </label>
-                    <input
-                      type="number"
-                      {...register("orgRatePercent")}
-                      className="w-full rounded-lg border border-border bg-surface-sunken px-3 py-2 text-sm focus:outline-none disabled:bg-gray-100 disabled:text-ink-500"
-                    />
-                    {errors.orgRatePercent && (
-                      <p className="text-xs text-danger-strong">
-                        {errors.orgRatePercent.message}
-                      </p>
-                    )}
+                    <Checkbox label="Active" {...register("isActive")} />
                   </div>
                 </div>
               </div>
-            </div>
-            <div className="rounded-lg border border-border-soft p-4 relative mt-2">
-              <p className="mb-3 text-sm font-semibold text-ink-700 absolute -top-3 bg-surface-page px-2">
-                Additional Details
-              </p>
-              <div className="flex flex-col gap-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1.5 block text-sm text-ink-500">
-                      Reg. No.
-                    </label>
-                    <input
-                      {...register("registrationNo")}
-                      className="w-full rounded-lg border border-border bg-surface-sunken px-3 py-2.5 text-sm focus:outline-none disabled:bg-gray-100 disabled:text-ink-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-sm text-ink-500">
-                      Org. Ref.
-                    </label>
-                    <input
-                      {...register("originalReference")}
-                      className="w-full rounded-lg border border-border bg-surface-sunken px-3 py-2.5 text-sm focus:outline-none disabled:bg-gray-100 disabled:text-ink-500"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1.5 block text-sm text-ink-500">
-                      Min. Level
-                    </label>
-                    <input
-                      type="number"
-                      {...register("minimumStock")}
-                      className="w-full rounded-lg border border-border bg-surface-sunken px-3 py-2.5 text-sm focus:outline-none disabled:bg-gray-100 disabled:text-ink-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-sm text-ink-500">
-                      Max. Level
-                    </label>
-                    <input
-                      type="number"
-                      {...register("maximumStock")}
-                      className="w-full rounded-lg border border-border bg-surface-sunken px-3 py-2.5 text-sm focus:outline-none disabled:bg-gray-100 disabled:text-ink-500"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1.5 block text-sm text-ink-500">
-                      Shelf No.
-                    </label>
-                    <input
-                      type="number"
-                      {...register("shelfNo")}
-                      className="w-full rounded-lg border border-border bg-surface-sunken px-3 py-2.5 text-sm focus:outline-none disabled:bg-gray-100 disabled:text-ink-500"
-                    />
-                  </div>
-                  <div className="flex flex-col justify-end gap-2 pb-1">
-                    <label className="flex items-center gap-2 text-sm text-ink-700">
-                      <input type="checkbox" {...register("nivFormulary")} />
-                      NIV Formulary
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-ink-700">
-                      <input type="checkbox" {...register("isActive")} />
-                      Active
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </div>
+            </FormSection>
           </div>
         </div>
       </fieldset>
 
-      <div className="mt-2 flex justify-end gap-3 pt-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-ink-700 hover:bg-surface-sunken"
-        >
+      <div className="mt-1 flex flex-col gap-3 border-t border-[var(--color-border-light)] pt-4 sm:flex-row sm:justify-end">
+        <Button type="button" onClick={onCancel} variant="outline">
           {isReadOnly ? "Close" : "Cancel"}
-        </button>
+        </Button>
         {!isReadOnly && (
-          <button
-            type="submit"
-            className="rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
-          >
+          <Button type="submit" variant="primary">
             {mode === "edit" ? "Update Product" : "Save Product"}
-          </button>
+          </Button>
         )}
       </div>
     </form>

@@ -23,7 +23,7 @@ import {
   SaleSummaryRef,
 } from ".";
 import { useHeldInvoices } from "@/lib/context/HeldInvoicesContext";
-import { RecallHeldPopover, SaleCompleteModal, CompletedSale } from "./";
+import { RecallHeldPopover, SaleCompleteModal, CompletedSale } from ".";
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;

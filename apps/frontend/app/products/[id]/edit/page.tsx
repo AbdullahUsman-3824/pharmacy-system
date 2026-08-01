@@ -1,48 +1,67 @@
 "use client";
 
-import { useRouter, useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+
+import Button from "@/components/ui/button";
+
+import { PageContainer, PageHeader, PageSection } from "@/components/layout";
+
+import LoadingState from "@/components/shared/loading-state";
+import EmptyState from "@/components/shared/empty-state";
+
 import { ProductForm } from "@/components/features/products/ProductForm";
+
 import { useProduct, useUpdateProduct } from "@/hooks/useProducts";
 
 export default function EditProductPage() {
   const router = useRouter();
+
   const { id } = useParams<{ id: string }>();
+
   const { data: product, isLoading, isError } = useProduct(id);
+
   const { mutate: updateProduct } = useUpdateProduct();
 
   return (
-    <div className="mx-auto max-w-4xl p-3">
-      <div className="mb-6 flex justify-between items-center">
-        <h1 className="text-xl font-semibold text-ink-900">Edit Product</h1>
-        <button
-          onClick={() => router.back()}
-          className="text-sm text-brand hover:text-ink-700"
-        >
-          ← Back
-        </button>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title="Edit Product"
+        description="Update product information."
+      >
+        <Button variant="secondary" onClick={() => router.back()}>
+          Cancel
+        </Button>
+      </PageHeader>
 
-      {isLoading && <p className="text-sm text-ink-500">Loading product…</p>}
+      <PageSection>
+        {isLoading && <LoadingState />}
 
-      {isError && (
-        <p className="text-sm text-danger-strong">
-          Couldn&apos;t load this product.
-        </p>
-      )}
+        {isError && (
+          <EmptyState
+            title="Couldn't load product"
+            description="Please try again."
+          />
+        )}
 
-      {product && (
-        <ProductForm
-          mode="edit"
-          initialData={product}
-          onSubmit={(values) => {
-            updateProduct(
-              { id, input: values },
-              { onSuccess: () => router.push(`/products/${id}`) },
-            );
-          }}
-          onCancel={() => router.back()}
-        />
-      )}
-    </div>
+        {product && (
+          <ProductForm
+            mode="edit"
+            initialData={product}
+            onSubmit={(values) => {
+              updateProduct(
+                {
+                  id,
+                  input: values,
+                },
+                {
+                  onSuccess: () => router.push(`/products/${id}`),
+                },
+              );
+            }}
+            onCancel={() => router.back()}
+          />
+        )}
+      </PageSection>
+    </PageContainer>
   );
 }

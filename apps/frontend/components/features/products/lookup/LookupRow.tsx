@@ -36,11 +36,11 @@ export function LookupRow({ index, item, onSave, onDelete }: LookupRowProps) {
 
   if (editing) {
     return (
-      <TableRow className="bg-[var(--color-primary-soft)]">
-        <TableCell className="text-[var(--color-text-muted)]">
+      <TableRow className="border-b border-[var(--color-border-light)] bg-[var(--color-primary-soft)] last:border-b-0">
+        <TableCell className="px-5 py-3 text-sm text-[var(--color-text-muted)]">
           {index}
         </TableCell>
-        <TableCell>
+        <TableCell className="px-5 py-3">
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -49,7 +49,7 @@ export function LookupRow({ index, item, onSave, onDelete }: LookupRowProps) {
             className="w-full rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-1.5 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-placeholder)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2 transition-all duration-200"
           />
         </TableCell>
-        <TableCell className="text-center">
+        <TableCell className="px-5 py-3 text-center">
           <div className="flex items-center justify-center gap-2">
             <button
               onClick={save}
@@ -72,12 +72,14 @@ export function LookupRow({ index, item, onSave, onDelete }: LookupRowProps) {
   }
 
   return (
-    <TableRow className="hover:bg-[var(--color-row-hover)] transition-colors duration-200">
-      <TableCell className="text-[var(--color-text-muted)]">{index}</TableCell>
-      <TableCell className="font-medium text-[var(--color-text)]">
+    <TableRow className="border-b border-[var(--color-border-light)] transition-colors last:border-b-0 hover:bg-[var(--color-row-hover)]">
+      <TableCell className="px-5 py-3 text-sm text-[var(--color-text-muted)]">
+        {index}
+      </TableCell>
+      <TableCell className="px-5 py-3 text-sm font-medium text-[var(--color-text)]">
         {item.name}
       </TableCell>
-      <TableCell className="text-center">
+      <TableCell className="px-5 py-3 text-center">
         <div className="flex items-center justify-center gap-2">
           <button
             onClick={() => setEditing(true)}

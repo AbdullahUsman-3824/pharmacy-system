@@ -67,43 +67,52 @@ export function LookupTable({
         count={items.length}
       />
 
-      <div className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-card)] shadow-[var(--shadow-sm)]">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12">#</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead className="w-30" align="center">
-                Actions
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-
-          <TableBody>
-            <LookupAddRow onAdd={handleAdd} entityLabel={entityLabel} />
-
-            {filtered.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={3}
-                  className="py-8 text-center text-[var(--color-text-muted)]"
+      <div className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-card)] shadow-[var(--shadow-sm)]">
+        <div className="overflow-x-auto">
+          <Table className="min-w-full border-collapse">
+            <TableHeader className="border-b border-[var(--color-border)] bg-[var(--color-background-muted)]">
+              <TableRow className="border-b-0 hover:bg-transparent">
+                <TableHead className="h-12 w-12 px-5 text-sm font-semibold text-[var(--color-text-secondary)]">
+                  #
+                </TableHead>
+                <TableHead className="h-12 px-5 text-sm font-semibold text-[var(--color-text-secondary)]">
+                  Name
+                </TableHead>
+                <TableHead
+                  align="center"
+                  className="h-12 w-30 px-5 text-center text-sm font-semibold text-[var(--color-text-secondary)]"
                 >
-                  No {entityLabelPlural.toLowerCase()} found.
-                </TableCell>
+                  Actions
+                </TableHead>
               </TableRow>
-            ) : (
-              filtered.map((item, index) => (
-                <LookupRow
-                  key={item.id}
-                  index={index + 1}
-                  item={item}
-                  onSave={handleSave}
-                  onDelete={handleDelete}
-                />
-              ))
-            )}
-          </TableBody>
-        </Table>
+            </TableHeader>
+
+            <TableBody>
+              <LookupAddRow onAdd={handleAdd} entityLabel={entityLabel} />
+
+              {filtered.length === 0 ? (
+                <TableRow className="border-b-0">
+                  <TableCell
+                    colSpan={3}
+                    className="py-8 text-center text-sm text-[var(--color-text-muted)]"
+                  >
+                    No {entityLabelPlural.toLowerCase()} found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filtered.map((item, index) => (
+                  <LookupRow
+                    key={item.id}
+                    index={index + 1}
+                    item={item}
+                    onSave={handleSave}
+                    onDelete={handleDelete}
+                  />
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </div>
   );

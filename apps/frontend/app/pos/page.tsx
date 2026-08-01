@@ -1,4 +1,4 @@
-import PosPage from "@/components/sale/pos/Pos";
+import PosPage from "@/components/features/sale/pos/Pos";
 
 export default function Page() {
   return <PosPage />;
