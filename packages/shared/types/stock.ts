@@ -97,15 +97,20 @@ export interface ProductStockView {
   batches: BatchStockLine[]; // FEFO order
 }
 
+// UPDATED: added supplierName + itemCount, both flattened server-side in
+// StockService.findAll() — same flattening pattern as SalesService.serializeSale()
 export interface StockVoucherListItem {
   id: string;
   voucherNumber: string;
   type: StockVoucherType;
   date: string;
   supplierId: string | null;
+  supplierName: string | null;
+  itemCount: number;
   grossAmount: number;
   discountAmount: number;
   taxAmount: number;
   netAmount: number;
   remarks?: string;
 }
+

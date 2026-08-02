@@ -5,8 +5,8 @@ import { useInventory } from "@/hooks/useInventory";
 import {
   InventoryFilters,
   type InventoryFilterState,
-} from "@/components/stock/inventory/InventoryFilters";
-import { InventoryTable } from "@/components/stock/inventory/InventoryTable";
+} from "@/components/features/stock/inventory/InventoryFilters";
+import { InventoryTable } from "@/components/features/stock/inventory/InventoryTable";
 import type { InventoryListQuery } from "@repo/shared";
 
 export default function StockListPage() {

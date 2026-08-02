@@ -1,17 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Link from "next/link";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { SaleType } from "@repo/shared";
 
-import { useSales } from "@/hooks/useSale";
+import { useSales, useSaleSearch } from "@/hooks/useSale";
 import { formatCurrency, formatDate } from "@/lib/format";
 
 import { PageContainer, PageHeader, PageSection } from "@/components/layout";
-
 import { DataTable, DataTableColumn } from "@/components/shared/data-table";
+import { SearchBar } from "@/components/ui/searchBar";
 
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
@@ -31,6 +30,10 @@ export default function SalesListPage() {
   const router = useRouter();
 
   const [page, setPage] = useState(1);
+  const [searchInput, setSearchInput] = useState("");
+
+  const normalizedInput = searchInput.trim();
+  const isSearchMode = normalizedInput.length >= 2;
 
   const skip = (page - 1) * PAGE_SIZE;
 
@@ -39,7 +42,30 @@ export default function SalesListPage() {
     take: PAGE_SIZE,
   });
 
+  const {
+    data: searchResults = [],
+    isFetching: isSearching,
+    isFetched: searchFetched,
+  } = useSaleSearch(isSearchMode ? normalizedInput : "");
+
   const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
+
+  const goToReturn = useCallback(
+    (saleId: string) => router.push(`/sales/${saleId}/return`),
+    [router],
+  );
+
+  const tableData: SaleRow[] = isSearchMode
+    ? (searchResults as SaleRow[])
+    : ((data?.data ?? []) as SaleRow[]);
+
+  const tableLoading = isSearchMode ? isSearching : isLoading;
+
+  const emptyTitle = isSearchMode
+    ? searchFetched
+      ? "No matching sales found"
+      : "Searching..."
+    : "No sales found";
 
   const columns: DataTableColumn<SaleRow>[] = useMemo(
     () => [
@@ -91,8 +117,26 @@ export default function SalesListPage() {
           <span className="font-semibold">{formatCurrency(row.netAmount)}</span>
         ),
       },
+      {
+        key: "actions",
+        title: "",
+        width: 110,
+        align: "right",
+        render: (row) =>
+          row.type === SaleType.SALE ? (
+            <Button
+              variant="secondary"
+              onClick={(e) => {
+                e.stopPropagation();
+                goToReturn(row.id);
+              }}
+            >
+              Return
+            </Button>
+          ) : null,
+      },
     ],
-    [],
+    [goToReturn],
   );
 
   return (
@@ -100,11 +144,20 @@ export default function SalesListPage() {
       <PageHeader
         title="Sales"
         description="View and manage completed sales transactions."
-      >
-        <Link href="/sales/return">
-          <Button>Process Return</Button>
-        </Link>
-      </PageHeader>
+      />
+
+      <PageSection>
+        <SearchBar
+          value={searchInput}
+          onChange={(value) => {
+            setSearchInput(value);
+            setPage(1);
+          }}
+          placeholder="Search by sale number or customer..."
+          count={isSearchMode ? searchResults.length : data?.total}
+          entityLabelPlural="sales"
+        />
+      </PageSection>
 
       <PageSection>
         {isError ? (
@@ -112,7 +165,6 @@ export default function SalesListPage() {
             <p className="font-semibold text-[var(--color-danger-text)]">
               Failed to load sales.
             </p>
-
             <p className="mt-1 text-sm text-[var(--color-text-muted)]">
               Please try again later.
             </p>
@@ -120,20 +172,23 @@ export default function SalesListPage() {
         ) : (
           <DataTable
             columns={columns}
-            data={(data?.data ?? []) as SaleRow[]}
-            loading={isLoading}
-            emptyTitle="No sales found"
-            emptyDescription="Sales will appear here after the first transaction."
+            data={tableData}
+            loading={tableLoading}
+            emptyTitle={emptyTitle}
+            emptyDescription={
+              isSearchMode
+                ? "Try a different sale number or customer name."
+                : "Sales will appear here after the first transaction."
+            }
             zebra
             stickyHeader
             onRowClick={(row) => router.push(`/sales/${row.id}`)}
             footer={
-              data && data.total > PAGE_SIZE ? (
+              !isSearchMode && data && data.total > PAGE_SIZE ? (
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-[var(--color-text-muted)]">
                     Page {page} of {totalPages} • {data.total} total sales
                   </span>
-
                   <div className="flex items-center gap-2">
                     <Button
                       variant="secondary"
@@ -142,7 +197,6 @@ export default function SalesListPage() {
                     >
                       Previous
                     </Button>
-
                     <Button
                       variant="secondary"
                       disabled={page === totalPages}

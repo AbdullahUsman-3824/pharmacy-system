@@ -4,7 +4,7 @@ import {
   UseFormRegister,
   FieldErrors,
 } from "react-hook-form";
-import { calculateItemAmounts } from "../../../lib/stock-calculations";
+import { calculateItemAmounts } from "../../../../lib/stock-calculations";
 import {
   StockVoucherFormInput,
   StockVoucherItemValues,

@@ -17,14 +17,13 @@ import {
   IMPLEMENTED_VOUCHER_TYPES,
 } from "@/constants/stock/stock-voucher";
 import { buildCreateVoucherPayload } from "./build-payload";
-import { previewVoucherNumber } from "../../../../constants/stock/voucher-number-preview";
-import { getColumns } from "../../../../constants/stock/table-columns";
+import { getColumns } from "../../../constants/stock/table-columns";
 import {
   StockVoucherEntryRow,
   StockVoucherEntryRowRef,
-} from "../../../../components/stock/stockEntry/StockVoucherEntryRow";
-import { StockVoucherItemRow } from "../../../../components/stock/stockEntry/StockVoucherItemRow";
-import { useCreateStockVoucher, useStockVouchers } from "@/hooks/useStock";
+} from "../../../components/features/stock/stockEntry/StockVoucherEntryRow";
+import { StockVoucherItemRow } from "../../../components/features/stock/stockEntry/StockVoucherItemRow";
+import { useCreateStockVoucher } from "@/hooks/useStock";
 import { useProducts } from "@/hooks/useProducts";
 import { SupplierSelect } from "@/components/SupplierSelect";
 import { calculateItemAmounts } from "@/lib/stock-calculations";
@@ -38,11 +37,14 @@ import {
   Plus,
   ArrowLeft,
 } from "lucide-react";
+import Card from "@/components/ui/card";
+import Input from "@/components/ui/input";
+import Select from "@/components/ui/select";
+import Button from "@/components/ui/button";
 
 export default function NewStockVoucherPage() {
   const router = useRouter();
   const createVoucher = useCreateStockVoucher();
-  const { data: vouchers } = useStockVouchers();
   const { data: products } = useProducts();
 
   // Build a map of productId -> productName for display in the item rows
@@ -71,8 +73,6 @@ export default function NewStockVoucherPage() {
   const type = useWatch({ control, name: "type" });
   const items = useWatch({ control, name: "items" });
   const supplierId = useWatch({ control, name: "supplierId" });
-
-  const voucherNoPreview = previewVoucherNumber(type, vouchers);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const columns = getColumns(showAdvanced);
 
@@ -131,7 +131,7 @@ export default function NewStockVoucherPage() {
       const payload = buildCreateVoucherPayload(data, confirmedBatchKeys);
       try {
         await createVoucher.mutateAsync(payload);
-        router.push("/stock/vouchers");
+        router.push("/stock");
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
         const responseData = error?.response?.data;
@@ -165,6 +165,14 @@ export default function NewStockVoucherPage() {
     }
   };
 
+  // Create options for voucher type select
+  const voucherTypeOptions = Object.entries(VOUCHER_TYPE_LABELS).map(
+    ([value, label]) => ({
+      value,
+      label,
+    }),
+  );
+
   return (
     <div className="flex flex-col min-h-full">
       <form
@@ -179,21 +187,15 @@ export default function NewStockVoucherPage() {
           <ArrowLeft className="w-4 h-4" />
           Back to Vouchers
         </Link>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex flex-wrap items-end gap-4 shrink-0">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
-              Type
-            </label>
-            <select
+
+        <Card className="flex flex-wrap items-center gap-4">
+          <div className="min-w-[150px]">
+            <Select
+              label="Type"
+              options={voucherTypeOptions}
               {...register("type")}
-              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm font-medium"
-            >
-              {Object.entries(VOUCHER_TYPE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              error={errors.type?.message}
+            />
             {!IMPLEMENTED_VOUCHER_TYPES.has(type) && (
               <div className="flex items-center gap-1 mt-1 text-amber-600">
                 <AlertCircle className="w-3 h-3" />
@@ -202,8 +204,8 @@ export default function NewStockVoucherPage() {
             )}
           </div>
 
-          <div className="min-w-[200px]">
-            <label className="block text-xs font-medium text-gray-500 mb-1">
+          <div className="min-w-[200px] flex-1 relative">
+            <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">
               Supplier{" "}
               {type === StockVoucherType.PURCHASE && (
                 <span className="text-red-500">*</span>
@@ -217,7 +219,7 @@ export default function NewStockVoucherPage() {
               }}
             />
             {effectiveProductId && !supplierTouched && supplierId && (
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p className="text-xs text-gray-400 mt-0.5 absolute top-full left-0">
                 Auto-selected from product default
               </p>
             )}
@@ -228,33 +230,24 @@ export default function NewStockVoucherPage() {
             )}
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
-              Date
-            </label>
-            <input
+          <div className="min-w-[160px]">
+            <Input
               type="date"
+              label="Date"
               {...register("voucherDate")}
-              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+              error={errors.voucherDate?.message}
             />
           </div>
 
           <div className="flex-1 min-w-[160px]">
-            <label className="block text-xs font-medium text-gray-500 mb-1">
-              Remarks
-            </label>
-            <input
+            <Input
               {...register("remarks")}
+              label="Remarks"
               placeholder="Optional"
-              className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+              error={errors.remarks?.message}
             />
           </div>
-
-          <div className="text-sm text-gray-500 whitespace-nowrap">
-            {voucherNoPreview}{" "}
-            <span className="text-xs text-gray-400">(estimated)</span>
-          </div>
-        </div>
+        </Card>
 
         {/* Items table */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col flex-1 min-h-[400px]">
@@ -269,14 +262,10 @@ export default function NewStockVoucherPage() {
                 {showAdvanced ? "Hide" : "Show"} discount &amp; tax fields
               </button>
             </div>
-            <button
-              type="button"
-              onClick={handleAddButtonClick}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-800 hover:bg-blue-900 text-white text-sm font-medium rounded-lg transition"
-            >
+            <Button onClick={handleAddButtonClick}>
               <Plus className="w-4 h-4" />
               Add Item
-            </button>
+            </Button>
           </div>
 
           <div className="overflow-x-auto">
@@ -397,15 +386,10 @@ export default function NewStockVoucherPage() {
               </span>
             </span>
           </div>
-          <button
-            type="button"
-            onClick={handleSubmit(onSubmit)}
-            disabled={isSubmitting}
-            className="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-800 hover:bg-blue-900 text-white font-medium rounded-lg transition disabled:opacity-50"
-          >
+          <Button onClick={handleSubmit(onSubmit)} disabled={isSubmitting}>
             <Save className="w-4 h-4" />
             {isSubmitting ? "Saving..." : "Save Voucher"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

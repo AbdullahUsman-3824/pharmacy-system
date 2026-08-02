@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Package, Clock, ArrowRight } from "lucide-react";
-import { ProductSelect } from "../../../components/ProductSelect";
+import { ProductSelect } from "../../../ProductSelect";
 
 interface StockActionCardsProps {
   selectedProductId: string;

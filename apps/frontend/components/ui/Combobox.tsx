@@ -102,7 +102,7 @@ export function Combobox({
         data-nav={dataNav}
         value={open ? search : (selected?.label ?? "")}
         placeholder={placeholder}
-        className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+        className="w-full bg-[var(--color-input)] border border-[var(--color-border)] rounded-[var(--radius-sm)] px-4 py-2 text-[var(--color-text)] placeholder-[var(--color-text-placeholder)] transition-all duration-200 focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-soft)] disabled:opacity-50 disabled:cursor-not-allowed appearance-none"
         onFocus={() => {
           setOpen(true);
           // Reset search when focusing (optional, you can keep it)

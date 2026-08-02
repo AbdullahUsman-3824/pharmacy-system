@@ -11,6 +11,7 @@ import { SaleType } from '@repo/shared';
 export class SalesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // ===================== CREATE SALE =====================
   async createSale(dto: CreateSaleDto) {
     const sale = await this.prisma.$transaction(async (tx) => {
       if (dto.type === SaleType.SALE_RETURN && !dto.originalSaleId) {
@@ -73,13 +74,18 @@ export class SalesService {
     return this.serializeSale(sale);
   }
 
-  async findAll(params?: { skip?: number; take?: number }) {
+  // ===================== FIND ALL (with cursor support) =====================
+  async findAll(params?: { skip?: number; take?: number; cursor?: string }) {
+    const take = params?.take ?? 20;
     const skip = params?.skip ?? 0;
-    const take = params?.take ?? 100;
+    const cursor = params?.cursor;
 
+    const where = { deletedAt: null };
+
+    // Use cursor-based pagination if cursor provided, else offset
     const [sales, total] = await this.prisma.$transaction([
       this.prisma.sale.findMany({
-        where: { deletedAt: null },
+        where,
         select: {
           id: true,
           saleNumber: true,
@@ -94,10 +100,11 @@ export class SalesService {
           netAmount: true,
         },
         orderBy: { date: 'desc' },
-        skip,
+        skip: cursor ? undefined : skip,
         take,
+        cursor: cursor ? { id: cursor } : undefined,
       }),
-      this.prisma.sale.count({ where: { deletedAt: null } }),
+      this.prisma.sale.count({ where }),
     ]);
 
     return {
@@ -114,9 +121,12 @@ export class SalesService {
       total,
       skip,
       take,
+      // Return nextCursor for the frontend to use
+      nextCursor: sales.length === take ? sales[sales.length - 1].id : null,
     };
   }
 
+  // ===================== FIND ONE =====================
   async findOne(id: string) {
     const sale = await this.prisma.sale.findFirst({
       where: { id, deletedAt: null },
@@ -137,6 +147,7 @@ export class SalesService {
     return this.serializeSale(sale);
   }
 
+  // ===================== FIND BY SALE NUMBER =====================
   async findBySaleNumber(saleNumber: string) {
     const sale = await this.prisma.sale.findFirst({
       where: {
@@ -160,23 +171,21 @@ export class SalesService {
     return this.serializeSale(sale);
   }
 
-  /**
-   * Lightweight typeahead for the return page's search box. Deliberately
-   * returns only list-display fields — no items/batches — so it stays
-   * cheap to call on every keystroke. Only matches original SALEs, since
-   * only those can be returned against.
-   */
+  // ===================== SEARCH (enhanced) =====================
   async searchSales(query: string, limit = 10) {
     const trimmed = query?.trim();
-    if (!trimmed) {
-      return [];
+    if (!trimmed || trimmed.length < 2) {
+      return []; // require at least 2 chars to avoid heavy scans
     }
 
     const sales = await this.prisma.sale.findMany({
       where: {
         deletedAt: null,
-        type: SaleType.SALE,
-        saleNumber: { contains: trimmed, mode: 'insensitive' },
+        type: SaleType.SALE, // only original sales can be returned against
+        OR: [
+          { saleNumber: { contains: trimmed, mode: 'insensitive' } },
+          { customerName: { contains: trimmed, mode: 'insensitive' } },
+        ],
       },
       select: {
         id: true,
@@ -195,12 +204,7 @@ export class SalesService {
     }));
   }
 
-  /**
-   * Returns, per line item of the original sale, how much is still
-   * eligible to be returned. Drives the /sale/return page so the
-   * frontend can cap quantities before submit instead of round-tripping
-   * a 400 from createSale.
-   */
+  // ===================== GET RETURNABLE ITEMS (optimized) =====================
   async getReturnableItems(originalSaleId: string) {
     const originalSale = await this.prisma.sale.findFirst({
       where: { id: originalSaleId, deletedAt: null },
@@ -221,26 +225,29 @@ export class SalesService {
       );
     }
 
-    const previousReturns = await this.prisma.saleItem.findMany({
+    // Aggregate previous returns efficiently using groupBy
+    const previousReturns = await this.prisma.saleItem.groupBy({
+      by: ['productId', 'batchId'],
       where: {
-        sale: { type: SaleType.SALE_RETURN, originalSaleId, deletedAt: null },
+        sale: {
+          type: SaleType.SALE_RETURN,
+          originalSaleId,
+          deletedAt: null,
+        },
+      },
+      _sum: {
+        packQuantity: true,
+        looseQuantity: true,
       },
     });
 
-    const returnedByKey = new Map<
-      string,
-      { packQuantity: number; looseQuantity: number }
-    >();
-
-    for (const r of previousReturns) {
-      const key = `${r.productId}|${r.batchId}`;
-      const existing = returnedByKey.get(key) ?? {
-        packQuantity: 0,
-        looseQuantity: 0,
-      };
-      existing.packQuantity += r.packQuantity;
-      existing.looseQuantity += r.looseQuantity;
-      returnedByKey.set(key, existing);
+    const returnedMap = new Map<string, { pack: number; loose: number }>();
+    for (const ret of previousReturns) {
+      const key = `${ret.productId}|${ret.batchId}`;
+      returnedMap.set(key, {
+        pack: ret._sum.packQuantity || 0,
+        loose: ret._sum.looseQuantity || 0,
+      });
     }
 
     return {
@@ -248,10 +255,7 @@ export class SalesService {
       saleNumber: originalSale.saleNumber,
       items: originalSale.items.map((item) => {
         const key = `${item.productId}|${item.batchId}`;
-        const alreadyReturned = returnedByKey.get(key) ?? {
-          packQuantity: 0,
-          looseQuantity: 0,
-        };
+        const returned = returnedMap.get(key) || { pack: 0, loose: 0 };
 
         return {
           productId: item.productId,
@@ -262,17 +266,16 @@ export class SalesService {
           looseRate: item.looseRate !== null ? Number(item.looseRate) : null,
           originalPackQuantity: item.packQuantity,
           originalLooseQuantity: item.looseQuantity,
-          alreadyReturnedPacks: alreadyReturned.packQuantity,
-          alreadyReturnedLoose: alreadyReturned.looseQuantity,
-          availablePacksToReturn:
-            item.packQuantity - alreadyReturned.packQuantity,
-          availableLooseToReturn:
-            item.looseQuantity - alreadyReturned.looseQuantity,
+          alreadyReturnedPacks: returned.pack,
+          alreadyReturnedLoose: returned.loose,
+          availablePacksToReturn: item.packQuantity - returned.pack,
+          availableLooseToReturn: item.looseQuantity - returned.loose,
         };
       }),
     };
   }
 
+  // ===================== SOFT DELETE =====================
   async softDelete(id: string) {
     const sale = await this.prisma.sale.findFirst({
       where: { id, deletedAt: null },
@@ -287,6 +290,8 @@ export class SalesService {
       data: { deletedAt: new Date() },
     });
   }
+
+  // ===================== PRIVATE HELPERS =====================
 
   private async generateSaleNumber(tx: any, type: SaleType): Promise<string> {
     const dateKey = this.formatDateKey(new Date());
@@ -335,10 +340,6 @@ export class SalesService {
     };
   }
 
-  /**
-   * Collapses duplicate product+batch lines from the same invoice into a
-   * single merged line, summing packQuantity and looseQuantity separately.
-   */
   private mergeDuplicateItems(items: any[]): any[] {
     const grouped = new Map<string, any>();
 
@@ -434,6 +435,7 @@ export class SalesService {
         },
       });
     } else {
+      // Return: add stock back
       await tx.batch.update({
         where: { id: batch.id },
         data: {

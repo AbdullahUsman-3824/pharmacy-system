@@ -1,17 +1,27 @@
+"use client";
+
 import { Search } from "lucide-react";
 
 interface SearchBarProps {
   value: string;
   onChange: (value: string) => void;
-  entityLabelPlural: string;
-  count: number;
+  onKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void;
+  onFocus?: () => void;
+  entityLabelPlural?: string;
+  count?: number;
+  placeholder?: string;
+  autoFocus?: boolean;
 }
 
 export function SearchBar({
   value,
   onChange,
+  onKeyDown,
+  onFocus,
   entityLabelPlural,
   count,
+  placeholder = `Search ${entityLabelPlural || "items"}...`,
+  autoFocus,
 }: SearchBarProps) {
   return (
     <div className="flex items-center gap-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-card)] px-4 py-3 shadow-[var(--shadow-sm)]">
@@ -19,12 +29,17 @@ export function SearchBar({
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={`Search ${entityLabelPlural}...`}
-        className="w-full bg-transparent text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-placeholder)] focus:outline-none"
+        onKeyDown={onKeyDown}
+        onFocus={onFocus}
+        placeholder={placeholder}
+        autoFocus={autoFocus}
+        className="w-full bg-transparent text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-placeholder)] focus:outline-none focus-visible:outline-none focus-visible:ring-0"
       />
-      <span className="shrink-0 text-sm text-[var(--color-text-muted)]">
-        {count} {entityLabelPlural}
-      </span>
+      {count !== undefined && entityLabelPlural && (
+        <span className="shrink-0 text-sm text-[var(--color-text-muted)]">
+          {count !== undefined && `${count} ${entityLabelPlural}`}
+        </span>
+      )}
     </div>
   );
 }

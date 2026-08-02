@@ -41,9 +41,14 @@ model Sale {
     updatedAt DateTime  @updatedAt
     deletedAt DateTime?
 
-    @@index([saleNumber])
-    @@index([date])
-    @@index([type])
+    // ========== OPTIMIZED INDEXES ==========
+    @@index([deletedAt]) // for soft-delete filtering
+    @@index([date(sort: Desc)]) // for ordering (most recent first)
+    @@index([saleNumber]) // for exact/partial search
+    @@index([customerName]) // for search by customer
+    @@index([type]) // for filtering by type
+    @@index([originalSaleId]) // for fetching returns of a sale
+    @@index([date, type]) // composite for common filters
 }
 
 model SaleItem {
@@ -70,16 +75,21 @@ model SaleItem {
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
+    // ========== OPTIMIZED INDEXES ==========
+    @@index([saleId])
     @@index([productId])
     @@index([batchId])
-    @@index([saleId])
+    // Composite index for returnable items query (productId + batchId)
+    @@index([productId, batchId])
+    // Index for finding previous returns quickly
+    @@index([saleId, productId, batchId])
 }
 
 model SaleNumberCounter {
-  id      String   @id @default(cuid())
-  type    SaleType
-  dateKey String
-  seq     Int      @default(0)
+    id      String   @id @default(cuid())
+    type    SaleType
+    dateKey String
+    seq     Int      @default(0)
 
-  @@unique([type, dateKey])
+    @@unique([type, dateKey])
 }

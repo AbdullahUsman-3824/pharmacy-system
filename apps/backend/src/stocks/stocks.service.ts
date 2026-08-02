@@ -86,6 +86,12 @@ export class StockService {
         discountAmount: true,
         taxAmount: true,
         netAmount: true,
+        supplier: {
+          select: { name: true },
+        },
+        _count: {
+          select: { items: true },
+        },
       },
       orderBy: {
         date: 'desc',
@@ -94,9 +100,17 @@ export class StockService {
       take: params?.take ?? 100,
     });
 
-    // convert Decimal -> number here, once, so every consumer gets real numbers
+    // Convert Decimal -> number, flatten supplier.name -> supplierName,
+    // flatten _count.items -> itemCount, once, so every consumer (frontend
+    // list table, search, etc.) gets clean, ready-to-use data.
     return vouchers.map((v) => ({
-      ...v,
+      id: v.id,
+      voucherNumber: v.voucherNumber,
+      type: v.type,
+      date: v.date,
+      supplierId: v.supplierId,
+      supplierName: v.supplier?.name ?? null,
+      itemCount: v._count.items,
       grossAmount: Number(v.grossAmount),
       discountAmount: Number(v.discountAmount),
       taxAmount: Number(v.taxAmount),
@@ -430,6 +444,8 @@ export class StockService {
       nearExpiryOnly,
       groupId,
       typeId,
+      sortBy = 'name',
+      sortDir = 'asc',
       page = 1,
       pageSize = 20,
     } = query;
@@ -497,50 +513,36 @@ export class StockService {
         })),
       };
     });
-    console.log('Products:', products.length);
-    console.log('Mapped:', mapped.length);
-    console.log({
-      lowStockOnly,
-      nearExpiryOnly,
-    });
 
     if (lowStockOnly) {
       mapped = mapped.filter((p) => p.isLowStock);
-      console.log('After lowStock:', mapped.length);
     }
 
     if (nearExpiryOnly) {
       mapped = mapped.filter((p) => p.hasNearExpiryBatch);
-      console.log('After nearExpiry:', mapped.length);
     }
 
-    // mapped.sort((a, b) => {
-    //   const dir = sortDir === 'asc' ? 1 : -1;
-    //   switch (sortBy) {
-    //     case 'totalQuantity':
-    //       return (a.totalQuantity - b.totalQuantity) * dir;
-    //     case 'retailRate':
-    //       return ((a.retailRate ?? 0) - (b.retailRate ?? 0)) * dir;
-    //     case 'nearestExpiryDate':
-    //       return (
-    //         ((a.nearestExpiryDate ?? '') > (b.nearestExpiryDate ?? '')
-    //           ? 1
-    //           : -1) * dir
-    //       );
-    //     default:
-    //       return a.name.localeCompare(b.name) * dir;
-    //   }
-    // });
-    console.log({
-      page,
-      pageSize,
-      total: mapped.length,
+    mapped.sort((a, b) => {
+      const dir = sortDir === 'asc' ? 1 : -1;
+      switch (sortBy) {
+        case 'totalQuantity':
+          return (a.totalQuantity - b.totalQuantity) * dir;
+        case 'retailRate':
+          return ((a.retailRate ?? 0) - (b.retailRate ?? 0)) * dir;
+        case 'nearestExpiryDate':
+          return (
+            ((a.nearestExpiryDate ?? '') > (b.nearestExpiryDate ?? '')
+              ? 1
+              : -1) * dir
+          );
+        default:
+          return a.name.localeCompare(b.name) * dir;
+      }
     });
+
     const total = mapped.length;
     const start = (Number(page) - 1) * Number(pageSize);
     const items = mapped.slice(start, start + Number(pageSize));
-
-    console.log('Items:', items.length);
 
     return { items, total, page, pageSize };
   }
