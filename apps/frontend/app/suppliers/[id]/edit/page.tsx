@@ -1,38 +1,67 @@
 "use client";
 
-import { useRouter, useParams } from "next/navigation";
-import { SupplierForm } from "@/components/suppliers/SupplierForm";
+import { useParams, useRouter } from "next/navigation";
+
+import { PageContainer, PageHeader, PageSection } from "@/components/layout";
+
+import Button from "@/components/ui/button";
+
+import LoadingState from "@/components/shared/loading-state";
+import EmptyState from "@/components/shared/empty-state";
+
+import { SupplierForm } from "@/components/features/suppliers/SupplierForm";
+
 import { useSupplier, useUpdateSupplier } from "@/hooks/useSuppliers";
 
 export default function EditSupplierPage() {
   const router = useRouter();
+
   const { id } = useParams<{ id: string }>();
-  const { data: supplier, isLoading } = useSupplier(id);
+
+  const { data: supplier, isLoading, isError } = useSupplier(id);
+
   const { mutate: updateSupplier } = useUpdateSupplier();
 
-  if (isLoading) return <div className="p-6 text-sm text-ink-400">Loading...</div>;
-  if (!supplier) return <div className="p-6 text-sm text-ink-400">Supplier not found</div>;
-
   return (
-    <div className="mx-auto max-w-3xl p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-ink-900">Edit Supplier</h1>
-        <button onClick={() => router.back()} className="text-sm text-ink-500 hover:text-ink-700">
-          ← Back to Suppliers
-        </button>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title="Edit Supplier"
+        description="Update supplier information."
+      >
+        <Button variant="secondary" onClick={() => router.back()}>
+          Cancel
+        </Button>
+      </PageHeader>
 
-      <SupplierForm
-        defaultValues={supplier}
-        submitLabel="Update Supplier"
-        onSubmit={(values) =>
-          updateSupplier(
-            { id: supplier.id, input: values },
-            { onSuccess: () => router.push("/suppliers") },
-          )
-        }
-        onCancel={() => router.back()}
-      />
-    </div>
+      <PageSection>
+        {isLoading && <LoadingState />}
+
+        {(isError || !supplier) && !isLoading && (
+          <EmptyState
+            title="Supplier not found"
+            description="The requested supplier could not be loaded."
+          />
+        )}
+
+        {supplier && (
+          <SupplierForm
+            defaultValues={supplier}
+            submitLabel="Update Supplier"
+            onSubmit={(values) =>
+              updateSupplier(
+                {
+                  id: supplier.id,
+                  input: values,
+                },
+                {
+                  onSuccess: () => router.push("/suppliers"),
+                },
+              )
+            }
+            onCancel={() => router.back()}
+          />
+        )}
+      </PageSection>
+    </PageContainer>
   );
 }

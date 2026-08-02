@@ -8,7 +8,7 @@ import { DataTable, DataTableColumn } from "@/components/shared/data-table";
 import { useProducts, useDeleteProduct } from "@/hooks/useProducts";
 import { useLookup } from "@/hooks/useLookups";
 import { LookupEntity, LookupType } from "@repo/shared/types/lookups";
-import { SearchBar } from "./SearchBar";
+import { SearchBar } from "../../ui/searchBar";
 
 type Product = ReturnType<typeof useProducts>["data"] extends
   | (infer P)[]

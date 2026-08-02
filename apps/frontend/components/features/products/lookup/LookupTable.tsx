@@ -9,7 +9,7 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
-import { SearchBar } from "../SearchBar";
+import { SearchBar } from "../../../ui/searchBar";
 import { LookupAddRow } from "./LookupAddRow";
 import { LookupRow } from "./LookupRow";
 import {

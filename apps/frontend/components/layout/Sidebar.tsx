@@ -5,31 +5,33 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
+  Receipt,
   Package,
-  Boxes,
+  Warehouse,
   ShoppingCart,
   Users,
   Truck,
   BarChart3,
-  ChevronsLeft,
+  Layers,
   ChevronsRight,
-  ReceiptText as Receipt,
+  ChevronsLeft,
 } from "lucide-react";
-import { navItems } from "@/lib/data";
+import { navItems } from "@/lib/nav-data";
 import type { NavKey } from "@/lib/types";
 
 const icons: Record<NavKey, React.ElementType> = {
   dashboard: LayoutDashboard,
   pos: Receipt,
   products: Package,
-  stock: Boxes,
+  stock: Warehouse,
   sales: ShoppingCart,
   customers: Users,
   suppliers: Truck,
   reports: BarChart3,
+  inventory: Layers,
 };
 
-const collapsedByDefaultOn = ["/sales"];
+const collapsedByDefaultOn = ["/pos"];
 
 export function Sidebar() {
   const pathname = usePathname();

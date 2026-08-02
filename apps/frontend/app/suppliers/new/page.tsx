@@ -1,31 +1,38 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { SupplierForm } from "@/components/suppliers/SupplierForm";
+
+import { PageContainer, PageHeader, PageSection } from "@/components/layout";
+
+import Button from "@/components/ui/button";
+
+import { SupplierForm } from "@/components/features/suppliers/SupplierForm";
+
 import { useCreateSupplier } from "@/hooks/useSuppliers";
 
 export default function NewSupplierPage() {
   const router = useRouter();
+
   const { mutate: createSupplier } = useCreateSupplier();
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-ink-900">Add Supplier</h1>
-        <button
-          onClick={() => router.back()}
-          className="text-sm text-ink-500 hover:text-ink-700"
-        >
-          ← Back to Suppliers
-        </button>
-      </div>
+    <PageContainer>
+      <PageHeader title="Add Supplier" description="Create a new supplier.">
+        <Button variant="secondary" onClick={() => router.back()}>
+          Cancel
+        </Button>
+      </PageHeader>
 
-      <SupplierForm
-        onSubmit={(values) =>
-          createSupplier(values, { onSuccess: () => router.push("/suppliers") })
-        }
-        onCancel={() => router.back()}
-      />
-    </div>
+      <PageSection>
+        <SupplierForm
+          onSubmit={(values) =>
+            createSupplier(values, {
+              onSuccess: () => router.push("/suppliers"),
+            })
+          }
+          onCancel={() => router.back()}
+        />
+      </PageSection>
+    </PageContainer>
   );
 }
