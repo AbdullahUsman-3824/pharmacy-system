@@ -67,10 +67,11 @@ export function PosTableFooterToolbar({
 
       {/* Shortcut hints strip — bottom edge of the panel */}
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t border-gray-100 bg-gray-50/60 px-6 py-2.5 text-xs text-gray-400">
+        <ShortcutHint keys="F11" label="Complete sale" />
+        <ShortcutHint keys="F9" label="Hold invoice" />
+        <ShortcutHint keys="F12" label="Recall invoice" />
+        <ShortcutHint keys="F10" label="Tax" />
         <ShortcutHint keys="/" label="Search product" />
-        <ShortcutHint keys="F5" label="Complete sale" />
-        <ShortcutHint keys="F6" label="Hold" />
-        <ShortcutHint keys="F9" label="Recall" />
         {/* <ShortcutHint keys="Del" label="Remove line" />
         <ShortcutHint keys="↑ ↓" label="Navigate rows" /> */}
       </div>

@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { HeldInvoicesProvider } from "@/lib/context/HeldInvoicesContext";
+import { ShortcutProvider } from "@/lib/shortcuts/ShortcutProvider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -10,7 +11,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 30 * 1000, // 30s — reasonable for LAN, avoid re-fetch spam on every mount
+            staleTime: 30 * 1000,
             retry: 1,
           },
         },
@@ -19,7 +20,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <HeldInvoicesProvider>{children}</HeldInvoicesProvider>
+      <ShortcutProvider>
+        <HeldInvoicesProvider>{children}</HeldInvoicesProvider>
+      </ShortcutProvider>
     </QueryClientProvider>
   );
 }

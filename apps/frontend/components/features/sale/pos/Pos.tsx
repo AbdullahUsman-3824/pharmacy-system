@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useMemo, useEffect } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useForm, useWatch, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SaleType } from "@repo/shared";
@@ -24,6 +24,7 @@ import {
 } from ".";
 import { useHeldInvoices } from "@/lib/context/HeldInvoicesContext";
 import { RecallHeldPopover, SaleCompleteModal, CompletedSale } from ".";
+import { usePageShortcuts } from "@/lib/shortcuts/usePageShortcuts";
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
@@ -183,58 +184,63 @@ export default function PosPage() {
     reset();
   };
 
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (completedSale || showRecallPopover) return;
+  usePageShortcuts([
+    {
+      id: "complete-sale",
+      shortcut: "F11",
+      description: "Complete Sale",
+      priority: 300,
+      execute: () => paymentRef.current?.complete(),
+    },
 
-      const target = e.target as HTMLElement;
-      const isTyping =
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.tagName === "SELECT" ||
-        target.isContentEditable;
+    {
+      id: "hold",
+      shortcut: "F9",
+      description: "Hold Invoice",
+      priority: 300,
+      execute: holdCurrentCart,
+    },
 
-      switch (e.key) {
-        case "F5":
-          e.preventDefault();
-          paymentRef.current?.complete();
-          break;
-        case "F6":
-          e.preventDefault();
-          holdCurrentCart();
-          break;
-        case "F8":
-          e.preventDefault();
-          summaryRef.current?.openDiscountEditor();
-          break;
-        case "F9":
-          e.preventDefault();
-          handleOpenRecall();
-          break;
-        case "F10":
-          e.preventDefault();
-          summaryRef.current?.openTaxEditor();
-          break;
-        case "Delete":
-          if (e.ctrlKey) {
-            e.preventDefault();
-            handleClear();
-          }
-          break;
-        case "/":
-          if (!isTyping) {
-            e.preventDefault();
-            entryRowRef.current?.focus();
-          }
-          break;
-        default:
-          break;
-      }
-    }
+    {
+      id: "discount",
+      shortcut: "F8",
+      description: "Discount",
+      priority: 300,
+      execute: () => summaryRef.current?.openDiscountEditor(),
+    },
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  });
+    {
+      id: "tax",
+      shortcut: "F10",
+      description: "Tax",
+      priority: 300,
+      execute: () => summaryRef.current?.openTaxEditor(),
+    },
+
+    {
+      id: "recall",
+      shortcut: "F12",
+      description: "Recall Held",
+      priority: 300,
+      execute: handleOpenRecall,
+    },
+
+    {
+      id: "focus-search",
+      shortcut: "/",
+      description: "Focus Product Search",
+      priority: 300,
+      execute: () => entryRowRef.current?.focus(),
+    },
+
+    {
+      id: "clear-cart",
+      shortcut: "Ctrl+Delete",
+      description: "Clear Cart",
+      priority: 300,
+      execute: handleClear,
+    },
+  ]);
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-64px)] bg-transparent">

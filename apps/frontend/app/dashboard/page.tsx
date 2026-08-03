@@ -12,12 +12,23 @@ import { RecentPurchases } from "@/components/features/dashboard/recent-purchase
 import LoadingState from "@/components/shared/loading-state";
 
 import { useDashboard } from "@/hooks/useDashboard";
+import { usePageShortcuts } from "@/lib/shortcuts/usePageShortcuts";
 
 import type { RecentSale, StatCardData } from "@/lib/types";
 
 export default function DashboardPage() {
   const router = useRouter();
   const { data, isLoading, isFetching, isError, refetch } = useDashboard();
+
+  usePageShortcuts([
+    {
+      id: "dashboard-refresh",
+      shortcut: "Ctrl+R",
+      description: "Refresh Dashboard",
+      priority: 300,
+      execute: refetch,
+    },
+  ]);
 
   if (isLoading) {
     return <LoadingState message="Loading dashboard..." />;
