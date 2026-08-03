@@ -472,6 +472,12 @@ export class StockService {
           where: { deletedAt: null },
           orderBy: { expiryDate: 'asc' }, // nulls sort last by default in Prisma/Postgres asc
         },
+        group: {
+          select: { name: true },
+        },
+        generic: {
+          select: { name: true },
+        },
       },
     });
 
@@ -495,6 +501,8 @@ export class StockService {
         barcode: p.barcode,
         name: p.name,
         shelfNo: p.shelfNo,
+        groupName: p.group?.name ?? null,
+        genericName: p.generic?.name ?? null,
         totalQuantity,
         retailRate: p.retailRate ? Number(p.retailRate) : null,
         minimumStock: p.minimumStock,
@@ -522,6 +530,9 @@ export class StockService {
       mapped = mapped.filter((p) => p.hasNearExpiryBatch);
     }
 
+    // Sort by requested field. Using .sort() on the in-memory `mapped` array
+    // (post low-stock/near-expiry filtering) rather than a Prisma orderBy,
+    // since totalQuantity and isLowStock are computed, not stored columns.
     mapped.sort((a, b) => {
       const dir = sortDir === 'asc' ? 1 : -1;
       switch (sortBy) {
@@ -541,9 +552,26 @@ export class StockService {
     });
 
     const total = mapped.length;
+
+    const totalQuantitySum = mapped.reduce(
+      (sum, p) => sum + p.totalQuantity,
+      0,
+    );
+    const totalStockValue = mapped.reduce(
+      (sum, p) => sum + p.totalQuantity * (p.retailRate ?? 0),
+      0,
+    );
+
     const start = (Number(page) - 1) * Number(pageSize);
     const items = mapped.slice(start, start + Number(pageSize));
 
-    return { items, total, page, pageSize };
+    return {
+      items,
+      total,
+      page,
+      pageSize,
+      totalQuantitySum,
+      totalStockValue,
+    };
   }
 }

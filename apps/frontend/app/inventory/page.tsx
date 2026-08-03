@@ -8,8 +8,11 @@ import {
 } from "@/components/features/stock/inventory/InventoryFilters";
 import { InventoryTable } from "@/components/features/stock/inventory/InventoryTable";
 import type { InventoryListQuery } from "@repo/shared";
+import { PageContainer, PageHeader, PageSection } from "@/components/layout";
+import Button from "@/components/ui/button";
+import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 
-export default function StockListPage() {
+export default function InventoryPage() {
   const [filters, setFilters] = useState<InventoryFilterState>({
     search: "",
     lowStockOnly: false,
@@ -46,46 +49,79 @@ export default function StockListPage() {
   const totalPages = data ? Math.ceil(data.total / pageSize) : 1;
 
   return (
-    <>
-      <InventoryFilters value={filters} onChange={handleFiltersChange} />
+    <PageContainer>
+      <PageHeader
+        title="Inventory"
+        description="Current stock across all products and batches."
+      >
+        {/* Not functional yet — export/print for stock-taking, see next task */}
+        <Button variant="outline" disabled title="Coming soon">
+          <Download className="w-4 h-4" />
+          Export
+        </Button>
+      </PageHeader>
 
-      {isLoading ? (
-        <div className="h-64 rounded-lg bg-muted animate-pulse" />
-      ) : (
-        <>
-          <InventoryTable
-            items={data?.items ?? []}
-            sortBy={sortBy ?? "name"}
-            sortDir={sortDir}
-            onSortChange={handleSortChange}
+      <PageSection>
+        <div className="mb-4">
+          <InventoryFilters
+            value={filters}
+            onChange={handleFiltersChange}
+            resultCount={data?.total}
           />
+        </div>
 
-          <div className="flex items-center justify-between mt-4 text-sm">
-            <span className="text-muted-foreground">
-              {data?.total ?? 0} products {isFetching && "(updating...)"}
+        <InventoryTable
+          items={data?.items ?? []}
+          isLoading={isLoading}
+          sortBy={sortBy ?? "name"}
+          sortDir={sortDir}
+          onSortChange={handleSortChange}
+        />
+
+        {/* Filtered-set summary — reflects ALL matching rows, not just the
+            current page, since data.totalQuantitySum / totalStockValue are
+            computed server-side before pagination. */}
+        {data && (
+          <div className="mt-3 text-sm text-[var(--color-text-secondary)]">
+            {data.total} products · Total Qty:{" "}
+            <span className="font-medium text-[var(--color-text)]">
+              {data.totalQuantitySum.toLocaleString()}
+            </span>{" "}
+            · Stock Value:{" "}
+            <span className="font-medium text-[var(--color-text)]">
+              PKR {data.totalStockValue.toFixed(2)}/-
             </span>
-            <div className="flex items-center gap-2">
+          </div>
+        )}
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-4">
+            <span className="text-sm text-[var(--color-text-secondary)]">
+              Page {page} of {totalPages}
+              {isFetching && !isLoading && " · updating..."}
+            </span>
+            <div className="flex items-center gap-1">
               <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
-                className="px-3 py-1 border rounded disabled:opacity-50"
+                className="flex items-center justify-center h-8 w-8 rounded-full border border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-row-hover)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                Prev
+                <ChevronLeft className="w-4 h-4" />
               </button>
-              <span>
-                Page {page} of {totalPages || 1}
+              <span className="text-sm text-[var(--color-text)] px-3">
+                {page} / {totalPages}
               </span>
               <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-                className="px-3 py-1 border rounded disabled:opacity-50"
+                className="flex items-center justify-center h-8 w-8 rounded-full border border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-row-hover)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                Next
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
-        </>
-      )}
-    </>
+        )}
+      </PageSection>
+    </PageContainer>
   );
 }

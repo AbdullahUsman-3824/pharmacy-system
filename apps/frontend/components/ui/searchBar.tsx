@@ -24,7 +24,7 @@ export function SearchBar({
   autoFocus,
 }: SearchBarProps) {
   return (
-    <div className="flex items-center gap-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-card)] px-4 py-3 shadow-[var(--shadow-sm)]">
+    <div className="flex items-center gap-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-card)] px-4 py-3 shadow-[var(--shadow-sm)]">
       <Search size={18} className="text-[var(--color-text-placeholder)]" />
       <input
         value={value}

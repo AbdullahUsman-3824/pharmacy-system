@@ -1,3 +1,20 @@
+export interface InventoryProductDto {
+  productId: string;
+  code: string;
+  barcode: string | null;
+  name: string;
+  shelfNo: number | null;
+  groupName: string | null;
+  genericName: string | null;
+  totalQuantity: number;
+  retailRate: number | null;
+  minimumStock: number;
+  isLowStock: boolean;
+  nearestExpiryDate: string | null;
+  hasNearExpiryBatch: boolean;
+  batches: InventoryBatchDto[];
+}
+
 export interface InventoryBatchDto {
   batchId: string;
   batchNumber: string;
@@ -7,19 +24,13 @@ export interface InventoryBatchDto {
   saleRate: number | null;
 }
 
-export interface InventoryProductDto {
-  productId: string;
-  code: string;
-  barcode: string | null;
-  name: string;
-  shelfNo: number | null;
-  totalQuantity: number;
-  retailRate: number | null;
-  minimumStock: number;
-  isLowStock: boolean;
-  nearestExpiryDate: string | null;
-  hasNearExpiryBatch: boolean;
-  batches: InventoryBatchDto[];
+export interface InventoryListResponse {
+  items: InventoryProductDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalQuantitySum: number;
+  totalStockValue: number;
 }
 
 export interface InventoryListQuery {
@@ -34,9 +45,3 @@ export interface InventoryListQuery {
   pageSize?: number;
 }
 
-export interface InventoryListResponse {
-  items: InventoryProductDto[];
-  total: number;
-  page: number;
-  pageSize: number;
-}

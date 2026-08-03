@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Search } from "lucide-react";
+import { SearchBar } from "@/components/ui/searchBar";
 import { useDebounce } from "@/hooks/useDebounce";
-// import { Combobox } from "@/components/ui/combobox";
-// import { useLookups } from "@/hooks/use-lookups";
+import FilterChip from "@/components/ui/filterChip";
 
 export interface InventoryFilterState {
   search: string;
@@ -17,9 +16,14 @@ export interface InventoryFilterState {
 interface InventoryFiltersProps {
   value: InventoryFilterState;
   onChange: (next: InventoryFilterState) => void;
+  resultCount?: number;
 }
 
-export function InventoryFilters({ value, onChange }: InventoryFiltersProps) {
+export function InventoryFilters({
+  value,
+  onChange,
+  resultCount,
+}: InventoryFiltersProps) {
   const [searchInput, setSearchInput] = useState(value.search);
   const debouncedSearch = useDebounce(searchInput, 350);
 
@@ -39,49 +43,38 @@ export function InventoryFilters({ value, onChange }: InventoryFiltersProps) {
   }, [debouncedSearch]);
 
   return (
-    <div className="flex flex-wrap items-center gap-3 mb-4">
-      <div className="relative flex-1 min-w-[220px]">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <input
-          type="text"
-          placeholder="Search by name, code, or barcode..."
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="w-full sm:max-w-md">
+        <SearchBar
           value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          className="w-full pl-8 pr-3 py-2 text-sm border rounded-md"
+          onChange={setSearchInput}
+          placeholder="Search by name, code, or barcode..."
+          entityLabelPlural="products"
+          count={resultCount}
         />
       </div>
 
-      <button
-        type="button"
-        onClick={() =>
-          onChange({ ...value, lowStockOnly: !value.lowStockOnly })
-        }
-        className={`px-3 py-2 text-sm rounded-md border ${
-          value.lowStockOnly
-            ? "bg-warn-bg border-warn-border text-warn-strong"
-            : "border-border"
-        }`}
-      >
-        Low Stock
-      </button>
+      <div className="flex flex-wrap gap-2">
+        <FilterChip
+          active={value.lowStockOnly}
+          tone="warning"
+          onClick={() =>
+            onChange({ ...value, lowStockOnly: !value.lowStockOnly })
+          }
+        >
+          Low Stock
+        </FilterChip>
 
-      <button
-        type="button"
-        onClick={() =>
-          onChange({ ...value, nearExpiryOnly: !value.nearExpiryOnly })
-        }
-        className={`px-3 py-2 text-sm rounded-md border ${
-          value.nearExpiryOnly
-            ? "bg-danger-bg border-danger-border text-danger-strong"
-            : "border-border"
-        }`}
-      >
-        Near Expiry
-      </button>
-
-      {/* Group / Type filters — wire to your existing lookups source */}
-      {/* <Combobox options={groupOptions} value={value.groupId} onChange={(groupId) => onChange({ ...value, groupId })} placeholder="Group" /> */}
-      {/* <Combobox options={typeOptions} value={value.typeId} onChange={(typeId) => onChange({ ...value, typeId })} placeholder="Type" /> */}
+        <FilterChip
+          active={value.nearExpiryOnly}
+          tone="danger"
+          onClick={() =>
+            onChange({ ...value, nearExpiryOnly: !value.nearExpiryOnly })
+          }
+        >
+          Near Expiry
+        </FilterChip>
+      </div>
     </div>
   );
 }

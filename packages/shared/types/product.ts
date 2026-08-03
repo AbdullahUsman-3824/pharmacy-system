@@ -34,9 +34,23 @@ export interface CreateProductInput {
 
 export type UpdateProductInput = Partial<CreateProductInput>;
 
+// CORRECTED: the backend already returns nested company/type/group/generic
+// objects (confirmed from actual API response) — only the TypeScript type
+// was missing them. No backend change needed, just this type fix.
+
+export interface LookupRef {
+  id: string;
+  code: string;
+  name: string;
+}
+
 export interface ProductDto extends CreateProductInput {
   id: string;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+  company: LookupRef;
+  type: LookupRef;
+  group: LookupRef | null;
+  generic: LookupRef | null;
 }
