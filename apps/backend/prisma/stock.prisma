@@ -128,3 +128,12 @@ model StockVoucherItem {
     @@index([productId])
     @@index([batchId])
 }
+
+model StockVoucherNumberCounter {
+    id      String           @id @default(cuid())
+    type    StockVoucherType
+    dateKey String
+    seq     Int              @default(1)
+
+    @@unique([type, dateKey], name: "type_dateKey")
+}

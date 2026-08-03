@@ -18,7 +18,7 @@ export class StockService {
 
   async createVoucher(dto: CreateStockVoucherDto) {
     return this.prisma.$transaction(async (tx) => {
-      const voucherNumber = this.generateVoucherNumber(dto.type);
+      const voucherNumber = await this.generateVoucherNumber(tx, dto.type);
 
       let grossTotal = 0;
       let discountTotal = 0;
@@ -35,8 +35,6 @@ export class StockService {
         },
       });
 
-      // Merge duplicate items within the same voucher to avoid
-      // creating / incrementing the same batch twice in one transaction.
       const mergedItems = this.mergeDuplicateItems(dto.items);
 
       for (const item of mergedItems) {
@@ -218,11 +216,35 @@ export class StockService {
     });
   }
 
-  private generateVoucherNumber(type: StockVoucherType): string {
-    // TODO: Replace with proper numbering service.
-    // Appending a short random suffix prevents collisions when two vouchers
-    // are created in the same millisecond.
-    return `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  private async generateVoucherNumber(
+    tx: any,
+    type: StockVoucherType,
+  ): Promise<string> {
+    const dateKey = this.formatDateKey(new Date());
+
+    const prefixMap: Record<StockVoucherType, string> = {
+      [StockVoucherType.OPENING]: 'OP',
+      [StockVoucherType.PURCHASE]: 'PU',
+      [StockVoucherType.PURCHASE_RETURN]: 'PR',
+      [StockVoucherType.STOCK_ADJUSTMENT]: 'SA',
+      [StockVoucherType.STOCK_TRANSFER]: 'ST',
+    };
+
+    const counter = await tx.stockVoucherNumberCounter.upsert({
+      where: { type_dateKey: { type, dateKey } },
+      create: { type, dateKey, seq: 1 },
+      update: { seq: { increment: 1 } },
+    });
+
+    const seq = String(counter.seq).padStart(4, '0');
+
+    return `${prefixMap[type]}-${dateKey}-${seq}`;
+  }
+  private formatDateKey(date: Date): string {
+    const yy = String(date.getFullYear()).slice(-2);
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${yy}${mm}${dd}`;
   }
 
   private mergeDuplicateItems(items: any[]): any[] {
@@ -441,6 +463,7 @@ export class StockService {
     const {
       search,
       lowStockOnly,
+      outOfStockOnly,
       nearExpiryOnly,
       groupId,
       typeId,
@@ -506,7 +529,8 @@ export class StockService {
         totalQuantity,
         retailRate: p.retailRate ? Number(p.retailRate) : null,
         minimumStock: p.minimumStock,
-        isLowStock: totalQuantity <= p.minimumStock,
+        isLowStock: totalQuantity > 0 && totalQuantity <= p.minimumStock,
+        isOutOfStock: totalQuantity === 0,
         nearestExpiryDate: nearestBatch?.expiryDate
           ? nearestBatch.expiryDate.toISOString()
           : null,
@@ -524,6 +548,10 @@ export class StockService {
 
     if (lowStockOnly) {
       mapped = mapped.filter((p) => p.isLowStock);
+    }
+
+    if (outOfStockOnly) {
+      mapped = mapped.filter((p) => p.isOutOfStock);
     }
 
     if (nearExpiryOnly) {

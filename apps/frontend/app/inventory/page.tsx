@@ -5,8 +5,8 @@ import { useInventory } from "@/hooks/useInventory";
 import {
   InventoryFilters,
   type InventoryFilterState,
-} from "@/components/features/stock/inventory/InventoryFilters";
-import { InventoryTable } from "@/components/features/stock/inventory/InventoryTable";
+} from "@/components/features/inventory/InventoryFilters";
+import { InventoryTable } from "@/components/features/inventory/InventoryTable";
 import type { InventoryListQuery } from "@repo/shared";
 import { PageContainer, PageHeader, PageSection } from "@/components/layout";
 import Button from "@/components/ui/button";
@@ -16,6 +16,7 @@ export default function InventoryPage() {
   const [filters, setFilters] = useState<InventoryFilterState>({
     search: "",
     lowStockOnly: false,
+    outOfStockOnly: false,
     nearExpiryOnly: false,
   });
   const [sortBy, setSortBy] = useState<InventoryListQuery["sortBy"]>("name");

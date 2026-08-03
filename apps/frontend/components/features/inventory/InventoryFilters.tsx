@@ -9,6 +9,7 @@ export interface InventoryFilterState {
   search: string;
   lowStockOnly: boolean;
   nearExpiryOnly: boolean;
+  outOfStockOnly: boolean;
   groupId?: string;
   typeId?: string;
 }
@@ -63,6 +64,15 @@ export function InventoryFilters({
           }
         >
           Low Stock
+        </FilterChip>
+        <FilterChip
+          active={value.outOfStockOnly}
+          tone="danger"
+          onClick={() =>
+            onChange({ ...value, outOfStockOnly: !value.outOfStockOnly })
+          }
+        >
+          Out of Stock
         </FilterChip>
 
         <FilterChip

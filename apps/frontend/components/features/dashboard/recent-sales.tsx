@@ -6,11 +6,7 @@ interface RecentSalesProps {
 
 export function RecentSales({ sales }: RecentSalesProps) {
   return (
-    <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-card)] p-5 shadow-[var(--shadow-sm)]">
-      <p className="mb-3 text-sm text-[var(--color-text-muted)]">
-        Recent sales
-      </p>
-
+    <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-card)] p-5 shadow-[var(--shadow-sm)] cursor-pointer"  onClick={() => (window.location.href = "/sales")}>
       <div className="divide-y divide-[var(--color-border-light)]">
         {sales.map((sale) => (
           <div

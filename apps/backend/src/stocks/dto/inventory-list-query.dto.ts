@@ -12,6 +12,10 @@ export class InventoryListQueryDto {
 
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)
+  outOfStockOnly?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
   nearExpiryOnly?: boolean;
 
   @IsOptional()

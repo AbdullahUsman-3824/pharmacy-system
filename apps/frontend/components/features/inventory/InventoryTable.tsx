@@ -30,8 +30,7 @@ function getStatus(item: InventoryRow): {
   label: string;
   tone: "danger" | "warning" | "success";
 } {
-  if (item.totalQuantity === 0)
-    return { label: "Out of Stock", tone: "danger" };
+  if (item.isOutOfStock) return { label: "Out of Stock", tone: "danger" };
   if (item.isLowStock) return { label: "Low Stock", tone: "warning" };
   if (item.hasNearExpiryBatch) return { label: "Near Expiry", tone: "warning" };
   return { label: "In Stock", tone: "success" };

@@ -10,6 +10,7 @@ export interface InventoryProductDto {
   retailRate: number | null;
   minimumStock: number;
   isLowStock: boolean;
+  isOutOfStock: boolean;
   nearestExpiryDate: string | null;
   hasNearExpiryBatch: boolean;
   batches: InventoryBatchDto[];
@@ -36,6 +37,7 @@ export interface InventoryListResponse {
 export interface InventoryListQuery {
   search?: string;
   lowStockOnly?: boolean;
+  outOfStockOnly?: boolean;
   nearExpiryOnly?: boolean;
   groupId?: string;
   typeId?: string;
@@ -44,4 +46,3 @@ export interface InventoryListQuery {
   page?: number;
   pageSize?: number;
 }
-

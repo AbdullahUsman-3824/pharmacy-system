@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { DashboardStatsDto, RecentSaleDto } from '@repo/shared';
+import {
+  DashboardStatsDto,
+  RecentPurchaseDto,
+  RecentSaleDto,
+  SaleType,
+} from '@repo/shared';
 
 @Injectable()
 export class DashboardService {
@@ -38,11 +43,13 @@ export class DashboardService {
       nearExpiryCount,
       allProducts,
       recentSalesRaw,
+      recentPurchasesRaw,
     ] = await Promise.all([
       this.prisma.sale.aggregate({
         where: {
           createdAt: { gte: todayStart, lte: todayEnd },
           deletedAt: null,
+          type: SaleType.SALE,
         },
         _sum: { netAmount: true },
       }),
@@ -50,6 +57,7 @@ export class DashboardService {
         where: {
           createdAt: { gte: todayStart, lte: todayEnd },
           deletedAt: null,
+          type: SaleType.SALE,
         },
       }),
       this.prisma.batch.groupBy({
@@ -69,10 +77,39 @@ export class DashboardService {
         select: { id: true, minimumStock: true },
       }),
       this.prisma.sale.findMany({
-        where: { deletedAt: null },
+        where: {
+          deletedAt: null,
+          type: SaleType.SALE,
+        },
         orderBy: { createdAt: 'desc' },
-        take: 10,
+        take: 5,
         include: { items: true },
+      }),
+      this.prisma.stockVoucher.findMany({
+        where: {
+          deletedAt: null,
+          type: 'PURCHASE',
+        },
+        select: {
+          id: true,
+          voucherNumber: true,
+          date: true,
+          netAmount: true,
+          supplier: {
+            select: {
+              name: true,
+            },
+          },
+          _count: {
+            select: {
+              items: true,
+            },
+          },
+        },
+        orderBy: {
+          date: 'desc',
+        },
+        take: 5,
       }),
     ]);
 
@@ -80,8 +117,13 @@ export class DashboardService {
       stockByProduct.map((b) => [b.productId, b._sum.currentQuantity ?? 0]),
     );
 
-    const lowStockCount = allProducts.filter(
-      (p) => (stockMap.get(p.id) ?? 0) <= p.minimumStock,
+    const lowStockCount = allProducts.filter((p) => {
+      const qty = stockMap.get(p.id) ?? 0;
+      return qty > 0 && qty <= p.minimumStock;
+    }).length;
+
+    const outOfStockCount = allProducts.filter(
+      (p) => (stockMap.get(p.id) ?? 0) === 0,
     ).length;
 
     return {
@@ -91,8 +133,10 @@ export class DashboardService {
       },
       lowStockCount,
       nearExpiryCount,
+      outOfStockCount,
       totalProducts: allProducts.length,
       recentSales: this.serializeRecentSales(recentSalesRaw),
+      recentPurchases: this.serializeRecentPurchases(recentPurchasesRaw),
     };
   }
 
@@ -104,6 +148,16 @@ export class DashboardService {
       totalAmount: Number(s.netAmount),
       itemCount: s.items.length,
       createdAt: s.createdAt.toISOString(),
+    }));
+  }
+  private serializeRecentPurchases(purchases: any[]): RecentPurchaseDto[] {
+    return purchases.map((p) => ({
+      id: p.id,
+      voucherNumber: p.voucherNumber,
+      supplierName: p.supplier?.name ?? null,
+      totalAmount: Number(p.netAmount),
+      itemCount: p._count.items,
+      createdAt: p.date.toISOString(),
     }));
   }
 }
