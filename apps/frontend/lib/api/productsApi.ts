@@ -5,9 +5,31 @@ import {
   UpdateProductInput,
 } from "@repo/shared";
 
+export type PaginatedProducts = {
+  data: ProductDto[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+};
+
 export const productsApi = {
-  list: async (): Promise<ProductDto[]> => {
-    const { data } = await apiClient.get("/products");
+  list: async (
+    page = 1,
+    limit = 100,
+    q?: string,
+  ): Promise<PaginatedProducts> => {
+    const { data } = await apiClient.get("/products", {
+      params: {
+        page,
+        limit,
+        ...(q?.trim() ? { q: q.trim() } : {}),
+      },
+    });
     return data;
   },
 

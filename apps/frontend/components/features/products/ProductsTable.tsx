@@ -5,23 +5,26 @@ import Link from "next/link";
 import { Trash2 } from "lucide-react";
 
 import { DataTable, DataTableColumn } from "@/components/shared/data-table";
+import { Pagination } from "@/components/shared/pagination";
 import { useProducts, useDeleteProduct } from "@/hooks/useProducts";
 import { useLookup } from "@/hooks/useLookups";
 import { LookupEntity, LookupType } from "@repo/shared/types/lookups";
 import { SearchBar } from "../../ui/searchBar";
+import { ProductDto } from "@repo/shared";
 
-type Product = ReturnType<typeof useProducts>["data"] extends
-  | (infer P)[]
-  | undefined
-  ? P
-  : never;
+const PAGE_SIZE = 100;
 
 function buildLookupMap(items: LookupEntity[]) {
   return new Map(items.map((item) => [item.id, item.name]));
 }
 
 export function ProductsTable() {
-  const { data: products = [], isLoading } = useProducts();
+  const [page, setPage] = useState(1);
+  const [query, setQuery] = useState("");
+
+  const { data, isLoading } = useProducts(page, PAGE_SIZE, query);
+  const products = useMemo(() => data?.data ?? [], [data?.data]);
+  const meta = data?.meta;
 
   const { data: companies = [] } = useLookup(LookupType.Company);
   const { data: types = [] } = useLookup(LookupType.ProductType);
@@ -29,30 +32,9 @@ export function ProductsTable() {
 
   const { mutate: deleteProduct } = useDeleteProduct();
 
-  const [query, setQuery] = useState("");
-
   const companyMap = useMemo(() => buildLookupMap(companies), [companies]);
   const typeMap = useMemo(() => buildLookupMap(types), [types]);
   const genericMap = useMemo(() => buildLookupMap(generics), [generics]);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-
-    if (!q) return products;
-
-    return products.filter((product) => {
-      return (
-        product.name.toLowerCase().includes(q) ||
-        (companyMap.get(product.companyId ?? "") ?? "")
-          .toLowerCase()
-          .includes(q) ||
-        (typeMap.get(product.typeId ?? "") ?? "").toLowerCase().includes(q) ||
-        (genericMap.get(product.genericId ?? "") ?? "")
-          .toLowerCase()
-          .includes(q)
-      );
-    });
-  }, [products, query, companyMap, typeMap, genericMap]);
 
   function handleDelete(id: string) {
     if (confirm("Delete this product?")) {
@@ -60,12 +42,17 @@ export function ProductsTable() {
     }
   }
 
-  const columns: DataTableColumn<Product>[] = [
+  function handleSearchChange(value: string) {
+    setQuery(value);
+    setPage(1); // reset page on new search
+  }
+
+  const columns: DataTableColumn<ProductDto>[] = [
     {
       key: "index",
       title: "#",
       width: 60,
-      render: (_row, index) => index + 1,
+      render: (_row, index) => (page - 1) * PAGE_SIZE + index + 1,
     },
     {
       key: "name",
@@ -127,17 +114,28 @@ export function ProductsTable() {
     <div className="flex flex-col gap-4">
       <SearchBar
         value={query}
-        onChange={setQuery}
+        onChange={handleSearchChange}
         entityLabelPlural="Products"
-        count={filtered.length}
+        count={meta?.total ?? 0}
       />
 
       <DataTable
         columns={columns}
-        data={filtered}
+        data={products}
         loading={isLoading}
         emptyTitle="No products found"
         emptyDescription="Try adjusting your search."
+        footer={
+          meta && meta.totalPages > 0 ? (
+            <Pagination
+              currentPage={meta.page}
+              totalPages={meta.totalPages}
+              onPageChange={setPage}
+              itemsPerPage={meta.limit}
+              totalItems={meta.total}
+            />
+          ) : null
+        }
       />
     </div>
   );

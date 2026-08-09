@@ -4,6 +4,7 @@ packages:
 allowBuilds:
   "@prisma/engines": true
   esbuild: false
+  msnodesqlv8: true
   prisma: true
   sharp: true
   unrs-resolver: false

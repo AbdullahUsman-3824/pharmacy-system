@@ -5,13 +5,13 @@ import { AxiosError } from "axios";
 import { toast } from "sonner";
 
 /**
- * Full product list
+ * Paginated product list
  * (Admin pages, product management, reports)
  */
-export function useProducts() {
+export function useProducts(page = 1, limit = 100, q = "") {
   return useQuery({
-    queryKey: ["products"],
-    queryFn: productsApi.list,
+    queryKey: ["products", page, limit, q],
+    queryFn: () => productsApi.list(page, limit, q),
   });
 }
 

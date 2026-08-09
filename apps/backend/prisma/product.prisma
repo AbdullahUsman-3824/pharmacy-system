@@ -77,12 +77,12 @@ model Product {
 
     defaultSupplierId String?
 
-    company Company       @relation(fields: [companyId], references: [id])
-    type    ProductType   @relation(fields: [typeId], references: [id])
-    group   ProductGroup? @relation(fields: [groupId], references: [id])
-    generic Generic?      @relation(fields: [genericId], references: [id])
+    company Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+    type    ProductType   @relation(fields: [typeId], references: [id], onDelete: Restrict)
+    group   ProductGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+    generic Generic?      @relation(fields: [genericId], references: [id], onDelete: SetNull)
 
-    defaultSupplier Supplier? @relation(fields: [defaultSupplierId], references: [id])
+    defaultSupplier Supplier? @relation(fields: [defaultSupplierId], references: [id], onDelete: SetNull)
 
     registrationNo    String?
     originalReference String?

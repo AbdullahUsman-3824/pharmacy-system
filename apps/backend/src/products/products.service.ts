@@ -13,21 +13,61 @@ export class ProductsService {
     });
   }
 
-  async findAll() {
-    return this.prisma.product.findMany({
-      where: {
-        deletedAt: null,
+  async findAll(page: number = 1, limit: number = 100, q?: string) {
+    const skip = (page - 1) * limit;
+
+    const where = {
+      deletedAt: null,
+      ...(q?.trim()
+        ? {
+            OR: [
+              { name: { contains: q.trim(), mode: 'insensitive' as const } },
+              {
+                company: {
+                  name: { contains: q.trim(), mode: 'insensitive' as const },
+                },
+              },
+              {
+                type: {
+                  name: { contains: q.trim(), mode: 'insensitive' as const },
+                },
+              },
+              {
+                generic: {
+                  name: { contains: q.trim(), mode: 'insensitive' as const },
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+
+    const [products, totalCount] = await Promise.all([
+      this.prisma.product.findMany({
+        where,
+        include: {
+          company: true,
+          type: true,
+          group: true,
+          generic: true,
+        },
+        skip,
+        take: limit,
+      }),
+      this.prisma.product.count({ where }),
+    ]);
+
+    return {
+      data: products,
+      meta: {
+        total: totalCount,
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit) || 1,
+        hasNextPage: page < Math.ceil(totalCount / limit),
+        hasPreviousPage: page > 1,
       },
-      include: {
-        company: true,
-        type: true,
-        group: true,
-        generic: true,
-      },
-      orderBy: {
-        name: 'asc',
-      },
-    });
+    };
   }
 
   async findOne(id: string) {
