@@ -489,6 +489,7 @@ export class StockService {
             { barcode: { contains: search, mode: 'insensitive' } },
           ],
         }),
+        batches: { some: { deletedAt: null } },
       },
       include: {
         batches: {

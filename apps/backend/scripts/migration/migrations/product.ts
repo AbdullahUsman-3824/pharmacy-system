@@ -16,7 +16,7 @@ export async function migrateProducts(
   sqlPool: sql.ConnectionPool,
   prisma: Prisma,
 ) {
-  console.log(`\n▶ Migrating products from dbo.MedProduct...`);
+  console.log(`\n▶ Migrating products from dbo.Products...`);
   const startTime = Date.now();
 
   const result = await sqlPool.request().query(`
@@ -52,6 +52,7 @@ export async function migrateProducts(
   console.log(`  Found ${products.length} products`);
 
   let created = 0;
+  let updated = 0;
   let skipped = 0;
   let failed = 0;
 
@@ -86,47 +87,58 @@ export async function migrateProducts(
         ? supplierMap.get(supplierOldKey)
         : undefined;
 
-      const newProduct = await prisma.product.create({
-        data: {
-          code: oldProduct[productMapping.code],
-          barcode: emptyToNull(oldProduct[productMapping.barcode]),
-          name: oldProduct[productMapping.name],
+      const code = oldProduct[productMapping.code];
 
-          companyId,
-          typeId,
-          groupId: groupId ?? null,
-          genericId: genericId ?? null,
-          defaultSupplierId: defaultSupplierId ?? null,
+      const productData = {
+        barcode: emptyToNull(oldProduct[productMapping.barcode]),
+        name: oldProduct[productMapping.name],
 
-          registrationNo: emptyToNull(
-            oldProduct[productMapping.registrationNo],
-          ),
-          originalReference: emptyToNull(
-            oldProduct[productMapping.originalReference],
-          ),
-          shelfNo: emptyToNull(oldProduct[productMapping.shelfNo])
-            ? Number(oldProduct[productMapping.shelfNo])
-            : null,
+        companyId,
+        typeId,
+        groupId: groupId ?? null,
+        genericId: genericId ?? null,
+        defaultSupplierId: defaultSupplierId ?? null,
 
-          minimumStock: oldProduct[productMapping.minimumStock] ?? 0,
-          maximumStock: oldProduct[productMapping.maximumStock] ?? null,
+        registrationNo: emptyToNull(oldProduct[productMapping.registrationNo]),
+        originalReference: emptyToNull(
+          oldProduct[productMapping.originalReference],
+        ),
+        shelfNo: emptyToNull(oldProduct[productMapping.shelfNo])
+          ? Number(oldProduct[productMapping.shelfNo])
+          : null,
 
-          packingSize: oldProduct[productMapping.packingSize],
-          retailPrice: oldProduct[productMapping.retailPrice],
-          retailDiscount: oldProduct[productMapping.retailDiscount],
-          tradePrice: oldProduct[productMapping.tradePrice],
-          retailRate: oldProduct[productMapping.retailRate],
-          tradeRate: oldProduct[productMapping.tradeRate],
-          counterRatePercent: oldProduct[productMapping.counterRatePercent],
-          orgRatePercent: oldProduct[productMapping.orgRatePercent],
+        minimumStock: oldProduct[productMapping.minimumStock] ?? 0,
+        maximumStock: oldProduct[productMapping.maximumStock] ?? null,
 
-          nivFormulary: Boolean(oldProduct[productMapping.nivFormulary]),
-          isActive: Boolean(oldProduct[productMapping.isActive]),
-        },
+        packingSize: oldProduct[productMapping.packingSize],
+        retailPrice: oldProduct[productMapping.retailPrice],
+        retailDiscount: oldProduct[productMapping.retailDiscount],
+        tradePrice: oldProduct[productMapping.tradePrice],
+        retailRate: oldProduct[productMapping.retailRate],
+        tradeRate: oldProduct[productMapping.tradeRate],
+        counterRatePercent: oldProduct[productMapping.counterRatePercent],
+        orgRatePercent: oldProduct[productMapping.orgRatePercent],
+
+        nivFormulary: Boolean(oldProduct[productMapping.nivFormulary]),
+        isActive: Boolean(oldProduct[productMapping.isActive]),
+      };
+
+      const newProduct = await prisma.product.upsert({
+        where: { code },
+        create: { code, ...productData },
+        update: productData,
       });
 
-      created++;
-      productMap.set(oldProduct[productMapping.oldKey], newProduct.id);
+      // createdAt === updatedAt means this was a fresh insert
+      if (newProduct.createdAt.getTime() === newProduct.updatedAt.getTime()) {
+        created++;
+      } else {
+        updated++;
+      }
+
+      const oldProductKey = String(oldProduct[productMapping.oldKey]).trim();
+
+      productMap.set(oldProductKey, newProduct.id);
     } catch (err) {
       failed++;
       console.error(
@@ -142,6 +154,6 @@ export async function migrateProducts(
 
   const seconds = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log(
-    `✔ products: ${created} created, ${skipped} skipped (missing FK), ${failed} failed (${seconds}s)`,
+    `✔ products: ${created} created, ${updated} updated, ${skipped} skipped (missing FK), ${failed} failed (${seconds}s)`,
   );
 }
