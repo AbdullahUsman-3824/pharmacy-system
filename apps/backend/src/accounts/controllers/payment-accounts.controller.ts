@@ -14,7 +14,6 @@ import {
   CreatePaymentAccountDto,
   UpdatePaymentAccountDto,
 } from '../dto/payment-account.dto';
-import { PaymentAccountType } from '@repo/shared';
 
 @Controller('payment-accounts')
 export class PaymentAccountsController {
@@ -24,21 +23,27 @@ export class PaymentAccountsController {
 
   @Post()
   create(@Body() createPaymentAccountDto: CreatePaymentAccountDto) {
-    return this.paymentAccountsService.create(createPaymentAccountDto);
+    return this.paymentAccountsService.addBankAccount(createPaymentAccountDto);
   }
 
   @Get()
-  findAll(
-    @Query('type') type?: PaymentAccountType,
-    @Query('isActive') isActive?: string,
-  ) {
+  findAll(@Query('isActive') isActive?: string) {
     const isActiveBool =
       isActive === undefined ? undefined : isActive === 'true';
 
-    return this.paymentAccountsService.findAll({
-      type,
+    return this.paymentAccountsService.findAllBanks({
       isActive: isActiveBool,
     });
+  }
+
+  @Get('cash')
+  getCashAccount() {
+    return this.paymentAccountsService.getCashAccount();
+  }
+
+  @Get('available')
+  getAvailableAccounts() {
+    return this.paymentAccountsService.getAvailableAccounts();
   }
 
   @Get(':id')

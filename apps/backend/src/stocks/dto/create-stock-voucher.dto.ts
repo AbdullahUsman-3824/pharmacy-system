@@ -10,7 +10,11 @@ import {
   IsBoolean,
 } from 'class-validator';
 
-import { CreateStockVoucherInput, StockVoucherType } from '@repo/shared';
+import {
+  CreatePaymentDto,
+  CreateStockVoucherInput,
+  StockVoucherType,
+} from '@repo/shared';
 
 import { StockVoucherItemDto } from './stock-voucher-item.dto';
 
@@ -20,7 +24,7 @@ export class CreateStockVoucherDto implements CreateStockVoucherInput {
 
   @IsOptional()
   @IsString()
-  distributorId?: string | null;
+  supplierId?: string | null;
 
   @IsDateString()
   voucherDate!: string;
@@ -28,6 +32,12 @@ export class CreateStockVoucherDto implements CreateStockVoucherInput {
   @IsOptional()
   @IsString()
   remarks?: string;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CreatePaymentDto)
+  payments!: CreatePaymentDto[];
 
   @IsArray()
   @ArrayMinSize(1)

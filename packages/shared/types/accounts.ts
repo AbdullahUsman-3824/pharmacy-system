@@ -2,12 +2,17 @@
 
 export enum BusinessContactType {
   CUSTOMER = "CUSTOMER",
-  DISTRIBUTOR = "DISTRIBUTOR",
+  SUPPLIER = "SUPPLIER",
 }
 
 export enum PaymentAccountType {
   CASH = "CASH",
   BANK = "BANK",
+}
+
+export enum PaymentType {
+  SALE = "SALE",
+  PURCHASE = "PURCHASE",
 }
 
 // ==================== Business Contact ====================
@@ -46,8 +51,24 @@ export interface PaymentAccount {
 
 export interface CreatePaymentAccount {
   name: string;
-  type: PaymentAccountType;
   isActive?: boolean;
+}
+
+export class CreatePaymentDto {
+  paymentAccountId!: string;
+  amount!: number;
+}
+
+export interface PaymentOutput {
+  id: string;
+  amount: number;
+  paymentAccountId: string;
+  paymentAccount: {
+    id: string;
+    name: string;
+    type: PaymentAccountType;
+  };
+  createdAt: string;
 }
 
 export type UpdatePaymentAccount = Partial<CreatePaymentAccount>;

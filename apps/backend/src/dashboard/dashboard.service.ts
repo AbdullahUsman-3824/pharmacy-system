@@ -95,7 +95,7 @@ export class DashboardService {
           voucherNumber: true,
           date: true,
           netAmount: true,
-          distributor: {
+          supplier: {
             select: {
               name: true,
             },

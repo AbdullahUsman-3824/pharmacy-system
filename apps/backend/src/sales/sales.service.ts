@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
-import { SaleType } from '@repo/shared';
+import { CreatePaymentDto, SaleType } from '@repo/shared';
 
 @Injectable()
 export class SalesService {
@@ -24,11 +24,13 @@ export class SalesService {
 
       const mergedItems = this.mergeDuplicateItems(dto.items);
 
+      await this.validateCustomer(tx, dto);
+
       const createdSale = await tx.sale.create({
         data: {
           saleNumber,
           type: dto.type,
-          customerName: dto.customerName ?? 'Walk-in Customer',
+          customerId: dto.customerId,
           originalSaleId: dto.originalSaleId ?? null,
           date: new Date(dto.saleDate),
           remarks: dto.remarks,
@@ -59,7 +61,7 @@ export class SalesService {
       const taxTotal = this.round2(taxableAmount * (taxPercent / 100));
       const netTotal = this.round2(taxableAmount + taxTotal);
 
-      return this.updateSaleTotals(
+      await this.updateSaleTotals(
         tx,
         createdSale.id,
         grossTotal,
@@ -69,6 +71,28 @@ export class SalesService {
         taxTotal,
         netTotal,
       );
+
+      await this.createPayments(tx, createdSale.id, netTotal, dto.payments);
+
+      return tx.sale.findUnique({
+        where: {
+          id: createdSale.id,
+        },
+        include: {
+          customer: true,
+          payments: {
+            include: {
+              paymentAccount: true,
+            },
+          },
+          items: {
+            include: {
+              batch: true,
+              product: true,
+            },
+          },
+        },
+      });
     });
 
     return this.serializeSale(sale);
@@ -91,7 +115,13 @@ export class SalesService {
           saleNumber: true,
           type: true,
           date: true,
-          customerName: true,
+          customerId: true,
+          customer: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
           grossAmount: true,
           discountPercent: true,
           discountAmount: true,
@@ -110,6 +140,7 @@ export class SalesService {
     return {
       data: sales.map((s) => ({
         ...s,
+        customerName: s.customer.name,
         grossAmount: Number(s.grossAmount),
         discountPercent:
           s.discountPercent !== null ? Number(s.discountPercent) : null,
@@ -131,6 +162,14 @@ export class SalesService {
     const sale = await this.prisma.sale.findFirst({
       where: { id, deletedAt: null },
       include: {
+        customer: true,
+
+        payments: {
+          include: {
+            paymentAccount: true,
+          },
+        },
+
         items: {
           include: {
             batch: true,
@@ -155,6 +194,12 @@ export class SalesService {
         deletedAt: null,
       },
       include: {
+        customer: true,
+        payments: {
+          include: {
+            paymentAccount: true,
+          },
+        },
         items: {
           include: {
             batch: true,
@@ -181,16 +226,29 @@ export class SalesService {
     const sales = await this.prisma.sale.findMany({
       where: {
         deletedAt: null,
-        type: SaleType.SALE, // only original sales can be returned against
+        type: SaleType.SALE,
         OR: [
           { saleNumber: { contains: trimmed, mode: 'insensitive' } },
-          { customerName: { contains: trimmed, mode: 'insensitive' } },
+          {
+            customer: {
+              name: {
+                contains: trimmed,
+                mode: 'insensitive',
+              },
+            },
+          },
         ],
       },
       select: {
         id: true,
         saleNumber: true,
-        customerName: true,
+        customerId: true,
+        customer: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         date: true,
         netAmount: true,
       },
@@ -199,7 +257,11 @@ export class SalesService {
     });
 
     return sales.map((s) => ({
-      ...s,
+      id: s.id,
+      saleNumber: s.saleNumber,
+      customerId: s.customerId,
+      customerName: s.customer.name,
+      date: s.date,
       netAmount: Number(s.netAmount),
     }));
   }
@@ -317,13 +379,27 @@ export class SalesService {
   private serializeSale(sale: any) {
     return {
       ...sale,
+
       grossAmount: Number(sale.grossAmount),
+
       discountPercent:
         sale.discountPercent !== null ? Number(sale.discountPercent) : null,
+
       discountAmount: Number(sale.discountAmount),
+
       taxPercent: sale.taxPercent !== null ? Number(sale.taxPercent) : null,
+
       taxAmount: Number(sale.taxAmount),
+
       netAmount: Number(sale.netAmount),
+
+      payments:
+        sale.payments?.map((payment: any) => ({
+          ...payment,
+          amount: Number(payment.amount),
+          paymentAccount: payment.paymentAccount,
+        })) ?? [],
+
       items: sale.items.map((item: any) => ({
         ...item,
         productName: item.product?.name,
@@ -331,6 +407,7 @@ export class SalesService {
         looseRate: item.looseRate !== null ? Number(item.looseRate) : null,
         grossAmount: Number(item.grossAmount),
         netAmount: Number(item.netAmount),
+
         batch: {
           ...item.batch,
           purchaseRate: Number(item.batch.purchaseRate),
@@ -626,5 +703,71 @@ export class SalesService {
 
   private round2(value: number): number {
     return parseFloat(value.toFixed(2));
+  }
+
+  private async createPayments(
+    tx: any,
+    saleId: string,
+    netTotal: number,
+    payments: CreatePaymentDto[],
+  ): Promise<void> {
+    if (!payments || payments.length === 0) {
+      throw new BadRequestException('At least one payment is required');
+    }
+
+    const paymentTotal = payments.reduce(
+      (sum, payment) => sum + Number(payment.amount),
+      0,
+    );
+
+    if (Math.abs(paymentTotal - netTotal) > 0.01) {
+      throw new BadRequestException(
+        `Payment total (${paymentTotal}) must equal sale total (${netTotal})`,
+      );
+    }
+
+    for (const payment of payments) {
+      if (Number(payment.amount) <= 0) {
+        throw new BadRequestException(
+          'Payment amount must be greater than zero',
+        );
+      }
+
+      const paymentAccount = await tx.paymentAccount.findFirst({
+        where: {
+          id: payment.paymentAccountId,
+          isActive: true,
+        },
+      });
+
+      if (!paymentAccount) {
+        throw new BadRequestException(
+          `Payment account ${payment.paymentAccountId} not found or inactive`,
+        );
+      }
+
+      await tx.payment.create({
+        data: {
+          amount: payment.amount,
+          paymentAccountId: payment.paymentAccountId,
+          saleId,
+          type: 'SALE',
+        },
+      });
+    }
+  }
+
+  private async validateCustomer(tx: any, dto: CreateSaleDto): Promise<void> {
+    const customer = await tx.businessContact.findFirst({
+      where: {
+        id: dto.customerId,
+        type: 'CUSTOMER',
+        isActive: true,
+      },
+    });
+
+    if (!customer) {
+      throw new BadRequestException('Invalid or inactive customer');
+    }
   }
 }

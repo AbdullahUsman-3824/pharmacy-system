@@ -10,11 +10,89 @@ import {
   InventoryListQuery,
   InventoryListResponse,
   InventoryProductDto,
+  CreatePaymentDto,
 } from '@repo/shared';
 
 @Injectable()
 export class StockService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private async createPayments(
+    tx: any,
+    stockVoucherId: string,
+    netTotal: number,
+    payments: CreatePaymentDto[],
+  ): Promise<void> {
+    if (!payments || payments.length === 0) {
+      throw new BadRequestException('At least one payment is required');
+    }
+
+    const paymentTotal = payments.reduce(
+      (sum, payment) => sum + Number(payment.amount),
+      0,
+    );
+
+    if (Math.abs(paymentTotal - netTotal) > 0.01) {
+      throw new BadRequestException(
+        `Payment total (${paymentTotal}) must equal voucher total (${netTotal})`,
+      );
+    }
+
+    for (const payment of payments) {
+      if (Number(payment.amount) <= 0) {
+        throw new BadRequestException(
+          'Payment amount must be greater than zero',
+        );
+      }
+
+      const paymentAccount = await tx.paymentAccount.findFirst({
+        where: {
+          id: payment.paymentAccountId,
+          isActive: true,
+        },
+      });
+
+      if (!paymentAccount) {
+        throw new BadRequestException(
+          `Payment account ${payment.paymentAccountId} not found or inactive`,
+        );
+      }
+
+      await tx.payment.create({
+        data: {
+          amount: payment.amount,
+          paymentAccountId: payment.paymentAccountId,
+          stockVoucherId,
+          type: 'PURCHASE',
+        },
+      });
+    }
+  }
+
+  private async validateSupplier(tx: any, dto: CreateStockVoucherDto) {
+    if (
+      dto.type === StockVoucherType.PURCHASE ||
+      dto.type === StockVoucherType.PURCHASE_RETURN
+    ) {
+      if (!dto.supplierId) {
+        throw new BadRequestException(
+          'Supplier is required for purchase transactions',
+        );
+      }
+
+      const supplier = await tx.businessContact.findFirst({
+        where: {
+          id: dto.supplierId,
+          type: 'SUPPLIER',
+          isActive: true,
+        },
+      });
+
+      if (!supplier) {
+        throw new BadRequestException('Invalid or inactive supplier');
+      }
+    }
+  }
 
   async createVoucher(dto: CreateStockVoucherDto) {
     return this.prisma.$transaction(async (tx) => {
@@ -25,11 +103,13 @@ export class StockService {
       let taxTotal = 0;
       let netTotal = 0;
 
+      await this.validateSupplier(tx, dto);
+
       const voucher = await tx.stockVoucher.create({
         data: {
           voucherNumber,
           type: dto.type,
-          distributorId: dto.distributorId ?? null,
+          supplierId: dto.supplierId,
           date: new Date(dto.voucherDate),
           remarks: dto.remarks,
         },
@@ -42,13 +122,7 @@ export class StockService {
 
         this.validateVoucherItemAmounts(item);
 
-        const batch = await this.resolveBatch(
-          tx,
-          item,
-          dto.type,
-          dto.distributorId,
-          expiryDate,
-        );
+        const batch = await this.resolveBatch(tx, item, dto.type, expiryDate);
 
         await this.createStockVoucherItem(tx, voucher.id, batch.id, item);
 
@@ -58,7 +132,7 @@ export class StockService {
         netTotal += item.netAmount;
       }
 
-      return this.updateVoucherTotals(
+      await this.updateVoucherTotals(
         tx,
         voucher.id,
         grossTotal,
@@ -66,6 +140,28 @@ export class StockService {
         taxTotal,
         netTotal,
       );
+
+      await this.createPayments(tx, voucher.id, netTotal, dto.payments);
+
+      return tx.stockVoucher.findUnique({
+        where: {
+          id: voucher.id,
+        },
+        include: {
+          supplier: true,
+          payments: {
+            include: {
+              paymentAccount: true,
+            },
+          },
+          items: {
+            include: {
+              batch: true,
+              product: true,
+            },
+          },
+        },
+      });
     });
   }
 
@@ -79,12 +175,12 @@ export class StockService {
         voucherNumber: true,
         type: true,
         date: true,
-        distributorId: true,
+        supplierId: true,
         grossAmount: true,
         discountAmount: true,
         taxAmount: true,
         netAmount: true,
-        distributor: {
+        supplier: {
           select: { name: true },
         },
         _count: {
@@ -98,7 +194,7 @@ export class StockService {
       take: params?.take ?? 100,
     });
 
-    // Convert Decimal -> number, flatten distributor.name -> distributorName,
+    // Convert Decimal -> number, flatten supplier.name -> supplierName,
     // flatten _count.items -> itemCount, once, so every consumer (frontend
     // list table, search, etc.) gets clean, ready-to-use data.
     return vouchers.map((v) => ({
@@ -106,8 +202,8 @@ export class StockService {
       voucherNumber: v.voucherNumber,
       type: v.type,
       date: v.date,
-      distributorId: v.distributorId,
-      distributorName: v.distributor?.name ?? null,
+      supplierId: v.supplierId,
+      supplierName: v.supplier?.name ?? null,
       itemCount: v._count.items,
       grossAmount: Number(v.grossAmount),
       discountAmount: Number(v.discountAmount),
@@ -120,7 +216,12 @@ export class StockService {
     const voucher = await this.prisma.stockVoucher.findFirst({
       where: { id, deletedAt: null },
       include: {
-        distributor: true,
+        supplier: true,
+        payments: {
+          include: {
+            paymentAccount: true,
+          },
+        },
         items: {
           include: {
             batch: true,
@@ -313,7 +414,6 @@ export class StockService {
     tx: any,
     item: any,
     voucherType: StockVoucherType,
-    distributorId: string | null | undefined,
     expiryDate: Date | null,
   ): Promise<any> {
     let batch = await tx.batch.findFirst({
@@ -329,7 +429,6 @@ export class StockService {
       batch = await tx.batch.create({
         data: {
           productId: item.productId,
-          distributorId: distributorId ?? undefined,
           batchNumber: item.batchNumber,
           expiryDate,
           purchaseRate: item.purchaseRate,
@@ -442,7 +541,7 @@ export class StockService {
         netAmount: netTotal,
       },
       include: {
-        distributor: true,
+        supplier: true,
         items: {
           include: {
             batch: true,

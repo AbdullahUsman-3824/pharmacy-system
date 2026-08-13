@@ -1,6 +1,6 @@
 enum BusinessContactType {
     CUSTOMER
-    DISTRIBUTOR
+    SUPPLIER
 }
 
 model BusinessContact {
@@ -11,6 +11,9 @@ model BusinessContact {
     phone    String?
     address  String?
     isActive Boolean @default(true)
+
+    purchaseVouchers StockVoucher[]
+    customerSales    Sale[]
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt

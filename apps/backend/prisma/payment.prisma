@@ -1,0 +1,27 @@
+enum PaymentType {
+    SALE
+    PURCHASE
+}
+
+model Payment {
+    id String @id @default(uuid())
+
+    type PaymentType
+
+    amount Decimal @db.Decimal(12, 2)
+
+    paymentAccountId String
+    paymentAccount   PaymentAccount @relation(fields: [paymentAccountId], references: [id])
+
+    saleId String?
+    sale   Sale?   @relation(fields: [saleId], references: [id])
+
+    stockVoucherId String?
+    stockVoucher   StockVoucher? @relation(fields: [stockVoucherId], references: [id])
+
+    createdAt DateTime @default(now())
+
+    @@index([paymentAccountId])
+    @@index([saleId])
+    @@index([stockVoucherId])
+}

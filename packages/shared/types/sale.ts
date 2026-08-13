@@ -1,3 +1,5 @@
+import { CreatePaymentDto, PaymentOutput } from "./accounts";
+
 export enum SaleType {
   SALE = "SALE",
   SALE_RETURN = "SALE_RETURN",
@@ -6,23 +8,24 @@ export enum SaleType {
 export interface CreateSaleItemInput {
   productId: string;
   batchId: string;
-  packQuantity: number; // whole packs sold on this line, 0 if none
-  saleRate: number; // rate per pack
-  looseQuantity: number; // loose units sold on this line, 0 if none
-  looseRate: number; // rate per loose unit
+  packQuantity: number;
+  saleRate: number;
+  looseQuantity: number;
+  looseRate: number;
   grossAmount: number;
   netAmount: number;
 }
 
 export interface CreateSaleInput {
   type: SaleType;
-  customerName?: string;
+  customerId: string;
   saleDate: string;
   originalSaleId?: string | null;
   remarks?: string;
   discountPercent?: number;
   taxPercent?: number;
   items: CreateSaleItemInput[];
+  payments: CreatePaymentDto[];
 }
 
 export interface SaleItemDto {
@@ -45,7 +48,7 @@ export interface SaleDto {
   saleNumber: string;
   type: SaleType;
   date: string;
-  customerName: string;
+  customerId: string;
   originalSaleId?: string | null;
   remarks?: string | null;
   grossAmount: number;
@@ -58,8 +61,8 @@ export interface SaleDto {
   updatedAt: string;
   deletedAt?: string | null;
   items?: SaleItemDto[];
+  payments: PaymentOutput[];
 }
-
 
 export interface SaleItemBatchDto {
   id: string;
@@ -114,7 +117,7 @@ export interface ReturnableSaleDto {
 export interface SaleSearchResultDto {
   id: string;
   saleNumber: string;
-  customerName: string;
+  customerId: string;
   date: string;
   netAmount: number;
 }

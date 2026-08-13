@@ -14,7 +14,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-import { CreateSaleInput, SaleType } from '@repo/shared';
+import { CreatePaymentDto, CreateSaleInput, SaleType } from '@repo/shared';
 
 import { CreateSaleItemDto } from './create-sale-item.dto';
 
@@ -24,7 +24,7 @@ export class CreateSaleDto implements CreateSaleInput {
 
   @IsOptional()
   @IsString()
-  customerName?: string;
+  customerId!: string;
 
   @IsDateString()
   saleDate!: string;
@@ -56,4 +56,10 @@ export class CreateSaleDto implements CreateSaleInput {
   @ValidateNested({ each: true })
   @Type(() => CreateSaleItemDto)
   items!: CreateSaleItemDto[];
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CreatePaymentDto)
+  payments!: CreatePaymentDto[];
 }

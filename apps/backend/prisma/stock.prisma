@@ -8,10 +8,6 @@ model Batch {
     productId String
     product   Product @relation(fields: [productId], references: [id])
 
-
-    distributorId String?
-    distributor   Distributor? @relation(fields: [distributorId], references: [id])
-
     batchNumber String
     expiryDate  DateTime?
 
@@ -71,8 +67,8 @@ model StockVoucher {
 
     date DateTime @default(now())
 
-    distributorId String?
-    distributor   Distributor? @relation(fields: [distributorId], references: [id])
+    supplierId String?
+    supplier   BusinessContact? @relation(fields: [supplierId], references: [id])
 
     remarks String?
 
@@ -81,7 +77,8 @@ model StockVoucher {
     taxAmount      Decimal @default(0) @db.Decimal(12, 2)
     netAmount      Decimal @default(0) @db.Decimal(12, 2)
 
-    items StockVoucherItem[]
+    items    StockVoucherItem[]
+    payments Payment[]
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @updatedAt
@@ -89,6 +86,7 @@ model StockVoucher {
 
     @@index([voucherNumber])
     @@index([date])
+    @@index([supplierId])
 }
 
 model StockVoucherItem {

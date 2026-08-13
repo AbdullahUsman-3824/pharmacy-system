@@ -1,18 +1,11 @@
 // payment-account.dto.ts
-import { IsString, IsOptional, IsEnum, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsBoolean } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
-import {
-  PaymentAccountType,
-  CreatePaymentAccount,
-  UpdatePaymentAccount,
-} from '@repo/shared';
+import { CreatePaymentAccount, UpdatePaymentAccount } from '@repo/shared';
 
 export class CreatePaymentAccountDto implements CreatePaymentAccount {
   @IsString()
   name!: string;
-
-  @IsEnum(PaymentAccountType)
-  type!: PaymentAccountType;
 
   @IsOptional()
   @IsBoolean()

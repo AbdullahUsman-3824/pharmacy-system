@@ -16,17 +16,19 @@ model Sale {
 
     date DateTime @default(now())
 
-    customerName String  @default("Walk-in Customer")
-    remarks      String?
+    customerId String
+    customer   BusinessContact @relation(fields: [customerId], references: [id])
 
-    // for SALE_RETURN: link back to the original sale being returned against
+    remarks String?
+
+    // for SALE_RETURN: link back to the original sale
     originalSaleId String?
     originalSale   Sale?   @relation("SaleReturns", fields: [originalSaleId], references: [id])
     returns        Sale[]  @relation("SaleReturns")
 
     grossAmount Decimal @default(0) @db.Decimal(12, 2)
 
-    // bill-level discount/tax — applied once on the invoice total, not per line
+    // bill-level discount/tax
     discountPercent Decimal? @db.Decimal(5, 2)
     discountAmount  Decimal  @default(0) @db.Decimal(12, 2)
 
@@ -35,20 +37,20 @@ model Sale {
 
     netAmount Decimal @default(0) @db.Decimal(12, 2)
 
-    items SaleItem[]
+    items    SaleItem[]
+    payments Payment[]
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @updatedAt
     deletedAt DateTime?
 
-    // ========== OPTIMIZED INDEXES ==========
-    @@index([deletedAt]) // for soft-delete filtering
-    @@index([date(sort: Desc)]) // for ordering (most recent first)
-    @@index([saleNumber]) // for exact/partial search
-    @@index([customerName]) // for search by customer
-    @@index([type]) // for filtering by type
-    @@index([originalSaleId]) // for fetching returns of a sale
-    @@index([date, type]) // composite for common filters
+    @@index([deletedAt])
+    @@index([date(sort: Desc)])
+    @@index([saleNumber])
+    @@index([customerId])
+    @@index([type])
+    @@index([originalSaleId])
+    @@index([date, type])
 }
 
 model SaleItem {

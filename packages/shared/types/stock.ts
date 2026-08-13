@@ -1,3 +1,5 @@
+import { CreatePaymentDto, PaymentOutput } from "./accounts";
+
 export enum StockVoucherType {
   OPENING = "OPENING",
   PURCHASE = "PURCHASE",
@@ -25,10 +27,11 @@ export interface StockVoucherItemInput {
 
 export interface CreateStockVoucherInput {
   type: StockVoucherType;
-  distributorId?: string | null;
+  supplierId?: string | null;
   voucherDate: string;
   remarks?: string;
   items: StockVoucherItemInput[];
+  payments: CreatePaymentDto[];
 }
 
 export interface StockVoucherItemOutput {
@@ -63,7 +66,7 @@ export interface StockVoucherOutput {
   id: string;
   voucherNumber: string;
   type: StockVoucherType;
-  distributorId: string | null;
+  supplierId: string | null;
   date: string;
   remarks?: string | null;
   grossAmount: number;
@@ -73,11 +76,12 @@ export interface StockVoucherOutput {
   createdAt: string;
   updatedAt: string;
   items: StockVoucherItemOutput[];
-  distributor: {
+  supplier: {
     id: string;
     name: string;
     contactPerson?: string | null;
   };
+  payments: PaymentOutput[];
 }
 
 export interface BatchStockLine {
@@ -97,15 +101,15 @@ export interface ProductStockView {
   batches: BatchStockLine[]; // FEFO order
 }
 
-// UPDATED: added distributorName + itemCount, both flattened server-side in
+// UPDATED: added supplierName + itemCount, both flattened server-side in
 // StockService.findAll() — same flattening pattern as SalesService.serializeSale()
 export interface StockVoucherListItem {
   id: string;
   voucherNumber: string;
   type: StockVoucherType;
   date: string;
-  distributorId: string | null;
-  distributorName: string | null;
+  supplierId: string | null;
+  supplierName: string | null;
   itemCount: number;
   grossAmount: number;
   discountAmount: number;
@@ -113,4 +117,3 @@ export interface StockVoucherListItem {
   netAmount: number;
   remarks?: string;
 }
-
