@@ -6,28 +6,31 @@ import { PageContainer, PageHeader, PageSection } from "@/components/layout";
 
 import Button from "@/components/ui/button";
 
-import { SupplierForm } from "@/components/features/suppliers/SupplierForm";
+import { DistributorForm } from "@/components/features/distributors/DistributorForm";
 
-import { useCreateSupplier } from "@/hooks/useSuppliers";
+import { useCreateDistributor } from "@/hooks/useDistributors";
 
-export default function NewSupplierPage() {
+export default function NewDistributorPage() {
   const router = useRouter();
 
-  const { mutate: createSupplier } = useCreateSupplier();
+  const { mutate: createDistributor } = useCreateDistributor();
 
   return (
     <PageContainer>
-      <PageHeader title="Add Supplier" description="Create a new supplier.">
+      <PageHeader
+        title="Add Distributor"
+        description="Create a new distributor."
+      >
         <Button variant="secondary" onClick={() => router.back()}>
           Cancel
         </Button>
       </PageHeader>
 
       <PageSection>
-        <SupplierForm
+        <DistributorForm
           onSubmit={(values) =>
-            createSupplier(values, {
-              onSuccess: () => router.push("/suppliers"),
+            createDistributor(values, {
+              onSuccess: () => router.push("/products/distributors"),
             })
           }
           onCancel={() => router.back()}

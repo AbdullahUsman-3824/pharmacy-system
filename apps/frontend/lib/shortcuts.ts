@@ -25,8 +25,8 @@ export const shortcuts = {
     key: "Alt+6",
     path: "/customers",
   },
-  suppliers: {
+  distributors: {
     key: "Alt+7",
-    path: "/suppliers",
+    path: "/distributors",
   },
 };

@@ -54,10 +54,10 @@ export const StockVouchersTable = ({
         }),
     },
     {
-      key: "supplier",
-      title: "Supplier",
-      // Only PURCHASE / PURCHASE_RETURN have a supplier; ADJUSTMENT will be "—".
-      render: (row) => row.supplierName ?? "—",
+      key: "distributor",
+      title: "Distributor",
+      // Only PURCHASE / PURCHASE_RETURN have a distributor; ADJUSTMENT will be "—".
+      render: (row) => row.distributorName ?? "—",
     },
     {
       key: "items",

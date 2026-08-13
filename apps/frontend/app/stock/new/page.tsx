@@ -25,7 +25,7 @@ import {
 import { StockVoucherItemRow } from "../../../components/features/stock/stockEntry/StockVoucherItemRow";
 import { useCreateStockVoucher } from "@/hooks/useStock";
 import { useProducts } from "@/hooks/useProducts";
-import { SupplierSelect } from "@/components/SupplierSelect";
+import { DistributorSelect } from "@/components/DistributorSelect";
 import { calculateItemAmounts } from "@/lib/stock-calculations";
 import {
   Save,
@@ -45,7 +45,9 @@ import Button from "@/components/ui/button";
 export default function NewStockVoucherPage() {
   const router = useRouter();
   const createVoucher = useCreateStockVoucher();
-  const { data: products } = useProducts();
+  const { data: productsResponse } = useProducts();
+
+  const products = productsResponse?.data ?? [];
 
   // Build a map of productId -> productName for display in the item rows
   const productMap = Object.fromEntries(
@@ -62,7 +64,7 @@ export default function NewStockVoucherPage() {
     resolver: zodResolver(stockVoucherFormSchema),
     defaultValues: {
       type: StockVoucherType.PURCHASE,
-      supplierId: "",
+      distributorId: "",
       voucherDate: new Date().toISOString().slice(0, 10),
       remarks: "",
       items: [],
@@ -72,29 +74,29 @@ export default function NewStockVoucherPage() {
   const { fields, insert, remove } = useFieldArray({ control, name: "items" });
   const type = useWatch({ control, name: "type" });
   const items = useWatch({ control, name: "items" });
-  const supplierId = useWatch({ control, name: "supplierId" });
+  const distributorId = useWatch({ control, name: "distributorId" });
   const [showAdvanced, setShowAdvanced] = useState(false);
   const columns = getColumns(showAdvanced);
 
   // Ref to the entry row for programmatic actions
   const entryRowRef = useRef<StockVoucherEntryRowRef>(null);
 
-  // --- Auto-fill supplier from the product currently being entered,
+  // --- Auto-fill distributor from the product currently being entered,
   // falling back to the most recently committed item's product -----------
-  const [supplierTouched, setSupplierTouched] = useState(false);
+  const [distributorTouched, setDistributorTouched] = useState(false);
   const [entryProductId, setEntryProductId] = useState("");
   const effectiveProductId = entryProductId || items?.[0]?.productId;
 
   useEffect(() => {
-    if (supplierTouched) return;
+    if (distributorTouched) return;
     if (!effectiveProductId || !products) return;
     const product = products.find((p) => p.id === effectiveProductId);
-    if (product?.defaultSupplierId) {
-      setValue("supplierId", product.defaultSupplierId, {
+    if (product?.defaultDistributorId) {
+      setValue("distributorId", product.defaultDistributorId, {
         shouldValidate: true,
       });
     }
-  }, [effectiveProductId, products, setValue, supplierTouched]);
+  }, [effectiveProductId, products, setValue, distributorTouched]);
 
   function handleAddItem(item: StockVoucherItemValues) {
     insert(0, item);
@@ -206,26 +208,26 @@ export default function NewStockVoucherPage() {
 
           <div className="min-w-[200px] flex-1 relative">
             <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">
-              Supplier{" "}
+              Distributor{" "}
               {type === StockVoucherType.PURCHASE && (
                 <span className="text-red-500">*</span>
               )}
             </label>
-            <SupplierSelect
-              value={supplierId || ""}
+            <DistributorSelect
+              value={distributorId || ""}
               onChange={(id) => {
-                setSupplierTouched(true);
-                setValue("supplierId", id, { shouldValidate: true });
+                setDistributorTouched(true);
+                setValue("distributorId", id, { shouldValidate: true });
               }}
             />
-            {effectiveProductId && !supplierTouched && supplierId && (
+            {effectiveProductId && !distributorTouched && distributorId && (
               <p className="text-xs text-gray-400 mt-0.5 absolute top-full left-0">
                 Auto-selected from product default
               </p>
             )}
-            {errors.supplierId && (
+            {errors.distributorId && (
               <p className="text-xs text-red-600 mt-0.5">
-                {errors.supplierId.message}
+                {errors.distributorId.message}
               </p>
             )}
           </div>

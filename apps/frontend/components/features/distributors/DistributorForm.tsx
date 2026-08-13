@@ -7,27 +7,30 @@ import Button from "@/components/ui/button";
 import Card from "@/components/ui/card";
 import Input from "@/components/ui/input";
 
-import { supplierSchema, type SupplierFormValues } from "./supplierSchema";
+import {
+  distributorSchema,
+  type DistributorFormValues,
+} from "./distributorSchema";
 
-interface SupplierFormProps {
-  defaultValues?: Partial<SupplierFormValues>;
-  onSubmit: (values: SupplierFormValues) => void;
+interface DistributorFormProps {
+  defaultValues?: Partial<DistributorFormValues>;
+  onSubmit: (values: DistributorFormValues) => void;
   onCancel: () => void;
   submitLabel?: string;
 }
 
-export function SupplierForm({
+export function DistributorForm({
   defaultValues,
   onSubmit,
   onCancel,
-  submitLabel = "Save Supplier",
-}: SupplierFormProps) {
+  submitLabel = "Save Distributor",
+}: DistributorFormProps) {
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<SupplierFormValues>({
-    resolver: zodResolver(supplierSchema),
+  } = useForm<DistributorFormValues>({
+    resolver: zodResolver(distributorSchema),
     defaultValues,
   });
 
@@ -37,8 +40,8 @@ export function SupplierForm({
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <div className="md:col-span-2">
             <Input
-              label="Supplier Name"
-              placeholder="Supplier / company name"
+              label="Distributor Name"
+              placeholder="Distributor / company name"
               error={errors.name?.message}
               {...register("name")}
             />

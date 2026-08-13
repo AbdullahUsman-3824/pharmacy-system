@@ -9,24 +9,24 @@ import Button from "@/components/ui/button";
 import LoadingState from "@/components/shared/loading-state";
 import EmptyState from "@/components/shared/empty-state";
 
-import { SupplierForm } from "@/components/features/suppliers/SupplierForm";
+import { DistributorForm } from "@/components/features/distributors/DistributorForm";
 
-import { useSupplier, useUpdateSupplier } from "@/hooks/useSuppliers";
+import { useDistributor, useUpdateDistributor } from "@/hooks/useDistributors";
 
-export default function EditSupplierPage() {
+export default function EditDistributorPage() {
   const router = useRouter();
 
   const { id } = useParams<{ id: string }>();
 
-  const { data: supplier, isLoading, isError } = useSupplier(id);
+  const { data: distributor, isLoading, isError } = useDistributor(id);
 
-  const { mutate: updateSupplier } = useUpdateSupplier();
+  const { mutate: updateDistributor } = useUpdateDistributor();
 
   return (
     <PageContainer>
       <PageHeader
-        title="Edit Supplier"
-        description="Update supplier information."
+        title="Edit Distributor"
+        description="Update distributor information."
       >
         <Button variant="secondary" onClick={() => router.back()}>
           Cancel
@@ -36,25 +36,25 @@ export default function EditSupplierPage() {
       <PageSection>
         {isLoading && <LoadingState />}
 
-        {(isError || !supplier) && !isLoading && (
+        {(isError || !distributor) && !isLoading && (
           <EmptyState
-            title="Supplier not found"
-            description="The requested supplier could not be loaded."
+            title="Distributor not found"
+            description="The requested distributor could not be loaded."
           />
         )}
 
-        {supplier && (
-          <SupplierForm
-            defaultValues={supplier}
-            submitLabel="Update Supplier"
+        {distributor && (
+          <DistributorForm
+            defaultValues={distributor}
+            submitLabel="Update Distributor"
             onSubmit={(values) =>
-              updateSupplier(
+              updateDistributor(
                 {
-                  id: supplier.id,
+                  id: distributor.id,
                   input: values,
                 },
                 {
-                  onSuccess: () => router.push("/suppliers"),
+                  onSuccess: () => router.push("/products/distributors"),
                 },
               )
             }

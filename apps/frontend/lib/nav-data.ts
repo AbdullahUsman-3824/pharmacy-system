@@ -7,7 +7,7 @@ export const navItems: NavItem[] = [
   { key: "stock", label: "Stock Management", href: "/stock" },
   { key: "inventory", label: "Inventory", href: "/inventory" },
   { key: "products", label: "Products Catalog", href: "/products" },
-  { key: "suppliers", label: "Suppliers", href: "/suppliers" },
+  { key: "distributors", label: "Distributors", href: "/products/distributors" },
   // {
   //   key: "customers",
   //   label: "Customers",

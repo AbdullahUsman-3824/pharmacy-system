@@ -20,9 +20,9 @@ export function RecentPurchases({ purchases }: RecentPurchasesProps) {
               <span className="text-sm font-medium text-[var(--color-text)]">
                 #{purchase.voucherNumber}
               </span>
-              {purchase.supplierName && (
+              {purchase.distributorName && (
                 <span className="text-xs text-[var(--color-text-muted)]">
-                  {purchase.supplierName}
+                  {purchase.distributorName}
                 </span>
               )}
             </div>

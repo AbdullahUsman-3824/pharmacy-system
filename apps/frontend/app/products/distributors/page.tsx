@@ -1,27 +1,27 @@
 "use client";
 
-import { SuppliersTable } from "@/components/features/suppliers/SuppliersTable";
+import { DistributorsTable } from "@/components/features/distributors/DistributorsTable";
 import { PageContainer, PageHeader, PageSection } from "@/components/layout";
 import Button from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-export default function SuppliersPage() {
+export default function DistributorsPage() {
   const router = useRouter();
 
   return (
     <PageContainer>
       <PageHeader
-        title="Suppliers"
-        description="Maintain your supplier information"
+        title="Distributors"
+        description="Maintain your distributor information"
       >
-        <Button onClick={() => router.push("/suppliers/new")}>
+        <Button onClick={() => router.push("/products/distributors/new")}>
           <Plus size={16} />
-          Add Supplier
+          Add Distributor
         </Button>
       </PageHeader>
       <PageSection>
-        <SuppliersTable />
+        <DistributorsTable />
       </PageSection>
     </PageContainer>
   );

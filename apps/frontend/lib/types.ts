@@ -6,7 +6,7 @@ export type NavKey =
   | "stock"
   | "sales"
   | "customers"
-  | "suppliers"
+  | "distributors"
   | "reports"
   | "inventory";
 

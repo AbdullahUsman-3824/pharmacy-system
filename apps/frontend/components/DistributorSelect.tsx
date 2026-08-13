@@ -1,7 +1,7 @@
 "use client";
 
 import { Combobox } from "./ui/Combobox";
-import { useSuppliers } from "../hooks/useSuppliers";
+import { useDistributors } from "../hooks/useDistributors";
 
 interface Props {
   value: string;
@@ -10,15 +10,15 @@ interface Props {
   className?: string;
 }
 
-export function SupplierSelect({
+export function DistributorSelect({
   value,
   onChange,
-  placeholder = "Search supplier...",
+  placeholder = "Search distributor...",
   className = "",
 }: Props) {
-  const { data: suppliers, isLoading } = useSuppliers();
+  const { data: distributors, isLoading } = useDistributors();
 
-  const options = (suppliers ?? []).map((s) => ({
+  const options = (distributors ?? []).map((s) => ({
     id: s.id,
     label: s.name,
   }));

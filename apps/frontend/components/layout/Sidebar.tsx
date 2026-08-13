@@ -26,7 +26,7 @@ const icons: Record<NavKey, React.ElementType> = {
   stock: Warehouse,
   sales: ShoppingCart,
   customers: Users,
-  suppliers: Truck,
+  distributors: Truck,
   reports: BarChart3,
   inventory: Layers,
 };

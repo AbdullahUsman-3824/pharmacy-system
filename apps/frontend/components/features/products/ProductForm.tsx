@@ -10,7 +10,7 @@ import {
   type ProductFormOutput,
 } from "./productSchema";
 import { useLookup, useCreateLookup } from "@/hooks/useLookups";
-import { useSuppliers } from "@/hooks/useSuppliers";
+import { useDistributors } from "@/hooks/useDistributors";
 import { LookupType, CreateProductInput, ProductDto } from "@repo/shared";
 import Button from "@/components/ui/button";
 import Checkbox from "@/components/ui/checkbox";
@@ -52,7 +52,7 @@ export function ProductForm({
   const { data: types = [] } = useLookup(LookupType.ProductType);
   const { data: groups = [] } = useLookup(LookupType.ProductGroup);
   const { data: generics = [] } = useLookup(LookupType.Generic);
-  const { data: suppliers = [] } = useSuppliers();
+  const { data: distributors = [] } = useDistributors();
 
   const { mutate: createCompany } = useCreateLookup(LookupType.Company);
   const { mutate: createType } = useCreateLookup(LookupType.ProductType);
@@ -63,7 +63,7 @@ export function ProductForm({
   const typeOptions = toLookupOptions(types);
   const groupOptions = toLookupOptions(groups);
   const genericOptions = toLookupOptions(generics);
-  const supplierOptions = toLookupOptions(suppliers);
+  const distributorOptions = toLookupOptions(distributors);
 
   const {
     register,
@@ -240,13 +240,13 @@ export function ProductForm({
                 </div>
 
                 <Controller
-                  name="defaultSupplierId"
+                  name="defaultDistributorId"
                   control={control}
                   render={({ field }) => (
                     <LookupSelect
-                      label="Supplier"
-                      placeholder="Select supplier"
-                      options={supplierOptions}
+                      label="Distributor"
+                      placeholder="Select distributor"
+                      options={distributorOptions}
                       value={field.value ?? null}
                       onChange={field.onChange}
                       disabled={isReadOnly}

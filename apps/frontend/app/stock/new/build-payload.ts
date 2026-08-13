@@ -8,7 +8,7 @@ export function buildCreateVoucherPayload(
 ): CreateStockVoucherInput {
   return {
     type: form.type,
-    supplierId: form.supplierId || null,
+    distributorId: form.distributorId || null,
     voucherDate: new Date(form.voucherDate).toISOString(),
     remarks: form.remarks,
     items: form.items.map((item) => {

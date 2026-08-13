@@ -195,13 +195,13 @@ export default function ViewVoucherPage() {
                 </span>
               </MetaField>
 
-              {voucher.supplierId && voucher.supplier && (
+              {voucher.distributorId && voucher.distributor && (
                 <MetaField
                   icon={<Building2 className="w-4 h-4" />}
-                  label="Supplier"
+                  label="Distributor"
                 >
                   <span className="text-sm font-semibold text-[var(--color-text)]">
-                    {voucher.supplier.name}
+                    {voucher.distributor.name}
                   </span>
                 </MetaField>
               )}

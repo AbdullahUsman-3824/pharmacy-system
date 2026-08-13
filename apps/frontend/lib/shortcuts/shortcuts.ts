@@ -38,10 +38,10 @@ export const GLOBAL_SHORTCUTS: GlobalShortcut[] = [
     path: "/products",
   },
   {
-    id: "suppliers",
+    id: "distributors",
     shortcut: "Ctrl+U",
-    description: "Suppliers",
-    path: "/suppliers",
+    description: "Distributors",
+    path: "/distributors",
   },
 ];
 

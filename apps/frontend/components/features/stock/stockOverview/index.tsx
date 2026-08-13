@@ -42,7 +42,7 @@ export default function StockOverviewPage() {
       result = result.filter(
         (v) =>
           v.voucherNumber.toLowerCase().includes(q) ||
-          v.supplierName?.toLowerCase().includes(q),
+          v.distributorName?.toLowerCase().includes(q),
       );
     }
 
@@ -79,7 +79,7 @@ export default function StockOverviewPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
           <div className="relative w-full sm:w-80">
             <SearchBar
-              placeholder="Search by voucher # or supplier..."
+              placeholder="Search by voucher # or distributor..."
               value={search}
               onChange={(value) => setSearch(value)}
             />

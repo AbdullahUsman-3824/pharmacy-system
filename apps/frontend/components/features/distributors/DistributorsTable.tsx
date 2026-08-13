@@ -5,39 +5,39 @@ import { useRouter } from "next/navigation";
 import { Pencil, Trash2 } from "lucide-react";
 
 import { DataTable, DataTableColumn } from "@/components/shared/data-table";
-import { useSuppliers, useDeleteSupplier } from "@/hooks/useSuppliers";
+import { useDistributors, useDeleteDistributor } from "@/hooks/useDistributors";
 import { SearchBar } from "@/components/ui/searchBar";
 
-type Supplier = ReturnType<typeof useSuppliers>["data"] extends
+type Distributor = ReturnType<typeof useDistributors>["data"] extends
   | (infer S)[]
   | undefined
   ? S
   : never;
 
-export function SuppliersTable() {
+export function DistributorsTable() {
   const router = useRouter();
-  const { data: suppliers = [], isLoading } = useSuppliers();
-  const { mutate: deleteSupplier } = useDeleteSupplier();
+  const { data: distributors = [], isLoading } = useDistributors();
+  const { mutate: deleteDistributor } = useDeleteDistributor();
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return suppliers;
-    return suppliers.filter(
+    if (!q) return distributors;
+    return distributors.filter(
       (s) =>
         s.name.toLowerCase().includes(q) ||
         s.contactPerson?.toLowerCase().includes(q) ||
         s.city?.toLowerCase().includes(q),
     );
-  }, [suppliers, query]);
+  }, [distributors, query]);
 
   function handleDelete(id: string) {
-    if (confirm("Delete this supplier?")) {
-      deleteSupplier(id);
+    if (confirm("Delete this distributor?")) {
+      deleteDistributor(id);
     }
   }
 
-  const columns: DataTableColumn<Supplier>[] = [
+  const columns: DataTableColumn<Distributor>[] = [
     {
       key: "name",
       dataKey: "name",
@@ -83,7 +83,7 @@ export function SuppliersTable() {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              router.push(`/suppliers/${row.id}/edit`);
+              router.push(`/products/distributors/${row.id}/edit`);
             }}
             className="text-[var(--color-text-placeholder)] transition-colors hover:text-[var(--color-primary)]"
           >
@@ -109,14 +109,14 @@ export function SuppliersTable() {
         value={query}
         onChange={setQuery}
         count={filtered.length}
-        entityLabelPlural="Suppliers"
+        entityLabelPlural="Distributors"
       />
 
       <DataTable
         columns={columns}
         data={filtered}
         loading={isLoading}
-        emptyTitle="No suppliers found"
+        emptyTitle="No distributors found"
         emptyDescription="Try adjusting your search."
       />
     </div>
