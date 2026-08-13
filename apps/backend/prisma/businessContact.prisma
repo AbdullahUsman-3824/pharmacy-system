@@ -1,0 +1,20 @@
+enum BusinessContactType {
+    CUSTOMER
+    DISTRIBUTOR
+}
+
+model BusinessContact {
+    id   String              @id @default(uuid())
+    name String
+    type BusinessContactType
+
+    phone    String?
+    address  String?
+    isActive Boolean @default(true)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([type])
+    @@index([name])
+}

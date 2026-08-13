@@ -8,6 +8,7 @@ import { DistributorModule } from './distributor/distributor.module';
 import { StocksModule } from './stocks/stocks.module';
 import { SalesModule } from './sales/sales.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { AccountsModule } from './accounts/accounts.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     StocksModule,
     SalesModule,
     DashboardModule,
+    AccountsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
