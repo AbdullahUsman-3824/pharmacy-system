@@ -1,6 +1,7 @@
 "use client";
 
 import { DistributorsTable } from "@/components/features/distributors/DistributorsTable";
+import { ProductsTabs } from "@/components/features/products/ProductsTabs";
 import { PageContainer, PageHeader, PageSection } from "@/components/layout";
 import Button from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -12,8 +13,8 @@ export default function DistributorsPage() {
   return (
     <PageContainer>
       <PageHeader
-        title="Distributors"
-        description="Maintain your distributor information"
+        title="Products Catalog"
+        description="Maintain your product catalog and related information."
       >
         <Button onClick={() => router.push("/products/distributors/new")}>
           <Plus size={16} />
@@ -21,6 +22,7 @@ export default function DistributorsPage() {
         </Button>
       </PageHeader>
       <PageSection>
+        <ProductsTabs />
         <DistributorsTable />
       </PageSection>
     </PageContainer>
