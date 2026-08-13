@@ -1,20 +1,20 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateSupplierDto } from './dto/create-supplier.dto';
-import { UpdateSupplierDto } from './dto/update-supplier.dto';
+import { CreateDistributorDto } from './dto/create-distributor.dto';
+import { UpdateDistributorDto } from './dto/update-distributor.dto';
 
 @Injectable()
-export class SupplierService {
+export class DistributorService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateSupplierDto) {
-    return this.prisma.supplier.create({
+  async create(dto: CreateDistributorDto) {
+    return this.prisma.distributor.create({
       data: dto,
     });
   }
 
   async findAll() {
-    return this.prisma.supplier.findMany({
+    return this.prisma.distributor.findMany({
       where: {
         deletedAt: null,
       },
@@ -25,24 +25,24 @@ export class SupplierService {
   }
 
   async findOne(id: string) {
-    const supplier = await this.prisma.supplier.findFirst({
+    const distributor = await this.prisma.distributor.findFirst({
       where: {
         id,
         deletedAt: null,
       },
     });
 
-    if (!supplier) {
-      throw new NotFoundException('Supplier not found');
+    if (!distributor) {
+      throw new NotFoundException('Distributor not found');
     }
 
-    return supplier;
+    return distributor;
   }
 
-  async update(id: string, dto: UpdateSupplierDto) {
+  async update(id: string, dto: UpdateDistributorDto) {
     await this.findOne(id);
 
-    return this.prisma.supplier.update({
+    return this.prisma.distributor.update({
       where: { id },
       data: dto,
     });
@@ -51,7 +51,7 @@ export class SupplierService {
   async softDelete(id: string) {
     await this.findOne(id);
 
-    return this.prisma.supplier.update({
+    return this.prisma.distributor.update({
       where: { id },
       data: {
         deletedAt: new Date(),

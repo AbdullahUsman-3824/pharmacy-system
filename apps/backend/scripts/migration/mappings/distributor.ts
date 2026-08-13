@@ -1,4 +1,4 @@
-export const supplierMapping = {
+export const distributorMapping = {
   oldKey: 'dis_mainkey',
   name: 'dis_name',
   contactPerson: 'dis_proprietor',

@@ -42,7 +42,7 @@ export class CreateProductDto implements CreateProductInput {
 
   @IsOptional()
   @IsUUID()
-  defaultSupplierId?: string;
+  defaultDistributorId?: string;
 
   @IsOptional()
   @IsString()

@@ -32,7 +32,7 @@ POST /stocks/vouchers
 ```json
 {
   "type": "PURCHASE",
-  "supplierId": "uuid",
+  "distributorId": "uuid",
   "voucherDate": "2026-07-15T00:00:00.000Z",
   "remarks": "Invoice #548",
 
@@ -82,7 +82,7 @@ POST /stocks/vouchers
 
   "date": "2026-07-15T00:00:00.000Z",
 
-  "supplier": {
+  "distributor": {
     "id": "uuid",
     "name": "ABC Pharma"
   },
@@ -157,7 +157,7 @@ GET /stocks/vouchers
 
     "date": "2026-07-15T00:00:00.000Z",
 
-    "supplier": {
+    "distributor": {
       "id": "uuid",
       "name": "ABC Pharma"
     },
@@ -251,7 +251,7 @@ PURCHASE
 
 ## Opening Voucher
 
-- Supplier is optional.
+- Distributor is optional.
 - Creates a new batch if one does not already exist.
 - Updates current stock.
 - Updates opening quantity for newly created batches.
@@ -260,7 +260,7 @@ PURCHASE
 
 ## Purchase Voucher
 
-- Supplier is required.
+- Distributor is required.
 - Creates a new batch if one does not already exist.
 - Otherwise increases stock in the existing batch.
 - Updates the Product's default purchase and sale rates.

@@ -29,7 +29,7 @@ export class StockService {
         data: {
           voucherNumber,
           type: dto.type,
-          supplierId: dto.supplierId ?? null,
+          distributorId: dto.distributorId ?? null,
           date: new Date(dto.voucherDate),
           remarks: dto.remarks,
         },
@@ -46,7 +46,7 @@ export class StockService {
           tx,
           item,
           dto.type,
-          dto.supplierId,
+          dto.distributorId,
           expiryDate,
         );
 
@@ -79,12 +79,12 @@ export class StockService {
         voucherNumber: true,
         type: true,
         date: true,
-        supplierId: true,
+        distributorId: true,
         grossAmount: true,
         discountAmount: true,
         taxAmount: true,
         netAmount: true,
-        supplier: {
+        distributor: {
           select: { name: true },
         },
         _count: {
@@ -98,7 +98,7 @@ export class StockService {
       take: params?.take ?? 100,
     });
 
-    // Convert Decimal -> number, flatten supplier.name -> supplierName,
+    // Convert Decimal -> number, flatten distributor.name -> distributorName,
     // flatten _count.items -> itemCount, once, so every consumer (frontend
     // list table, search, etc.) gets clean, ready-to-use data.
     return vouchers.map((v) => ({
@@ -106,8 +106,8 @@ export class StockService {
       voucherNumber: v.voucherNumber,
       type: v.type,
       date: v.date,
-      supplierId: v.supplierId,
-      supplierName: v.supplier?.name ?? null,
+      distributorId: v.distributorId,
+      distributorName: v.distributor?.name ?? null,
       itemCount: v._count.items,
       grossAmount: Number(v.grossAmount),
       discountAmount: Number(v.discountAmount),
@@ -120,7 +120,7 @@ export class StockService {
     const voucher = await this.prisma.stockVoucher.findFirst({
       where: { id, deletedAt: null },
       include: {
-        supplier: true,
+        distributor: true,
         items: {
           include: {
             batch: true,
@@ -313,7 +313,7 @@ export class StockService {
     tx: any,
     item: any,
     voucherType: StockVoucherType,
-    supplierId: string | null | undefined,
+    distributorId: string | null | undefined,
     expiryDate: Date | null,
   ): Promise<any> {
     let batch = await tx.batch.findFirst({
@@ -329,7 +329,7 @@ export class StockService {
       batch = await tx.batch.create({
         data: {
           productId: item.productId,
-          supplierId: supplierId ?? undefined,
+          distributorId: distributorId ?? undefined,
           batchNumber: item.batchNumber,
           expiryDate,
           purchaseRate: item.purchaseRate,
@@ -442,7 +442,7 @@ export class StockService {
         netAmount: netTotal,
       },
       include: {
-        supplier: true,
+        distributor: true,
         items: {
           include: {
             batch: true,

@@ -4,7 +4,7 @@ import { AppService } from './app.service';
 import { LookupsModule } from './lookups/lookups.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProductsModule } from './products/products.module';
-import { SupplierModule } from './suppliers/suppliers.module';
+import { DistributorModule } from './distributor/distributor.module';
 import { StocksModule } from './stocks/stocks.module';
 import { SalesModule } from './sales/sales.module';
 import { DashboardModule } from './dashboard/dashboard.module';
@@ -14,7 +14,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     LookupsModule,
     PrismaModule,
     ProductsModule,
-    SupplierModule,
+    DistributorModule,
     StocksModule,
     SalesModule,
     DashboardModule,

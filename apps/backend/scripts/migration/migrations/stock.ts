@@ -6,7 +6,7 @@ import { stockMapping } from '../mappings/stock';
 
 import {
   productMap,
-  supplierMap,
+  distributorMap,
   batchMap,
   purchaseVoucherMap,
   getBatchMapKey,
@@ -207,7 +207,7 @@ export async function migrateBatches(
       const batchData = {
         productId,
 
-        supplierId: null as string | null,
+        distributorId: null as string | null,
 
         batchNumber,
         expiryDate,
@@ -355,10 +355,10 @@ export async function migratePurchaseVouchers(
         ? StockVoucherType.PURCHASE_RETURN
         : StockVoucherType.PURCHASE;
 
-      const supplierOldKey = oldVoucher[stockMapping.purchaseMain.accountKey];
+      const distributorOldKey = oldVoucher[stockMapping.purchaseMain.accountKey];
 
-      const supplierId = supplierOldKey
-        ? (supplierMap.get(String(supplierOldKey).trim()) ?? null)
+      const distributorId = distributorOldKey
+        ? (distributorMap.get(String(distributorOldKey).trim()) ?? null)
         : null;
 
       const netAmount = Number(
@@ -378,7 +378,7 @@ export async function migratePurchaseVouchers(
 
         date: oldVoucher[stockMapping.purchaseMain.date] ?? new Date(),
 
-        supplierId,
+        distributorId,
 
         remarks: emptyToNull(oldVoucher[stockMapping.purchaseMain.remarks]),
 

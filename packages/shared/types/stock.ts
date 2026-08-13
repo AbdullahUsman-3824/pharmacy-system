@@ -25,7 +25,7 @@ export interface StockVoucherItemInput {
 
 export interface CreateStockVoucherInput {
   type: StockVoucherType;
-  supplierId?: string | null;
+  distributorId?: string | null;
   voucherDate: string;
   remarks?: string;
   items: StockVoucherItemInput[];
@@ -63,7 +63,7 @@ export interface StockVoucherOutput {
   id: string;
   voucherNumber: string;
   type: StockVoucherType;
-  supplierId: string | null;
+  distributorId: string | null;
   date: string;
   remarks?: string | null;
   grossAmount: number;
@@ -73,7 +73,7 @@ export interface StockVoucherOutput {
   createdAt: string;
   updatedAt: string;
   items: StockVoucherItemOutput[];
-  supplier: {
+  distributor: {
     id: string;
     name: string;
     contactPerson?: string | null;
@@ -97,15 +97,15 @@ export interface ProductStockView {
   batches: BatchStockLine[]; // FEFO order
 }
 
-// UPDATED: added supplierName + itemCount, both flattened server-side in
+// UPDATED: added distributorName + itemCount, both flattened server-side in
 // StockService.findAll() — same flattening pattern as SalesService.serializeSale()
 export interface StockVoucherListItem {
   id: string;
   voucherNumber: string;
   type: StockVoucherType;
   date: string;
-  supplierId: string | null;
-  supplierName: string | null;
+  distributorId: string | null;
+  distributorName: string | null;
   itemCount: number;
   grossAmount: number;
   discountAmount: number;

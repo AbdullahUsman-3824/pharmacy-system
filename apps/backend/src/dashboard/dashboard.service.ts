@@ -95,7 +95,7 @@ export class DashboardService {
           voucherNumber: true,
           date: true,
           netAmount: true,
-          supplier: {
+          distributor: {
             select: {
               name: true,
             },
@@ -154,7 +154,7 @@ export class DashboardService {
     return purchases.map((p) => ({
       id: p.id,
       voucherNumber: p.voucherNumber,
-      supplierName: p.supplier?.name ?? null,
+      distributorName: p.distributor?.name ?? null,
       totalAmount: Number(p.netAmount),
       itemCount: p._count.items,
       createdAt: p.date.toISOString(),

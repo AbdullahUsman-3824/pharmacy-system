@@ -20,7 +20,7 @@ export class CreateStockVoucherDto implements CreateStockVoucherInput {
 
   @IsOptional()
   @IsString()
-  supplierId?: string | null;
+  distributorId?: string | null;
 
   @IsDateString()
   voucherDate!: string;

@@ -7,7 +7,7 @@ export interface CreateProductInput {
   typeId: string;
   groupId?: string | null;
   genericId?: string | null;
-  defaultSupplierId?: string | null;
+  defaultDistributorId?: string | null;
 
   registrationNo?: string;
   originalReference?: string;

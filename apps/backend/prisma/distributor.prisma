@@ -1,8 +1,8 @@
 // ======================================================
-// SUPPLIER / DISTRIBUTOR
+// DISTRIBUTOR
 // ======================================================
 
-model Supplier {
+model Distributor {
     id String @id @default(uuid())
 
     name String

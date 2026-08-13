@@ -25,7 +25,7 @@ export interface RecentSaleDto {
 export interface RecentPurchaseDto {
   id: string;
   voucherNumber: string;
-  supplierName: string | null;
+  distributorName: string | null;
   totalAmount: number;
   itemCount: number;
   createdAt: string;

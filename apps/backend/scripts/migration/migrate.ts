@@ -3,7 +3,7 @@ import 'dotenv/config';
 import { getSqlServer, closeSqlServer } from './db/sqlserver';
 import { prisma, connectPostgres, closePostgres } from './db/postgres';
 import { migrateLookupTables } from './migrations/lookups';
-import { migrateSuppliers } from './migrations/supplier';
+import { migrateDistributors } from './migrations/distributor';
 import { migrateProducts } from './migrations/product';
 import {
   migratePurchaseItems,
@@ -65,7 +65,7 @@ async function main() {
     await resetForMigration();
 
     await migrateLookupTables(sqlPool, prisma);
-    await migrateSuppliers(sqlPool, prisma);
+    await migrateDistributors(sqlPool, prisma);
     await migrateProducts(sqlPool, prisma);
 
     const purchaseDetailsByBatch = await loadPurchaseDetails(sqlPool);

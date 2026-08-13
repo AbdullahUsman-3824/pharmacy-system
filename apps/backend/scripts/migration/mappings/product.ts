@@ -8,7 +8,7 @@ export const productMapping = {
   typeOldKey: 'prd_typmainkey',
   groupOldKey: 'prd_grpmainkey',
   genericOldKey: 'prd_genmainkey',
-  supplierOldKey: 'prd_dismainkey',
+  distributorOldKey: 'prd_dismainkey',
 
   registrationNo: 'prd_regno',
   originalReference: 'prd_orgref',

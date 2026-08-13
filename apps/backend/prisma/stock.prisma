@@ -8,8 +8,9 @@ model Batch {
     productId String
     product   Product @relation(fields: [productId], references: [id])
 
-    supplierId String?
-    supplier   Supplier? @relation(fields: [supplierId], references: [id])
+
+    distributorId String?
+    distributor   Distributor? @relation(fields: [distributorId], references: [id])
 
     batchNumber String
     expiryDate  DateTime?
@@ -70,8 +71,8 @@ model StockVoucher {
 
     date DateTime @default(now())
 
-    supplierId String?
-    supplier   Supplier? @relation(fields: [supplierId], references: [id])
+    distributorId String?
+    distributor   Distributor? @relation(fields: [distributorId], references: [id])
 
     remarks String?
 

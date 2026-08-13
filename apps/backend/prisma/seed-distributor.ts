@@ -7,7 +7,7 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
-const suppliers = [
+const distributors = [
   {
     name: 'Medline Pharma',
     contactPerson: 'Ali Khan',
@@ -65,21 +65,21 @@ const suppliers = [
 ];
 
 async function main() {
-  for (const supplier of suppliers) {
-    const existing = await prisma.supplier.findFirst({
-      where: { name: supplier.name },
+  for (const distributor of distributors) {
+    const existing = await prisma.distributor.findFirst({
+      where: { name: distributor.name },
     });
 
     if (existing) {
-      console.log(`⏭️  Skipped (already exists): ${supplier.name}`);
+      console.log(`⏭️  Skipped (already exists): ${distributor.name}`);
       continue;
     }
 
-    await prisma.supplier.create({ data: supplier });
-    console.log(`✅ Created: ${supplier.name}`);
+    await prisma.distributor.create({ data: distributor });
+    console.log(`✅ Created: ${distributor.name}`);
   }
 
-  console.log(`\n✅ Supplier seeding completed`);
+  console.log(`\n✅ Distributor seeding completed`);
 }
 
 main()

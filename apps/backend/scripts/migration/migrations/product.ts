@@ -7,7 +7,7 @@ import {
   typeMap,
   groupMap,
   genericMap,
-  supplierMap,
+  distributorMap,
   productMap,
 } from '../utils/id-map';
 import { emptyToNull, renderProgressBar } from '../utils/helpers';
@@ -29,7 +29,7 @@ export async function migrateProducts(
       ${productMapping.typeOldKey},
       ${productMapping.groupOldKey},
       ${productMapping.genericOldKey},
-      ${productMapping.supplierOldKey},
+      ${productMapping.distributorOldKey},
       ${productMapping.registrationNo},
       ${productMapping.originalReference},
       ${productMapping.shelfNo},
@@ -74,17 +74,17 @@ export async function migrateProducts(
         continue;
       }
 
-      // group, generic, supplier are optional — resolve only if old key present
+      // group, generic, distributor are optional — resolve only if old key present
       const groupOldKey = oldProduct[productMapping.groupOldKey];
       const genericOldKey = oldProduct[productMapping.genericOldKey];
-      const supplierOldKey = oldProduct[productMapping.supplierOldKey];
+      const distributorOldKey = oldProduct[productMapping.distributorOldKey];
 
       const groupId = groupOldKey ? groupMap.get(groupOldKey) : undefined;
       const genericId = genericOldKey
         ? genericMap.get(genericOldKey)
         : undefined;
-      const defaultSupplierId = supplierOldKey
-        ? supplierMap.get(supplierOldKey)
+      const distributorId = distributorOldKey
+        ? distributorMap.get(distributorOldKey)
         : undefined;
 
       const code = oldProduct[productMapping.code];
@@ -97,7 +97,7 @@ export async function migrateProducts(
         typeId,
         groupId: groupId ?? null,
         genericId: genericId ?? null,
-        defaultSupplierId: defaultSupplierId ?? null,
+        distributorId: distributorId ?? null,
 
         registrationNo: emptyToNull(oldProduct[productMapping.registrationNo]),
         originalReference: emptyToNull(

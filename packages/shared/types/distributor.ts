@@ -1,5 +1,5 @@
-// packages/shared/src/types/supplier.ts
-export interface CreateSupplierInput {
+// packages/shared/src/types/distributor.ts
+export interface CreateDistributorInput {
   name: string;
   contactPerson?: string;
   phone?: string;
@@ -9,9 +9,9 @@ export interface CreateSupplierInput {
   city?: string;
 }
 
-export type UpdateSupplierInput = Partial<CreateSupplierInput>;
+export type UpdateDistributorInput = Partial<CreateDistributorInput>;
 
-export interface SupplierDto extends CreateSupplierInput {
+export interface DistributorDto extends CreateDistributorInput {
   id: string;
   createdAt: string;
   updatedAt: string;

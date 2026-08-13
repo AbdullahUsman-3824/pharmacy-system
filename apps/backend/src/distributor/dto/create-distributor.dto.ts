@@ -1,7 +1,7 @@
 import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
-import { CreateSupplierInput } from '@repo/shared';
+import { CreateDistributorInput } from '@repo/shared';
 
-export class CreateSupplierDto implements CreateSupplierInput {
+export class CreateDistributorDto implements CreateDistributorInput {
   @IsString()
   @IsNotEmpty()
   name!: string;
