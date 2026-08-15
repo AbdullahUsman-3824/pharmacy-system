@@ -6,3 +6,4 @@ export * from "./types/sale";
 export * from "./types/dashboard";
 export * from "./types/inventory";
 export * from "./types/accounts";
+export * from "./types/user";

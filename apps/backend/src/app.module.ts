@@ -9,6 +9,7 @@ import { StocksModule } from './stocks/stocks.module';
 import { SalesModule } from './sales/sales.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { AccountsModule } from './accounts/accounts.module';
+import { UserModule } from './user/user.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { AccountsModule } from './accounts/accounts.module';
     SalesModule,
     DashboardModule,
     AccountsModule,
+    UserModule,
   ],
   controllers: [AppController],
   providers: [AppService],

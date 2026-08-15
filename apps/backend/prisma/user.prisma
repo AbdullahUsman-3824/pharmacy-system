@@ -1,0 +1,18 @@
+enum UserType {
+    OWNER
+    STAFF
+}
+
+model User {
+    id       String   @id @default(uuid())
+    name     String
+    pin      String
+    type     UserType
+    isActive Boolean  @default(true)
+
+    sales            Sale[]
+    purchaseVouchers StockVoucher[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
