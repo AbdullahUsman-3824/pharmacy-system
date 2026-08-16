@@ -90,7 +90,8 @@ export default function InventoryPage() {
             </span>{" "}
             · Stock Value:{" "}
             <span className="font-medium text-[var(--color-text)]">
-              PKR {data.totalStockValue.toFixed(2)}/-
+              PKR {data.totalStockValue.toLocaleString()}
+              /-
             </span>
           </div>
         )}

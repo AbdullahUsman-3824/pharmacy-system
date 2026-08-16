@@ -81,3 +81,16 @@ export function fitsInt(value: unknown): boolean {
 
   return Math.abs(number - Math.round(number)) < 0.001;
 }
+
+// Accounts
+export function normalizeAccountName(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+export function isCashAccount(name: string): boolean {
+  return name.toLowerCase().includes('cash');
+}
+
+export function isBankAccount(name: string): boolean {
+  return name.toLowerCase().includes('bank');
+}

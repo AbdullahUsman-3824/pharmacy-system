@@ -5,13 +5,8 @@ import { prisma, connectPostgres, closePostgres } from './db/postgres';
 import { migrateLookupTables } from './migrations/lookups';
 import { migrateDistributors } from './migrations/distributor';
 import { migrateProducts } from './migrations/product';
-import {
-  migratePurchaseItems,
-  migratePurchaseVouchers,
-  validateStockMigration,
-  migrateBatches,
-  loadPurchaseDetails,
-} from './migrations/stock';
+import { migrateStock } from './migrations/stock';
+import { migrateAccounts } from './migrations/accounts';
 
 /**
  * Full-refresh reset — clears previously migrated data before a
@@ -68,11 +63,8 @@ async function main() {
     await migrateDistributors(sqlPool, prisma);
     await migrateProducts(sqlPool, prisma);
 
-    const purchaseDetailsByBatch = await loadPurchaseDetails(sqlPool);
-    await migrateBatches(sqlPool, prisma, purchaseDetailsByBatch);
-    await migratePurchaseVouchers(sqlPool, prisma);
-    await migratePurchaseItems(sqlPool, prisma);
-    await validateStockMigration(sqlPool, prisma);
+    await migrateAccounts(sqlPool, prisma);
+    await migrateStock(sqlPool, prisma);
 
     const totalElapsed = formatDuration(Date.now() - migrationStart);
     console.log(`\nMigration completed successfully in ${totalElapsed}.`);

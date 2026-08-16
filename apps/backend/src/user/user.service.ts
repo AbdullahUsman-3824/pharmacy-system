@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import * as argon2 from 'argon2';
 import { UserType } from '@repo/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -22,6 +23,10 @@ export class UsersService {
     createdAt: true,
     updatedAt: true,
   } satisfies Prisma.UserSelect;
+
+  private async hashPin(pin: string): Promise<string> {
+    return argon2.hash(pin, { type: argon2.argon2id });
+  }
 
   async findAll(type?: UserType) {
     return this.prisma.user.findMany({
@@ -46,10 +51,12 @@ export class UsersService {
 
   async create(createUserDto: CreateUserDto) {
     try {
+      const hashedPin = await this.hashPin(createUserDto.pin);
+
       return await this.prisma.user.create({
         data: {
           name: createUserDto.name,
-          pin: createUserDto.pin,
+          pin: hashedPin,
           type: createUserDto.type,
           isActive: createUserDto.isActive ?? true,
         },
@@ -67,14 +74,19 @@ export class UsersService {
   async update(id: string, updateUserDto: UpdateUserDto) {
     await this.findOne(id);
 
+    const hashedPin =
+      updateUserDto.pin !== undefined
+        ? await this.hashPin(updateUserDto.pin)
+        : undefined;
+
     return this.prisma.user.update({
       where: { id },
       data: {
         ...(updateUserDto.name !== undefined && {
           name: updateUserDto.name,
         }),
-        ...(updateUserDto.pin !== undefined && {
-          pin: updateUserDto.pin,
+        ...(hashedPin !== undefined && {
+          pin: hashedPin,
         }),
         ...(updateUserDto.type !== undefined && {
           type: updateUserDto.type,
@@ -105,7 +117,16 @@ export class UsersService {
       where: { id: verifyPinDto.userId },
     });
 
-    if (!user || !user.isActive || user.pin !== verifyPinDto.pin) {
+    if (!user || !user.isActive) {
+      return {
+        valid: false,
+        userId: verifyPinDto.userId,
+      };
+    }
+
+    const isValid = await argon2.verify(user.pin, verifyPinDto.pin);
+
+    if (!isValid) {
       return {
         valid: false,
         userId: verifyPinDto.userId,

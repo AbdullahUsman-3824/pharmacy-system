@@ -42,7 +42,7 @@ export default function StockOverviewPage() {
       result = result.filter(
         (v) =>
           v.voucherNumber.toLowerCase().includes(q) ||
-          v.distributorName?.toLowerCase().includes(q),
+          v.supplierName?.toLowerCase().includes(q),
       );
     }
 

@@ -6,10 +6,11 @@ import { stockMapping } from '../mappings/stock';
 
 import {
   productMap,
-  distributorMap,
+  accountMap,
   batchMap,
   purchaseVoucherMap,
   getBatchMapKey,
+  accountTypeMap,
 } from '../utils/id-map';
 
 import {
@@ -142,6 +143,7 @@ export async function migrateBatches(
   const skipReasons: Record<string, number> = {
     'product not migrated': 0,
   };
+  const errors: { batchNumber: string; error: unknown }[] = [];
 
   for (const [index, oldBatch] of batches.entries()) {
     try {
@@ -207,8 +209,6 @@ export async function migrateBatches(
       const batchData = {
         productId,
 
-        distributorId: null as string | null,
-
         batchNumber,
         expiryDate,
 
@@ -262,16 +262,23 @@ export async function migrateBatches(
     } catch (err) {
       failed++;
 
-      console.error(
-        `\n  ✗ Failed batch ${oldBatch[stockMapping.batch.batchNumber]}:`,
-        err,
-      );
+      errors.push({
+        batchNumber: String(oldBatch[stockMapping.batch.batchNumber]),
+        error: err,
+      });
     }
 
     renderProgressBar(index + 1, batches.length, 'batches');
   }
 
   process.stdout.write('\n');
+  if (errors.length > 0) {
+    console.log(`  ✗ ${errors.length} batch(es) failed:`);
+
+    for (const { batchNumber, error } of errors) {
+      console.error(`    - ${batchNumber}`, error);
+    }
+  }
 
   const seconds = ((Date.now() - startTime) / 1000).toFixed(1);
 
@@ -337,7 +344,11 @@ export async function migratePurchaseVouchers(
 
   let created = 0;
   let updated = 0;
+  let paymentsCreated = 0;
+  let paymentsUpdated = 0;
   let failed = 0;
+
+  const errors: { oldKey: string; error: unknown }[] = [];
 
   for (const [index, oldVoucher] of vouchers.entries()) {
     try {
@@ -347,6 +358,10 @@ export async function migratePurchaseVouchers(
 
       const voucherNumber = `PUR-${oldKey}`;
 
+      // --------------------------------------------------
+      // TYPE
+      // --------------------------------------------------
+
       const isReturn = Boolean(
         oldVoucher[stockMapping.purchaseMain.returnMainKey],
       );
@@ -355,11 +370,36 @@ export async function migratePurchaseVouchers(
         ? StockVoucherType.PURCHASE_RETURN
         : StockVoucherType.PURCHASE;
 
-      const distributorOldKey = oldVoucher[stockMapping.purchaseMain.accountKey];
+      // --------------------------------------------------
+      // ACCOUNT
+      // --------------------------------------------------
 
-      const distributorId = distributorOldKey
-        ? (distributorMap.get(String(distributorOldKey).trim()) ?? null)
+      const oldAccountKey = String(
+        oldVoucher[stockMapping.purchaseMain.accountKey] ?? '',
+      ).trim();
+
+      const mappedAccountId = oldAccountKey
+        ? (accountMap.get(oldAccountKey) ?? null)
         : null;
+
+      const mappedAccountType = oldAccountKey
+        ? accountTypeMap.get(oldAccountKey)
+        : undefined;
+
+      let supplierId: string | null = null;
+      let paymentAccountId: string | null = null;
+
+      if (mappedAccountId && mappedAccountType === 'BUSINESS_CONTACT') {
+        supplierId = mappedAccountId;
+      }
+
+      if (mappedAccountId && mappedAccountType === 'PAYMENT_ACCOUNT') {
+        paymentAccountId = mappedAccountId;
+      }
+
+      // --------------------------------------------------
+      // AMOUNTS
+      // --------------------------------------------------
 
       const netAmount = Number(
         oldVoucher[stockMapping.purchaseMain.netTotal] ?? 0,
@@ -373,12 +413,16 @@ export async function migratePurchaseVouchers(
         oldVoucher[stockMapping.purchaseMain.extraSalesTax] ?? 0,
       );
 
+      // --------------------------------------------------
+      // VOUCHER
+      // --------------------------------------------------
+
       const voucherData = {
         type,
 
         date: oldVoucher[stockMapping.purchaseMain.date] ?? new Date(),
 
-        distributorId,
+        supplierId,
 
         remarks: emptyToNull(oldVoucher[stockMapping.purchaseMain.remarks]),
 
@@ -424,26 +468,103 @@ export async function migratePurchaseVouchers(
         created++;
       }
 
+      // --------------------------------------------------
+      // PAYMENT
+      // --------------------------------------------------
+      //
+      // Old pur_payment is ignored because it is always
+      // zero in the legacy data.
+      //
+      // For purchases whose pur_accmainkey points to a
+      // PaymentAccount, pur_nettotal represents the amount
+      // paid through that account.
+      //
+      // Example:
+      //
+      //   pur_accmainkey = Cash in hand
+      //   pur_nettotal   = 15,799.86
+      //
+      // becomes:
+      //
+      //   Payment
+      //     amount = 15,799.86
+      //     paymentAccountId = Cash in Hand
+      //     stockVoucherId = newVoucher.id
+      //
+      // --------------------------------------------------
+
+      if (paymentAccountId && netAmount > 0) {
+        const existingPayment = await prisma.payment.findFirst({
+          where: {
+            stockVoucherId: newVoucher.id,
+          },
+
+          select: {
+            id: true,
+          },
+        });
+
+        if (existingPayment) {
+          await prisma.payment.update({
+            where: {
+              id: existingPayment.id,
+            },
+
+            data: {
+              amount: netAmount,
+              paymentAccountId,
+            },
+          });
+
+          paymentsUpdated++;
+        } else {
+          await prisma.payment.create({
+            data: {
+              amount: netAmount,
+              paymentAccountId,
+              stockVoucherId: newVoucher.id,
+              type: 'PURCHASE',
+            },
+          });
+
+          paymentsCreated++;
+        }
+      }
+
+      // --------------------------------------------------
+      // MAP OLD PURCHASE KEY → NEW STOCK VOUCHER ID
+      // --------------------------------------------------
+
       purchaseVoucherMap.set(oldKey, newVoucher.id);
     } catch (err) {
       failed++;
 
-      console.error(
-        `\n  ✗ Failed voucher ${oldVoucher[stockMapping.purchaseMain.oldKey]}:`,
-        err,
-      );
+      errors.push({
+        oldKey: String(oldVoucher[stockMapping.purchaseMain.oldKey]),
+        error: err,
+      });
     }
 
     renderProgressBar(index + 1, vouchers.length, 'purchase vouchers');
   }
 
   process.stdout.write('\n');
+  if (errors.length > 0) {
+    console.log(`  ✗ ${errors.length} voucher(s) failed:`);
+
+    for (const { oldKey, error } of errors) {
+      console.error(`    - ${oldKey}`, error);
+    }
+  }
 
   const seconds = ((Date.now() - startTime) / 1000).toFixed(1);
 
   console.log(
     `✔ purchase vouchers: ${created} created, ` +
-      `${updated} updated, ${failed} failed (${seconds}s)`,
+      `${updated} updated, ` +
+      `${paymentsCreated} payments created, ` +
+      `${paymentsUpdated} payments updated, ` +
+      `${failed} failed (${seconds}s)`,
   );
 }
 
@@ -518,6 +639,8 @@ export async function migratePurchaseItems(
   };
 
   const grossByVoucherId = new Map<string, number>();
+
+  const errors: { index: number; error: unknown }[] = [];
 
   for (const [index, oldItem] of items.entries()) {
     try {
@@ -677,13 +800,20 @@ export async function migratePurchaseItems(
     } catch (err) {
       failed++;
 
-      console.error(`\n  ✗ Failed purchase item at index ${index}:`, err);
+      errors.push({ index, error: err });
     }
 
     renderProgressBar(index + 1, items.length, 'purchase items');
   }
 
   process.stdout.write('\n');
+  if (errors.length > 0) {
+    console.log(`  ✗ ${errors.length} purchase item(s) failed:`);
+
+    for (const { index, error } of errors) {
+      console.error(`    - index ${index}`, error);
+    }
+  }
 
   console.log(
     `  Backfilling StockVoucher.grossAmount for ` +
@@ -960,4 +1090,25 @@ export async function validateStockMigration(
   }
 
   console.log(`\n✔ Stock validation completed.`);
+}
+
+export async function migrateStock(
+  sqlPool: sql.ConnectionPool,
+  prisma: Prisma,
+) {
+  console.log(`\n==============================================`);
+  console.log(`        STOCK MIGRATION`);
+  console.log(`==============================================`);
+
+  const purchaseDetailsByBatch = await loadPurchaseDetails(sqlPool);
+
+  await migrateBatches(sqlPool, prisma, purchaseDetailsByBatch);
+
+  await migratePurchaseVouchers(sqlPool, prisma);
+
+  await migratePurchaseItems(sqlPool, prisma);
+
+  await validateStockMigration(sqlPool, prisma);
+
+  console.log(`\n✔ Stock migration completed`);
 }

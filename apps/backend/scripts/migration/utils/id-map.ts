@@ -4,8 +4,16 @@ export const groupMap = new Map<string | number, string>();
 export const genericMap = new Map<string | number, string>();
 export const distributorMap = new Map<string | number, string>();
 export const productMap = new Map<string | number, string>();
+
+export const accountMap = new Map<string | number, string>();
+export const accountTypeMap = new Map<
+  string | number,
+  'BUSINESS_CONTACT' | 'PAYMENT_ACCOUNT'
+>();
+
 export const purchaseVoucherMap = new Map<string, string>();
 export const batchMap = new Map<string, string>();
+
 export function getBatchMapKey(
   productKey: string,
   batchNumber: string,
