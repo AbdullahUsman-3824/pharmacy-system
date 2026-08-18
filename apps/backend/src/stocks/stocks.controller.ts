@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { StockService } from './stocks.service';
 import { CreateStockVoucherDto } from './dto/create-stock-voucher.dto';
 import { InventoryListQueryDto } from './dto/inventory-list-query.dto';
+import { VoucherListQueryDto } from './dto/voucher-list-query.dto';
 
 @Controller('stocks')
 export class StockController {
@@ -12,17 +13,17 @@ export class StockController {
     return this.stockService.createVoucher(dto);
   }
 
-  @Get('vouchers')
-  findAllVouchers() {
-    return this.stockService.findAll();
+  @Get()
+  findAllVouchers(@Query() query: VoucherListQueryDto) {
+    return this.stockService.findAllVouchers(query);
   }
 
   @Get('vouchers/:id')
-  findOne(@Param('id') id: string) {
-    return this.stockService.findOne(id);
+  findOneVoucher(@Param('id') id: string) {
+    return this.stockService.findOneVoucher(id);
   }
 
-  @Get('products/:productId/stock')
+  @Get('products/:productId')
   getProductStock(@Param('productId') productId: string) {
     return this.stockService.getProductStock(productId);
   }

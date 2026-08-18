@@ -24,11 +24,7 @@ export interface StatCardData {
   tone: "neutral" | "warn" | "danger";
 }
 
-export interface RecentSale {
-  id: string;
-  invoice: string;
-  amount: string;
-}
+
 
 export interface SaleLineItem {
   id: string;

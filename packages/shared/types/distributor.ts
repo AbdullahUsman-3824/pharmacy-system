@@ -1,4 +1,4 @@
-// packages/shared/src/types/distributor.ts
+import { PaginatedResult } from "../query/paginated-result";
 export interface CreateDistributorInput {
   name: string;
   contactPerson?: string;
@@ -17,3 +17,14 @@ export interface DistributorDto extends CreateDistributorInput {
   updatedAt: string;
   deletedAt: string | null;
 }
+
+export interface DistributorListItem {
+  id: string;
+  name: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  city?: string;
+}
+
+export interface DistributorsListResponse extends PaginatedResult<DistributorListItem> {}

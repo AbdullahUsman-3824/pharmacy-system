@@ -1,7 +1,7 @@
-import type { RecentPurchaseDto } from "@repo/shared";
+import type { RecentPurchaseData } from "@repo/shared";
 
 interface RecentPurchasesProps {
-  purchases: RecentPurchaseDto[];
+  purchases: RecentPurchaseData[];
 }
 
 export function RecentPurchases({ purchases }: RecentPurchasesProps) {
@@ -18,7 +18,7 @@ export function RecentPurchases({ purchases }: RecentPurchasesProps) {
           >
             <div className="flex flex-col">
               <span className="text-sm font-medium text-[var(--color-text)]">
-                #{purchase.voucherNumber}
+                {purchase.voucherNumber}
               </span>
               {purchase.distributorName && (
                 <span className="text-xs text-[var(--color-text-muted)]">
@@ -27,7 +27,7 @@ export function RecentPurchases({ purchases }: RecentPurchasesProps) {
               )}
             </div>
             <span className="text-sm text-[var(--color-text-secondary)]">
-              PKR {purchase.totalAmount.toLocaleString()}
+              {purchase.totalAmount}
             </span>
           </div>
         ))}

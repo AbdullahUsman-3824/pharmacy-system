@@ -11,6 +11,7 @@ import {
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import type { ProductsListQuery } from '@repo/shared';
 
 @Controller('products')
 export class ProductsController {
@@ -22,16 +23,8 @@ export class ProductsController {
   }
 
   @Get()
-  findAll(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('q') q?: string,
-  ) {
-    return this.productsService.findAll(
-      page ? Number(page) : 1,
-      limit ? Number(limit) : 100,
-      q,
-    );
+  findAll(@Query() query: ProductsListQuery) {
+    return this.productsService.findAll(query);
   }
 
   @Get('search')

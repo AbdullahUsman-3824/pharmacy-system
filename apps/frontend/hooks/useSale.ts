@@ -5,30 +5,35 @@ import { stockKeys } from "./useStock";
 import { useDebounce } from "./useDebounce";
 
 export const saleKeys = {
-  sales: (params?: { skip?: number; take?: number }) =>
-    ["sales", params?.skip ?? 0, params?.take ?? 100] as const,
+  sales: (params?: { skip?: number; take?: number; search?: string }) =>
+    [
+      "sales",
+      params?.skip ?? 0,
+      params?.take ?? 20,
+      params?.search?.trim() ?? "",
+    ] as const,
   sale: (id: string) => ["sale", id] as const,
   saleByNumber: (saleNumber: string) => ["sale", "number", saleNumber] as const,
-  search: (query: string) => ["sale-search", query] as const,
   returnable: (id: string) => ["sale", id, "returnable"] as const,
 };
 
-export function useSaleSearch(query: string) {
-  const debounced = useDebounce(query, 300);
-  const trimmed = debounced.trim();
+export function useSales(params?: {
+  skip?: number;
+  take?: number;
+  search?: string;
+}) {
+  const debouncedSearch = useDebounce(params?.search ?? "", 300);
+  const trimmedSearch = debouncedSearch.trim();
 
   return useQuery({
-    queryKey: saleKeys.search(trimmed),
-    queryFn: () => saleApi.search(trimmed),
-    enabled: trimmed.length >= 2,
+    queryKey: saleKeys.sales({ ...params, search: trimmedSearch }),
+    queryFn: () =>
+      saleApi.list({
+        skip: params?.skip,
+        take: params?.take,
+        q: trimmedSearch || undefined,
+      }),
     placeholderData: (prev) => prev,
-  });
-}
-
-export function useSales(params?: { skip?: number; take?: number }) {
-  return useQuery({
-    queryKey: saleKeys.sales(params),
-    queryFn: () => saleApi.list(params),
   });
 }
 

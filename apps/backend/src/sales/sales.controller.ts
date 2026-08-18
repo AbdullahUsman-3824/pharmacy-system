@@ -1,15 +1,7 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  Query,
-  ParseIntPipe,
-  DefaultValuePipe,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
 import { SalesService } from './sales.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
+import { SalesListQueryDto } from './dto/sales-list-query.dto';
 
 @Controller('sales')
 export class SalesController {
@@ -21,16 +13,8 @@ export class SalesController {
   }
 
   @Get()
-  findAll(
-    @Query('skip', new DefaultValuePipe(0), ParseIntPipe) skip: number,
-    @Query('take', new DefaultValuePipe(100), ParseIntPipe) take: number,
-  ) {
-    return this.salesService.findAll({ skip, take });
-  }
-
-  @Get('search')
-  searchSales(@Query('q') q: string) {
-    return this.salesService.searchSales(q);
+  findAll(@Query() query: SalesListQueryDto) {
+    return this.salesService.findAll(query);
   }
 
   @Get('number/:saleNumber')

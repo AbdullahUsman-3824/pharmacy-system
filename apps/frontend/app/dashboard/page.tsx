@@ -1,23 +1,20 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { RefreshCw, Plus, Package, ShoppingCart, Boxes } from "lucide-react";
-
-import Button from "@/components/ui/button";
-import { PageContainer, PageHeader, PageSection } from "@/components/layout";
-import { StatGrid } from "@/components/shared/stat-grid";
-import { StatCard } from "@/components/features/dashboard/stat-card";
-import { RecentSales } from "@/components/features/dashboard/recent-sales";
-import { RecentPurchases } from "@/components/features/dashboard/recent-purchases";
-import LoadingState from "@/components/shared/loading-state";
-
 import { useDashboard } from "@/hooks/useDashboard";
 import { usePageShortcuts } from "@/lib/shortcuts/usePageShortcuts";
 
-import type { RecentSale, StatCardData } from "@/lib/types";
+import Stats from "@/components/features/dashboard/stats";
+import QuickActions from "@/components/features/dashboard/quick-actions";
+import { RecentSales } from "@/components/features/dashboard/recent-sales";
+import { RecentPurchases } from "@/components/features/dashboard/recent-purchases";
+import LoadingState from "@/components/shared/loading-state";
+import Button from "@/components/ui/button";
+import { PageContainer, PageHeader, PageSection } from "@/components/layout";
+import { RefreshCw } from "lucide-react";
+
+import { RecentPurchaseData, RecentSaleData } from "@repo/shared";
 
 export default function DashboardPage() {
-  const router = useRouter();
   const { data, isLoading, isFetching, isError, refetch } = useDashboard();
 
   usePageShortcuts([
@@ -37,42 +34,21 @@ export default function DashboardPage() {
   if (isError || !data) {
     return <div>Error loading dashboard.</div>;
   }
-  const stats: (StatCardData & { id: string; onClick?: () => void })[] = [
-    {
-      id: "today-sales",
-      label: "Today's Sales",
-      value: `Rs ${data.todaySales.totalAmount.toLocaleString()} (${data.todaySales.count})`,
-      tone: "neutral",
-      onClick: () => router.push("/sales?date=today"),
-    },
-    {
-      id: "low-stock",
-      label: "Low Stock",
-      value: String(data.lowStockCount),
-      tone: data.lowStockCount > 0 ? "warn" : "neutral",
-      onClick: () => router.push("/inventory?status=low_stock"),
-    },
-    {
-      id: "near-expiry",
-      label: "Near Expiry",
-      value: String(data.nearExpiryCount),
-      tone: data.nearExpiryCount > 0 ? "danger" : "neutral",
-      onClick: () => router.push("/inventory?status=near_expiry"),
-    },
-    {
-      id: "out-of-stock",
-      label: "Out of Stock",
-      value: String(data.outOfStockCount ?? 0),
-      tone: (data.outOfStockCount ?? 0) > 0 ? "danger" : "neutral",
-      onClick: () => router.push("/inventory?status=out_of_stock"),
-    },
-  ];
 
-  const recentSales: RecentSale[] = data.recentSales.map((sale) => ({
+  const recentSales: RecentSaleData[] = data.recentSales.map((sale) => ({
     id: sale.id,
     invoice: sale.saleNumber,
     amount: `Rs ${sale.totalAmount.toLocaleString()}`,
   }));
+
+  const recentPurchases: RecentPurchaseData[] = data.recentPurchases.map(
+    (purchase) => ({
+      id: purchase.id,
+      voucherNumber: `# ${purchase.voucherNumber}`,
+      distributorName: purchase.distributorName,
+      totalAmount: `Rs ${purchase.totalAmount.toLocaleString()}`,
+    }),
+  );
 
   return (
     <PageContainer>
@@ -93,53 +69,11 @@ export default function DashboardPage() {
       </PageHeader>
 
       <PageSection>
-        <StatGrid>
-          {stats.map(({ onClick, ...stat }) => (
-            <div
-              key={stat.id}
-              onClick={onClick}
-              className={onClick ? "cursor-pointer" : undefined}
-            >
-              <StatCard {...stat} />
-            </div>
-          ))}
-        </StatGrid>
+        <Stats {...data} />
       </PageSection>
 
       <PageSection>
-        <div className="flex flex-wrap gap-3">
-          <Button onClick={() => router.push("/pos")}>
-            <ShoppingCart className="h-4 w-4 mr-2" />
-            New Sale{" "}
-            <span className="ml-1.5 rounded border border-gray-300  px-1.5 py-0.5 text-xs ">
-              F2
-            </span>
-          </Button>
-          <Button variant="outline" onClick={() => router.push("/stock/new")}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Purchase
-            <span className="ml-1.5 rounded border border-gray-300  px-1.5 py-0.5 text-xs ">
-              F3
-            </span>
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => router.push("/products/new")}
-          >
-            <Package className="h-4 w-4 mr-2" />
-            Add Product
-            <span className="ml-1.5 rounded border border-gray-300  px-1.5 py-0.5 text-xs ">
-              F4
-            </span>
-          </Button>
-          <Button variant="outline" onClick={() => router.push("/inventory")}>
-            <Boxes className="h-4 w-4 mr-2" />
-            Check Inventory
-            <span className="ml-1.5 rounded border border-gray-300  px-1.5 py-0.5 text-xs ">
-              F5
-            </span>
-          </Button>
-        </div>
+        <QuickActions />
       </PageSection>
 
       <PageSection>
@@ -154,7 +88,7 @@ export default function DashboardPage() {
             <h3 className="text-sm font-semibold text-[var(--color-text)] mb-3">
               Recent Purchases
             </h3>
-            <RecentPurchases purchases={data.recentPurchases ?? []} />
+            <RecentPurchases purchases={recentPurchases} />
           </div>
         </div>
       </PageSection>

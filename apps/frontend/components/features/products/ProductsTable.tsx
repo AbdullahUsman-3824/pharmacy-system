@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import { DataTable, DataTableColumn } from "@/components/shared/data-table";
 import { Pagination } from "@/components/shared/pagination";
@@ -19,6 +20,7 @@ function buildLookupMap(items: LookupEntity[]) {
 }
 
 export function ProductsTable() {
+  const router = useRouter();
   const [page, setPage] = useState(1);
   const [query, setQuery] = useState("");
 
@@ -58,15 +60,7 @@ export function ProductsTable() {
       key: "name",
       dataKey: "name",
       title: "Name",
-      render: (row) => (
-        <Link
-          href={`/products/${row.id}`}
-          className="font-medium text-[var(--color-text)] hover:text-[var(--color-primary)]"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {row.name}
-        </Link>
-      ),
+      render: (row) => row.name,
     },
     {
       key: "company",
@@ -124,6 +118,7 @@ export function ProductsTable() {
         data={products}
         loading={isLoading}
         emptyTitle="No products found"
+        onRowClick={(row) => router.push(`/products/${row.id}`)}
         emptyDescription="Try adjusting your search."
         footer={
           meta && meta.totalPages > 0 ? (

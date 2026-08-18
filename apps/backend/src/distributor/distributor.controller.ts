@@ -6,10 +6,12 @@ import {
   Patch,
   Param,
   Delete,
+  Query,
 } from '@nestjs/common';
 import { DistributorService } from './distributor.service';
 import { CreateDistributorDto } from './dto/create-distributor.dto';
 import { UpdateDistributorDto } from './dto/update-distributor.dto';
+import type { DistributorsListQuery } from '@repo/shared';
 
 @Controller('distributors')
 export class DistributorController {
@@ -21,8 +23,8 @@ export class DistributorController {
   }
 
   @Get()
-  findAll() {
-    return this.distributorService.findAll();
+  findAll(@Query() query: DistributorsListQuery) {
+    return this.distributorService.findAll(query);
   }
 
   @Get(':id')

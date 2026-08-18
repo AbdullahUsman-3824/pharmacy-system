@@ -21,6 +21,11 @@ export interface RecentSaleDto {
   itemCount: number;
   createdAt: string;
 }
+export interface RecentSaleData {
+  id: string;
+  invoice: string;
+  amount: string;
+}
 
 export interface RecentPurchaseDto {
   id: string;
@@ -29,4 +34,11 @@ export interface RecentPurchaseDto {
   totalAmount: number;
   itemCount: number;
   createdAt: string;
+}
+
+export interface RecentPurchaseData {
+  id: string;
+  voucherNumber: string;
+  distributorName: string | null;
+  totalAmount: string;
 }

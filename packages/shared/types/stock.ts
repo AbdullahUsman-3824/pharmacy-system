@@ -1,3 +1,4 @@
+import { PaginatedResult } from "../query/paginated-result";
 import { CreatePaymentDto, PaymentOutput } from "./accounts";
 
 export enum StockVoucherType {
@@ -117,3 +118,5 @@ export interface StockVoucherListItem {
   netAmount: number;
   remarks?: string;
 }
+
+export interface StockVoucherListResponse extends PaginatedResult<StockVoucherListItem> {}

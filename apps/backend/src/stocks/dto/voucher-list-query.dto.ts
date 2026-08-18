@@ -2,18 +2,18 @@ import { IsEnum, IsOptional, IsIn } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { BaseListDto } from '../../common/base-list.dto';
 import {
-  InventorySortField,
-  InventoryListQuery,
-  InventoryStatus,
+  StockVoucherSortField,
+  StockVoucherListQuery,
+  StockVoucherType,
 } from '@repo/shared';
 
-export class InventoryListQueryDto
+export class VoucherListQueryDto
   extends BaseListDto
-  implements InventoryListQuery
+  implements StockVoucherListQuery
 {
   @IsOptional()
-  @IsEnum(InventorySortField)
-  sortBy?: InventorySortField;
+  @IsEnum(StockVoucherSortField)
+  sortBy?: StockVoucherSortField;
 
   @IsOptional()
   @IsIn(['asc', 'desc'])
@@ -21,6 +21,6 @@ export class InventoryListQueryDto
 
   @IsOptional()
   @Transform(({ value }) => (Array.isArray(value) ? value : [value]))
-  @IsEnum(InventoryStatus, { each: true })
-  status?: InventoryStatus[];
+  @IsEnum(StockVoucherType, { each: true })
+  types?: StockVoucherType[];
 }

@@ -1,14 +1,23 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { LookupInterface, LookupType } from '@repo/shared';
 import { CreateLookupDto } from './dto/create-lookups.dto';
 import { UpdateLookupDto } from './dto/update-lookups.dto';
+import {
+  LookupInterface,
+  LookupType,
+  LookupsListQuery,
+  LookupsListResponse,
+} from '@repo/shared';
+import { buildPagination } from '../common/pagination.helper';
 
 type LookupDelegate = {
   findMany: (args: {
-    where?: { deletedAt: null };
+    where?: Record<string, unknown>;
     orderBy?: { name: 'asc' };
+    skip?: number;
+    take?: number;
   }) => Promise<Record<string, unknown>[]>;
+  count: (args: { where?: Record<string, unknown> }) => Promise<number>;
   findFirst: (args: {
     where: { id: string; deletedAt: null } | { code: string };
   }) => Promise<Record<string, unknown> | null>;
@@ -63,11 +72,44 @@ export class LookupsService {
     return code;
   }
 
-  findAll(type: LookupType) {
-    return this.getDelegate(type).findMany({
-      where: { deletedAt: null },
-      orderBy: { name: 'asc' },
-    });
+  async findAll(
+    type: LookupType,
+    query: LookupsListQuery = {},
+  ): Promise<LookupsListResponse> {
+    const delegate = this.getDelegate(type);
+    const { skip, take, page, pageSize } = buildPagination(query);
+    const search = query.search?.trim();
+    const isSearching = !!search && search.length >= 2;
+
+    const where: Record<string, unknown> = {
+      deletedAt: null,
+      ...(isSearching && {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { code: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
+    };
+
+    const [items, total] = await Promise.all([
+      delegate.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        skip,
+        take,
+      }),
+      delegate.count({ where }),
+    ]);
+
+    const data: LookupsListResponse['data'] = items.map((item) => ({
+      id: item.id as string,
+      name: item.name as string,
+    }));
+
+    return {
+      data,
+      meta: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
+    };
   }
 
   async create(type: LookupType, data: LookupInterface) {

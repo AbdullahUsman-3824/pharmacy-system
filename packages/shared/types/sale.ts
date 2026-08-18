@@ -1,4 +1,5 @@
 import { CreatePaymentDto, PaymentOutput } from "./accounts";
+import { PaginatedResult } from "../query/paginated-result";
 
 export enum SaleType {
   SALE = "SALE",
@@ -49,6 +50,7 @@ export interface SaleDto {
   type: SaleType;
   date: string;
   customerId: string;
+  customerName: string;
   originalSaleId?: string | null;
   remarks?: string | null;
   grossAmount: number;
@@ -57,11 +59,11 @@ export interface SaleDto {
   taxPercent?: number | null;
   taxAmount: number;
   netAmount: number;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
   deletedAt?: string | null;
   items?: SaleItemDto[];
-  payments: PaymentOutput[];
+  payments?: PaymentOutput[];
 }
 
 export interface SaleItemBatchDto {
@@ -86,12 +88,7 @@ export interface SaleDetailDto extends Omit<SaleDto, "items"> {
   items: SaleItemDetailDto[];
 }
 
-export interface SaleListResponse {
-  data: SaleDto[];
-  total: number;
-  skip: number;
-  take: number;
-}
+export interface SaleListResponse extends PaginatedResult<SaleDto> {}
 
 export interface ReturnableItemDto {
   productId: string;
@@ -112,12 +109,4 @@ export interface ReturnableSaleDto {
   saleId: string;
   saleNumber: string;
   items: ReturnableItemDto[];
-}
-
-export interface SaleSearchResultDto {
-  id: string;
-  saleNumber: string;
-  customerId: string;
-  date: string;
-  netAmount: number;
 }

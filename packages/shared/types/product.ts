@@ -1,3 +1,5 @@
+import { PaginatedResult } from "../query/paginated-result";
+
 export interface CreateProductInput {
   code: string;
   barcode?: string;
@@ -54,3 +56,15 @@ export interface ProductDto extends CreateProductInput {
   group: LookupRef | null;
   generic: LookupRef | null;
 }
+
+export interface ProductListItemDto {
+  id: string;
+  name:string;
+  company: string;
+  type: string;
+  group: string;
+  generic: string;
+  retailPrice?: number;
+}
+
+export interface ProductsListResponse extends PaginatedResult<ProductListItemDto> {}

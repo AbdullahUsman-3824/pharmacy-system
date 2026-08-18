@@ -7,7 +7,7 @@ import { StockVouchersTable } from "./StockVouchersTable";
 import { StockVoucherType } from "@repo/shared";
 import { PageContainer, PageHeader, PageSection } from "@/components/layout";
 import Button from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { SearchBar } from "@/components/ui/searchBar";
 
@@ -21,29 +21,34 @@ const TYPE_CHIPS: { label: string; value: TypeFilter }[] = [
   { label: "Adjustment", value: StockVoucherType.STOCK_ADJUSTMENT },
 ];
 
+const PAGE_SIZE = 20;
+
 export default function StockOverviewPage() {
   const router = useRouter();
-  const { data: vouchers, isLoading } = useStockVouchers();
 
   const [search, setSearch] = useState("");
+
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL");
+  const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<string>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
-  const filteredVouchers = useMemo(() => {
-    let result = vouchers ?? [];
+  const { data, isLoading } = useStockVouchers({
+    skip: (page - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
+    search,
+  });
+
+  const vouchers = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  // type filter aur sort abhi client-side hi
+  const displayedVouchers = useMemo(() => {
+    let result = vouchers;
 
     if (typeFilter !== "ALL") {
       result = result.filter((v) => v.type === typeFilter);
-    }
-
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      result = result.filter(
-        (v) =>
-          v.voucherNumber.toLowerCase().includes(q) ||
-          v.supplierName?.toLowerCase().includes(q),
-      );
     }
 
     result = [...result].sort((a, b) => {
@@ -51,16 +56,20 @@ export default function StockOverviewPage() {
       if (sortKey === "netAmount") return (a.netAmount - b.netAmount) * dir;
       if (sortKey === "voucherNumber")
         return a.voucherNumber.localeCompare(b.voucherNumber) * dir;
-      // default: date
       return (new Date(a.date).getTime() - new Date(b.date).getTime()) * dir;
     });
 
     return result;
-  }, [vouchers, typeFilter, search, sortKey, sortDirection]);
+  }, [vouchers, typeFilter, sortKey, sortDirection]);
 
   const handleSort = (key: string, direction: SortDirection) => {
     setSortKey(key);
     setSortDirection(direction);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1); // naya search shuru ho to page 1 pe wapas
   };
 
   return (
@@ -81,7 +90,7 @@ export default function StockOverviewPage() {
             <SearchBar
               placeholder="Search by voucher # or distributor..."
               value={search}
-              onChange={(value) => setSearch(value)}
+              onChange={handleSearchChange}
             />
           </div>
 
@@ -104,12 +113,36 @@ export default function StockOverviewPage() {
         </div>
 
         <StockVouchersTable
-          vouchers={filteredVouchers}
+          vouchers={displayedVouchers}
           isLoading={isLoading}
           sortKey={sortKey}
           sortDirection={sortDirection}
           onSort={handleSort}
         />
+
+        <div className="flex items-center justify-between mt-4">
+          <span className="text-sm text-[var(--color-text-secondary)]">
+            Page {page} of {totalPages} ({total} total)
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Prev
+            </Button>
+            <Button
+              variant="outline"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Next
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
       </PageSection>
     </PageContainer>
   );

@@ -10,7 +10,7 @@ interface EmptyStateProps {
 
 const EmptyState = ({ icon, title, description, action }: EmptyStateProps) => {
   return (
-    <Card variant="bordered" className="text-center py-12">
+    <Card variant="default" className="text-center py-12">
       {icon && <div className="flex justify-center mb-4">{icon}</div>}
       <h3 className="text-lg font-semibold text-[var(--color-text)]">
         {title}

@@ -3,14 +3,21 @@ import { stockApi } from "../lib/api/stockApi";
 import { CreateStockVoucherInput } from "@repo/shared";
 
 export const stockKeys = {
-  vouchers: ["stock-vouchers"] as const,
+  vouchers: (params?: { skip?: number; take?: number; search?: string }) =>
+    ["stock-vouchers", params] as const,
   voucher: (id: string) => ["stock-voucher", id] as const,
   productStock: (productId: string) => ["stock-product", productId] as const,
 };
-export function useStockVouchers() {
+
+export function useStockVouchers(params?: {
+  skip?: number;
+  take?: number;
+  search?: string;
+}) {
   return useQuery({
-    queryKey: stockKeys.vouchers,
-    queryFn: stockApi.getVouchers,
+    queryKey: stockKeys.vouchers(params),
+    queryFn: () => stockApi.getVouchers(params),
+    placeholderData: (previousData) => previousData,
   });
 }
 
@@ -37,7 +44,7 @@ export function useCreateStockVoucher() {
     mutationFn: (payload: CreateStockVoucherInput) =>
       stockApi.createVoucher(payload),
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: stockKeys.vouchers });
+      queryClient.invalidateQueries({ queryKey: stockKeys.vouchers() });
       data.items.forEach((item) => {
         queryClient.invalidateQueries({
           queryKey: stockKeys.productStock(item.productId),

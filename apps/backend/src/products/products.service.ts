@@ -2,6 +2,9 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { ProductsListQuery, ProductsListResponse } from '@repo/shared';
+import { buildPagination } from '../common/pagination.helper';
+import { Prisma } from '../generated/prisma/client';
 
 @Injectable()
 export class ProductsService {
@@ -13,36 +16,24 @@ export class ProductsService {
     });
   }
 
-  async findAll(page: number = 1, limit: number = 100, q?: string) {
-    const skip = (page - 1) * limit;
+  async findAll(query: ProductsListQuery = {}): Promise<ProductsListResponse> {
+    const { skip, take, page, pageSize } = buildPagination(query);
+    const search = query.search?.trim();
+    const isSearching = !!search && search.length >= 2;
 
-    const where = {
+    const where: Prisma.ProductWhereInput = {
       deletedAt: null,
-      ...(q?.trim()
-        ? {
-            OR: [
-              { name: { contains: q.trim(), mode: 'insensitive' as const } },
-              {
-                company: {
-                  name: { contains: q.trim(), mode: 'insensitive' as const },
-                },
-              },
-              {
-                type: {
-                  name: { contains: q.trim(), mode: 'insensitive' as const },
-                },
-              },
-              {
-                generic: {
-                  name: { contains: q.trim(), mode: 'insensitive' as const },
-                },
-              },
-            ],
-          }
-        : {}),
+      ...(isSearching && {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { company: { name: { contains: search, mode: 'insensitive' } } },
+          { type: { name: { contains: search, mode: 'insensitive' } } },
+          { generic: { name: { contains: search, mode: 'insensitive' } } },
+        ],
+      }),
     };
 
-    const [products, totalCount] = await Promise.all([
+    const [products, total] = await Promise.all([
       this.prisma.product.findMany({
         where,
         include: {
@@ -51,22 +42,25 @@ export class ProductsService {
           group: true,
           generic: true,
         },
+        orderBy: { name: 'asc' },
         skip,
-        take: limit,
+        take,
       }),
       this.prisma.product.count({ where }),
     ]);
+    const data: ProductsListResponse['data'] = products.map((product) => ({
+      id: product.id,
+      name: product.name,
+      company: product.company.name,
+      type: product.type.name,
+      group: product.group?.name ?? '',
+      generic: product.generic?.name ?? '',
+      retailPrice: product.retailPrice?.toNumber() ?? undefined,
+    }));
 
     return {
-      data: products,
-      meta: {
-        total: totalCount,
-        page,
-        limit,
-        totalPages: Math.ceil(totalCount / limit) || 1,
-        hasNextPage: page < Math.ceil(totalCount / limit),
-        hasPreviousPage: page > 1,
-      },
+      data,
+      meta: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
     };
   }
 

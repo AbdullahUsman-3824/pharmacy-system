@@ -10,7 +10,10 @@ import { InventoryTable } from "@/components/features/inventory/InventoryTable";
 import type { InventoryListQuery } from "@repo/shared";
 import { PageContainer, PageHeader, PageSection } from "@/components/layout";
 import Button from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { Download } from "lucide-react";
+import { Pagination } from "@/components/shared/pagination";
+
+const PAGE_SIZE = 25;
 
 export default function InventoryPage() {
   const [filters, setFilters] = useState<InventoryFilterState>({
@@ -22,14 +25,13 @@ export default function InventoryPage() {
   const [sortBy, setSortBy] = useState<InventoryListQuery["sortBy"]>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState(1);
-  const pageSize = 20;
 
   const { data, isLoading, isFetching } = useInventory({
     ...filters,
     sortBy,
     sortDir,
     page,
-    pageSize,
+    pageSize: PAGE_SIZE,
   });
 
   const handleSortChange = (col: string) => {
@@ -47,7 +49,7 @@ export default function InventoryPage() {
     setPage(1);
   };
 
-  const totalPages = data ? Math.ceil(data.total / pageSize) : 1;
+  const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 0;
 
   return (
     <PageContainer>
@@ -55,7 +57,6 @@ export default function InventoryPage() {
         title="Inventory"
         description="Current stock across all products and batches."
       >
-        {/* Not functional yet — export/print for stock-taking, see next task */}
         <Button variant="outline" disabled title="Coming soon">
           <Download className="w-4 h-4" />
           Export
@@ -77,6 +78,18 @@ export default function InventoryPage() {
           sortBy={sortBy ?? "name"}
           sortDir={sortDir}
           onSortChange={handleSortChange}
+          page={{ pageNumber: page, pageSize: PAGE_SIZE }}
+          footer={
+            totalPages > 0 ? (
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+                itemsPerPage={PAGE_SIZE}
+                totalItems={data?.total ?? 0}
+              />
+            ) : null
+          }
         />
 
         {/* Filtered-set summary — reflects ALL matching rows, not just the
@@ -93,34 +106,9 @@ export default function InventoryPage() {
               PKR {data.totalStockValue.toLocaleString()}
               /-
             </span>
-          </div>
-        )}
-
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-4">
-            <span className="text-sm text-[var(--color-text-secondary)]">
-              Page {page} of {totalPages}
-              {isFetching && !isLoading && " · updating..."}
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="flex items-center justify-center h-8 w-8 rounded-full border border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-row-hover)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="text-sm text-[var(--color-text)] px-3">
-                {page} / {totalPages}
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                className="flex items-center justify-center h-8 w-8 rounded-full border border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-row-hover)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+            {isFetching && !isLoading && (
+              <span className="ml-2">· updating...</span>
+            )}
           </div>
         )}
       </PageSection>

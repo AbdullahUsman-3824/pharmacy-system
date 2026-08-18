@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { SaleType } from "@repo/shared";
 
-import { useSales, useSaleSearch } from "@/hooks/useSale";
+import { useSales } from "@/hooks/useSale";
 import { formatCurrency, formatDate } from "@/lib/format";
 
 import { PageContainer, PageHeader, PageSection } from "@/components/layout";
@@ -30,23 +30,16 @@ export default function SalesListPage() {
   const router = useRouter();
 
   const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState("");
-
-  const normalizedInput = searchInput.trim();
-  const isSearchMode = normalizedInput.length >= 2;
-
   const skip = (page - 1) * PAGE_SIZE;
+  
+  const [searchInput, setSearchInput] = useState("");
+  const isSearchMode = searchInput.trim().length >= 2;
 
-  const { data, isLoading, isError } = useSales({
+  const { data, isLoading, isFetching, isError } = useSales({
     skip,
     take: PAGE_SIZE,
+    search: isSearchMode ? searchInput.trim() : undefined,
   });
-
-  const {
-    data: searchResults = [],
-    isFetching: isSearching,
-    isFetched: searchFetched,
-  } = useSaleSearch(isSearchMode ? normalizedInput : "");
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
 
@@ -55,16 +48,12 @@ export default function SalesListPage() {
     [router],
   );
 
-  const tableData: SaleRow[] = isSearchMode
-    ? (searchResults as SaleRow[])
-    : ((data?.data ?? []) as SaleRow[]);
+  const tableData: SaleRow[] = (data?.data ?? []) as SaleRow[];
 
-  const tableLoading = isSearchMode ? isSearching : isLoading;
+  const tableLoading = isLoading || isFetching;
 
   const emptyTitle = isSearchMode
-    ? searchFetched
-      ? "No matching sales found"
-      : "Searching..."
+    ? "No matching sales found"
     : "No sales found";
 
   const columns: DataTableColumn<SaleRow>[] = useMemo(
@@ -154,7 +143,7 @@ export default function SalesListPage() {
             setPage(1);
           }}
           placeholder="Search by sale number or customer..."
-          count={isSearchMode ? searchResults.length : data?.total}
+          count={data?.total}
           entityLabelPlural="sales"
         />
       </PageSection>
@@ -184,7 +173,7 @@ export default function SalesListPage() {
             stickyHeader
             onRowClick={(row) => router.push(`/sales/${row.id}`)}
             footer={
-              !isSearchMode && data && data.total > PAGE_SIZE ? (
+              data && data.total > PAGE_SIZE ? (
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-[var(--color-text-muted)]">
                     Page {page} of {totalPages} • {data.total} total sales

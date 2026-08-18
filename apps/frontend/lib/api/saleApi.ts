@@ -3,7 +3,6 @@ import {
   SaleDetailDto,
   SaleListResponse,
   ReturnableSaleDto,
-  SaleSearchResultDto,
   CreateSaleInput,
 } from "@repo/shared";
 
@@ -11,17 +10,9 @@ export const saleApi = {
   list: async (params?: {
     skip?: number;
     take?: number;
+    q?: string;
   }): Promise<SaleListResponse> => {
     const { data } = await apiClient.get("/sales", { params });
-    return data;
-  },
-
-  // Lightweight typeahead — separate from getOne/getBySaleNumber so the
-  // dropdown never pulls full item/batch data on every keystroke.
-  search: async (query: string): Promise<SaleSearchResultDto[]> => {
-    const { data } = await apiClient.get("/sales/search", {
-      params: { q: query },
-    });
     return data;
   },
 

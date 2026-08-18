@@ -5,7 +5,15 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
-import { CreatePaymentDto, SaleType } from '@repo/shared';
+import {
+  CreatePaymentDto,
+  SaleType,
+  SaleSortField,
+  SalesListQuery,
+  SaleListResponse,
+} from '@repo/shared';
+import { buildPagination, withOrder } from '../common/pagination.helper';
+import { Prisma } from '../generated/prisma/client';
 
 @Injectable()
 export class SalesService {
@@ -98,15 +106,35 @@ export class SalesService {
     return this.serializeSale(sale);
   }
 
-  // ===================== FIND ALL (with cursor support) =====================
-  async findAll(params?: { skip?: number; take?: number; cursor?: string }) {
-    const take = params?.take ?? 20;
-    const skip = params?.skip ?? 0;
-    const cursor = params?.cursor;
+  // ===================== FIND ALL (with search support) =====================
 
-    const where = { deletedAt: null };
+  saleSortFieldMap: Record<SaleSortField, object> = {
+    [SaleSortField.DATE]: { date: undefined },
+    [SaleSortField.SALE_NUMBER]: { saleNumber: undefined },
+    [SaleSortField.NET_AMOUNT]: { netAmount: undefined },
+    [SaleSortField.CUSTOMER_NAME]: { customer: { name: undefined } },
+  };
 
-    // Use cursor-based pagination if cursor provided, else offset
+  async findAll(query: SalesListQuery): Promise<SaleListResponse> {
+    const { skip, take, page, pageSize } = buildPagination(query);
+    const search = query.search?.trim();
+    const isSearching = !!search && search.length >= 2;
+
+    const where: Prisma.SaleWhereInput = {
+      deletedAt: null,
+      ...(isSearching && {
+        OR: [
+          { saleNumber: { contains: search, mode: 'insensitive' } },
+          { customer: { name: { contains: search, mode: 'insensitive' } } },
+        ],
+      }),
+      ...(query.types?.length && { type: { in: query.types } }),
+    };
+
+    const orderShape =
+      this.saleSortFieldMap[query.sortBy ?? SaleSortField.DATE];
+    const orderBy = withOrder(orderShape, query.sortOrder ?? 'desc');
+
     const [sales, total] = await this.prisma.$transaction([
       this.prisma.sale.findMany({
         where,
@@ -116,12 +144,7 @@ export class SalesService {
           type: true,
           date: true,
           customerId: true,
-          customer: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
+          customer: { select: { id: true, name: true } },
           grossAmount: true,
           discountPercent: true,
           discountAmount: true,
@@ -129,10 +152,9 @@ export class SalesService {
           taxAmount: true,
           netAmount: true,
         },
-        orderBy: { date: 'desc' },
-        skip: cursor ? undefined : skip,
+        orderBy,
+        skip,
         take,
-        cursor: cursor ? { id: cursor } : undefined,
       }),
       this.prisma.sale.count({ where }),
     ]);
@@ -141,6 +163,8 @@ export class SalesService {
       data: sales.map((s) => ({
         ...s,
         customerName: s.customer.name,
+        type: s.type as unknown as SaleType,
+        date: s.date.toISOString(),
         grossAmount: Number(s.grossAmount),
         discountPercent:
           s.discountPercent !== null ? Number(s.discountPercent) : null,
@@ -149,11 +173,7 @@ export class SalesService {
         taxAmount: Number(s.taxAmount),
         netAmount: Number(s.netAmount),
       })),
-      total,
-      skip,
-      take,
-      // Return nextCursor for the frontend to use
-      nextCursor: sales.length === take ? sales[sales.length - 1].id : null,
+      meta: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
     };
   }
 
@@ -214,56 +234,6 @@ export class SalesService {
     }
 
     return this.serializeSale(sale);
-  }
-
-  // ===================== SEARCH (enhanced) =====================
-  async searchSales(query: string, limit = 10) {
-    const trimmed = query?.trim();
-    if (!trimmed || trimmed.length < 2) {
-      return []; // require at least 2 chars to avoid heavy scans
-    }
-
-    const sales = await this.prisma.sale.findMany({
-      where: {
-        deletedAt: null,
-        type: SaleType.SALE,
-        OR: [
-          { saleNumber: { contains: trimmed, mode: 'insensitive' } },
-          {
-            customer: {
-              name: {
-                contains: trimmed,
-                mode: 'insensitive',
-              },
-            },
-          },
-        ],
-      },
-      select: {
-        id: true,
-        saleNumber: true,
-        customerId: true,
-        customer: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        date: true,
-        netAmount: true,
-      },
-      orderBy: { date: 'desc' },
-      take: limit,
-    });
-
-    return sales.map((s) => ({
-      id: s.id,
-      saleNumber: s.saleNumber,
-      customerId: s.customerId,
-      customerName: s.customer.name,
-      date: s.date,
-      netAmount: Number(s.netAmount),
-    }));
   }
 
   // ===================== GET RETURNABLE ITEMS (optimized) =====================

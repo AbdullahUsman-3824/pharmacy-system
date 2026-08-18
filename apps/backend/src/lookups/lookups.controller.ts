@@ -6,20 +6,25 @@ import {
   Param,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import { LookupType } from '@repo/shared';
 import { LookupsService } from './lookups.service';
 import { CreateLookupDto } from './dto/create-lookups.dto';
 import { UpdateLookupDto } from './dto/update-lookups.dto';
 import { LookupTypePipe } from './pipes/lookup-type.pipe';
+import type { LookupsListQuery } from '@repo/shared';
 
 @Controller('lookups/:type')
 export class LookupsController {
   constructor(private readonly lookupsService: LookupsService) {}
 
   @Get()
-  findAll(@Param('type', LookupTypePipe) type: LookupType) {
-    return this.lookupsService.findAll(type);
+  findAll(
+    @Param('type', LookupTypePipe) type: LookupType,
+    @Query() query: LookupsListQuery,
+  ) {
+    return this.lookupsService.findAll(type, query);
   }
 
   @Post()

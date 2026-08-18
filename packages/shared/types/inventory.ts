@@ -1,3 +1,4 @@
+import { PaginatedResult } from "../query/paginated-result";
 export interface InventoryProductDto {
   productId: string;
   code: string;
@@ -25,24 +26,15 @@ export interface InventoryBatchDto {
   saleRate: number | null;
 }
 
-export interface InventoryListResponse {
-  items: InventoryProductDto[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalQuantitySum: number;
-  totalStockValue: number;
+export interface InventoryListResponse extends PaginatedResult<InventoryProductDto> {
+  summary: {
+    totalQuantitySum: number;
+    totalStockValue: number;
+  };
 }
 
-export interface InventoryListQuery {
-  search?: string;
-  lowStockOnly?: boolean;
-  outOfStockOnly?: boolean;
-  nearExpiryOnly?: boolean;
-  groupId?: string;
-  typeId?: string;
-  sortBy?: "name" | "totalQuantity" | "nearestExpiryDate" | "retailRate";
-  sortDir?: "asc" | "desc";
-  page?: number;
-  pageSize?: number;
+export declare enum InventoryStatus {
+  LOW_STOCK = "LOW_STOCK",
+  NEAR_EXPIRY = "NEAR_EXPIRY",
+  OUT_OF_STOCK = "OUT_OF_STOCK",
 }

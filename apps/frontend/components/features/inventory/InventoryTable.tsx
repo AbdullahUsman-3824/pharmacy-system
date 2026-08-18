@@ -6,9 +6,6 @@ import { DataTable, DataTableColumn } from "@/components/shared/data-table";
 import type { InventoryProductDto } from "@repo/shared";
 import { cn } from "@/lib/cn";
 
-// DataTable requires T to have an `id` field (weak-type structural check).
-// InventoryProductDto only has `productId`, so we alias it here rather than
-// touching the shared type — this stays purely a table-layer concern.
 type InventoryRow = InventoryProductDto & { id: string };
 
 type SortDirection = "asc" | "desc";
@@ -24,6 +21,8 @@ interface InventoryTableProps {
   sortBy: SortableField;
   sortDir: SortDirection;
   onSortChange: (col: string) => void;
+  footer?: React.ReactNode;
+  page: { pageNumber: number; pageSize: number };
 }
 
 function getStatus(item: InventoryRow): {
@@ -48,6 +47,8 @@ export const InventoryTable = ({
   sortBy,
   sortDir,
   onSortChange,
+  footer,
+  page,
 }: InventoryTableProps) => {
   const router = useRouter();
 
@@ -57,6 +58,13 @@ export const InventoryTable = ({
   );
 
   const columns: DataTableColumn<InventoryRow>[] = [
+    {
+      key: "index",
+      title: "#",
+      width: 30,
+      render: (_row, index) =>
+        (page?.pageNumber - 1) * page?.pageSize + index + 1,
+    },
     {
       key: "name",
       title: "Product",
@@ -141,22 +149,6 @@ export const InventoryTable = ({
         );
       },
     },
-    {
-      key: "actions",
-      title: "",
-      align: "right",
-      render: (row: InventoryRow) => (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            router.push(`/inventory/${row.productId}`);
-          }}
-          className="text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text)] transition-colors"
-        >
-          View →
-        </button>
-      ),
-    },
   ];
 
   return (
@@ -172,6 +164,7 @@ export const InventoryTable = ({
       sortDirection={sortDir}
       onSort={(key) => onSortChange(key)}
       zebra
+      footer={footer}
     />
   );
 };

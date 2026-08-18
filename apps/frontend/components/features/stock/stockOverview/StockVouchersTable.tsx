@@ -56,7 +56,6 @@ export const StockVouchersTable = ({
     {
       key: "distributor",
       title: "Distributor",
-      // Only PURCHASE / PURCHASE_RETURN have a distributor; ADJUSTMENT will be "—".
       render: (row) => row.supplierName ?? "—",
     },
     {
