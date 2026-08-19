@@ -11,7 +11,7 @@ import { useProducts, useDeleteProduct } from "@/hooks/useProducts";
 import { useLookup } from "@/hooks/useLookups";
 import { LookupEntity, LookupType } from "@repo/shared/types/lookups";
 import { SearchBar } from "../../ui/searchBar";
-import { ProductDto } from "@repo/shared";
+import { ProductDto, ProductListItemDto } from "@repo/shared";
 
 const PAGE_SIZE = 100;
 
@@ -22,21 +22,17 @@ function buildLookupMap(items: LookupEntity[]) {
 export function ProductsTable() {
   const router = useRouter();
   const [page, setPage] = useState(1);
-  const [query, setQuery] = useState("");
+  const [search, setSearch] = useState("");
 
-  const { data, isLoading } = useProducts(page, PAGE_SIZE, query);
+  const { data, isLoading } = useProducts({
+    page,
+    pageSize: PAGE_SIZE,
+    search,
+  });
   const products = useMemo(() => data?.data ?? [], [data?.data]);
   const meta = data?.meta;
 
-  const { data: companies = [] } = useLookup(LookupType.Company);
-  const { data: types = [] } = useLookup(LookupType.ProductType);
-  const { data: generics = [] } = useLookup(LookupType.Generic);
-
   const { mutate: deleteProduct } = useDeleteProduct();
-
-  const companyMap = useMemo(() => buildLookupMap(companies), [companies]);
-  const typeMap = useMemo(() => buildLookupMap(types), [types]);
-  const genericMap = useMemo(() => buildLookupMap(generics), [generics]);
 
   function handleDelete(id: string) {
     if (confirm("Delete this product?")) {
@@ -45,11 +41,11 @@ export function ProductsTable() {
   }
 
   function handleSearchChange(value: string) {
-    setQuery(value);
-    setPage(1); // reset page on new search
+    setSearch(value);
+    setPage(1);
   }
 
-  const columns: DataTableColumn<ProductDto>[] = [
+  const columns: DataTableColumn<ProductListItemDto>[] = [
     {
       key: "index",
       title: "#",
@@ -65,17 +61,17 @@ export function ProductsTable() {
     {
       key: "company",
       title: "Company",
-      render: (row) => companyMap.get(row.companyId ?? "") ?? "—",
+      render: (row) => row.company ?? "—",
     },
     {
       key: "type",
       title: "Type",
-      render: (row) => typeMap.get(row.typeId ?? "") ?? "—",
+      render: (row) => row.type ?? "—",
     },
     {
       key: "generic",
       title: "Generic",
-      render: (row) => genericMap.get(row.genericId ?? "") ?? "—",
+      render: (row) => row.generic ?? "—",
     },
     {
       key: "retailPrice",
@@ -83,7 +79,10 @@ export function ProductsTable() {
       title: "Retail Price",
       align: "right",
       width: 140,
-      render: (row) => `Rs ${Number(row.retailPrice).toLocaleString()}`,
+      render: (row) =>
+        row.retailPrice != null
+          ? `Rs ${Number(row.retailPrice).toLocaleString()}`
+          : "—",
     },
     {
       key: "actions",
@@ -107,7 +106,7 @@ export function ProductsTable() {
   return (
     <div className="flex flex-col gap-4">
       <SearchBar
-        value={query}
+        value={search}
         onChange={handleSearchChange}
         entityLabelPlural="Products"
         count={meta?.total ?? 0}
@@ -126,7 +125,7 @@ export function ProductsTable() {
               currentPage={meta.page}
               totalPages={meta.totalPages}
               onPageChange={setPage}
-              itemsPerPage={meta.limit}
+              itemsPerPage={meta.pageSize}
               totalItems={meta.total}
             />
           ) : null

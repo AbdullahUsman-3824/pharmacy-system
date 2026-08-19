@@ -11,7 +11,7 @@ import {
 import { DistributorService } from './distributor.service';
 import { CreateDistributorDto } from './dto/create-distributor.dto';
 import { UpdateDistributorDto } from './dto/update-distributor.dto';
-import type { DistributorsListQuery } from '@repo/shared';
+import { DistributorListQueryDto } from './dto/distributors-list-query.dto';
 
 @Controller('distributors')
 export class DistributorController {
@@ -23,7 +23,7 @@ export class DistributorController {
   }
 
   @Get()
-  findAll(@Query() query: DistributorsListQuery) {
+  findAll(@Query() query: DistributorListQueryDto) {
     return this.distributorService.findAll(query);
   }
 

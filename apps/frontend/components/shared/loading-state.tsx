@@ -41,7 +41,11 @@ const LoadingState = ({
   }
 
   return (
-    <Card variant="bordered" className="flex items-center justify-center py-12">
+    <Card
+      variant="default"
+      className="flex items-center justify-center py-12"
+      rounded={false}
+    >
       {content}
     </Card>
   );

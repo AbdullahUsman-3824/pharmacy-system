@@ -294,10 +294,10 @@ export class StockService {
   // -----------------------
 
   inventorySortColumnMap: Record<InventorySortField, Prisma.Sql> = {
-    [InventorySortField.PRODUCT_NAME]: Prisma.sql`p.name`,
-    [InventorySortField.QUANTITY]: Prisma.sql`ba.total_quantity`,
-    [InventorySortField.RETAIL_RATE]: Prisma.sql`ba.retail_rate`,
-    [InventorySortField.EXPIRY_DATE]: Prisma.sql`ba.nearest_expiry_date`,
+    [InventorySortField.PRODUCT_NAME]: Prisma.sql`name`,
+    [InventorySortField.QUANTITY]: Prisma.sql`total_quantity`,
+    [InventorySortField.RETAIL_RATE]: Prisma.sql`"retailRate"`,
+    [InventorySortField.EXPIRY_DATE]: Prisma.sql`nearest_expiry_date`,
   };
   async getInventoryList(
     query: InventoryListQuery,

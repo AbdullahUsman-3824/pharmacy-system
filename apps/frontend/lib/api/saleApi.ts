@@ -1,17 +1,14 @@
 import { apiClient } from "../axios";
 import {
   SaleDetailDto,
+  SalesListQuery,
   SaleListResponse,
   ReturnableSaleDto,
   CreateSaleInput,
 } from "@repo/shared";
 
 export const saleApi = {
-  list: async (params?: {
-    skip?: number;
-    take?: number;
-    q?: string;
-  }): Promise<SaleListResponse> => {
+  list: async (params?: SalesListQuery): Promise<SaleListResponse> => {
     const { data } = await apiClient.get("/sales", { params });
     return data;
   },

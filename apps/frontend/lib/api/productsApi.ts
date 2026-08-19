@@ -3,33 +3,14 @@ import {
   ProductDto,
   CreateProductInput,
   UpdateProductInput,
+  ProductsListQuery,
+  ProductsListResponse,
 } from "@repo/shared";
 
-export type PaginatedProducts = {
-  data: ProductDto[];
-  meta: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-    hasNextPage: boolean;
-    hasPreviousPage: boolean;
-  };
-};
 
 export const productsApi = {
-  list: async (
-    page = 1,
-    limit = 100,
-    q?: string,
-  ): Promise<PaginatedProducts> => {
-    const { data } = await apiClient.get("/products", {
-      params: {
-        page,
-        limit,
-        ...(q?.trim() ? { q: q.trim() } : {}),
-      },
-    });
+  list: async (params?: ProductsListQuery): Promise<ProductsListResponse> => {
+    const { data } = await apiClient.get("/products", { params });
     return data;
   },
 

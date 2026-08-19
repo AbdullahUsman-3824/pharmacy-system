@@ -13,7 +13,7 @@ export class StockController {
     return this.stockService.createVoucher(dto);
   }
 
-  @Get()
+  @Get('vouchers')
   findAllVouchers(@Query() query: VoucherListQueryDto) {
     return this.stockService.findAllVouchers(query);
   }

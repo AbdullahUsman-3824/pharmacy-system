@@ -1,23 +1,25 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query";
 import { stockApi } from "../lib/api/stockApi";
-import { CreateStockVoucherInput } from "@repo/shared";
+import { CreateStockVoucherInput, StockVoucherListQuery } from "@repo/shared";
 
 export const stockKeys = {
-  vouchers: (params?: { skip?: number; take?: number; search?: string }) =>
-    ["stock-vouchers", params] as const,
+  all: ["stock-vouchers"] as const,
+  list: (query: StockVoucherListQuery) =>
+    [...stockKeys.all, "list", query] as const,
   voucher: (id: string) => ["stock-voucher", id] as const,
   productStock: (productId: string) => ["stock-product", productId] as const,
 };
 
-export function useStockVouchers(params?: {
-  skip?: number;
-  take?: number;
-  search?: string;
-}) {
+export function useStockVouchers(query: StockVoucherListQuery) {
   return useQuery({
-    queryKey: stockKeys.vouchers(params),
-    queryFn: () => stockApi.getVouchers(params),
-    placeholderData: (previousData) => previousData,
+    queryKey: stockKeys.list(query),
+    queryFn: () => stockApi.listVouchers(query),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -44,7 +46,7 @@ export function useCreateStockVoucher() {
     mutationFn: (payload: CreateStockVoucherInput) =>
       stockApi.createVoucher(payload),
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: stockKeys.vouchers() });
+      queryClient.invalidateQueries({ queryKey: stockKeys.all });
       data.items.forEach((item) => {
         queryClient.invalidateQueries({
           queryKey: stockKeys.productStock(item.productId),

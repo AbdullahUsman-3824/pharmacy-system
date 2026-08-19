@@ -4,23 +4,19 @@ import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { DataTable, DataTableColumn } from "@/components/shared/data-table";
 import type { InventoryProductDto } from "@repo/shared";
+import { InventorySortField } from "@repo/shared";
 import { cn } from "@/lib/cn";
 
 type InventoryRow = InventoryProductDto & { id: string };
 
 type SortDirection = "asc" | "desc";
-type SortableField =
-  | "name"
-  | "totalQuantity"
-  | "nearestExpiryDate"
-  | "retailRate";
 
 interface InventoryTableProps {
   items: InventoryProductDto[];
   isLoading?: boolean;
-  sortBy: SortableField;
+  sortBy: InventorySortField;
   sortDir: SortDirection;
-  onSortChange: (col: string) => void;
+  onSort: (key: string, direction: SortDirection) => void;
   footer?: React.ReactNode;
   page: { pageNumber: number; pageSize: number };
 }
@@ -46,7 +42,7 @@ export const InventoryTable = ({
   isLoading = false,
   sortBy,
   sortDir,
-  onSortChange,
+  onSort,
   footer,
   page,
 }: InventoryTableProps) => {
@@ -63,13 +59,13 @@ export const InventoryTable = ({
       title: "#",
       width: 30,
       render: (_row, index) =>
-        (page?.pageNumber - 1) * page?.pageSize + index + 1,
+        (page.pageNumber - 1) * page.pageSize + index + 1,
     },
     {
-      key: "name",
+      key: InventorySortField.PRODUCT_NAME,
       title: "Product",
       sortable: true,
-      render: (row: InventoryRow) => (
+      render: (row) => (
         <div>
           <span className="font-medium text-[var(--color-text)]">
             {row.name}
@@ -83,41 +79,41 @@ export const InventoryTable = ({
     {
       key: "groupName",
       title: "Group",
-      render: (row: InventoryRow) => row.groupName ?? "—",
+      render: (row) => row.groupName ?? "—",
     },
     {
       key: "genericName",
       title: "Generic",
-      render: (row: InventoryRow) => row.genericName ?? "—",
+      render: (row) => row.genericName ?? "—",
     },
     {
       key: "shelfNo",
       title: "Shelf",
       align: "center",
-      render: (row: InventoryRow) => row.shelfNo ?? "—",
+      render: (row) => row.shelfNo ?? "—",
     },
     {
-      key: "totalQuantity",
+      key: InventorySortField.QUANTITY,
       title: "Qty",
       align: "right",
       sortable: true,
-      render: (row: InventoryRow) => (
+      render: (row) => (
         <span className="font-semibold">{row.totalQuantity}</span>
       ),
     },
     {
-      key: "retailRate",
+      key: InventorySortField.RETAIL_RATE,
       title: "Retail Rate",
       align: "right",
       sortable: true,
-      render: (row: InventoryRow) =>
+      render: (row) =>
         row.retailRate != null ? `PKR ${row.retailRate.toFixed(2)}/-` : "—",
     },
     {
-      key: "nearestExpiryDate",
+      key: InventorySortField.EXPIRY_DATE,
       title: "Nearest Expiry",
       sortable: true,
-      render: (row: InventoryRow) =>
+      render: (row) =>
         row.nearestExpiryDate
           ? new Date(row.nearestExpiryDate).toLocaleDateString("en-US", {
               month: "short",
@@ -130,12 +126,12 @@ export const InventoryTable = ({
       key: "batches",
       title: "Batches",
       align: "center",
-      render: (row: InventoryRow) => row.batches.length,
+      render: (row) => row.batches.length,
     },
     {
       key: "status",
       title: "Status",
-      render: (row: InventoryRow) => {
+      render: (row) => {
         const status = getStatus(row);
         return (
           <span
@@ -162,7 +158,7 @@ export const InventoryTable = ({
       onRowClick={(row) => router.push(`/inventory/${row.productId}`)}
       sortKey={sortBy}
       sortDirection={sortDir}
-      onSort={(key) => onSortChange(key)}
+      onSort={onSort}
       zebra
       footer={footer}
     />

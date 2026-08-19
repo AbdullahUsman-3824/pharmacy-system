@@ -3,19 +3,22 @@
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { SaleType } from "@repo/shared";
+import { SaleType, SaleSortField } from "@repo/shared";
 
 import { useSales } from "@/hooks/useSale";
 import { formatCurrency, formatDate } from "@/lib/format";
 
 import { PageContainer, PageHeader, PageSection } from "@/components/layout";
 import { DataTable, DataTableColumn } from "@/components/shared/data-table";
+import { Pagination } from "@/components/shared/pagination";
 import { SearchBar } from "@/components/ui/searchBar";
 
 import Badge from "@/components/ui/badge";
 import Button from "@/components/ui/button";
 
 const PAGE_SIZE = 20;
+
+type SortDirection = "asc" | "desc";
 
 type SaleRow = {
   id: string;
@@ -30,31 +33,39 @@ export default function SalesListPage() {
   const router = useRouter();
 
   const [page, setPage] = useState(1);
-  const skip = (page - 1) * PAGE_SIZE;
-  
-  const [searchInput, setSearchInput] = useState("");
-  const isSearchMode = searchInput.trim().length >= 2;
+  const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<string>("date");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
   const { data, isLoading, isFetching, isError } = useSales({
-    skip,
-    take: PAGE_SIZE,
-    search: isSearchMode ? searchInput.trim() : undefined,
+    page,
+    pageSize: PAGE_SIZE,
+    search: search.trim() || undefined,
+    sortBy: sortKey as SaleSortField,
+    sortOrder: sortDirection,
   });
 
-  const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
+  const sales = useMemo(() => (data?.data ?? []) as SaleRow[], [data?.data]);
+  const meta = data?.meta;
 
   const goToReturn = useCallback(
     (saleId: string) => router.push(`/sales/${saleId}/return`),
     [router],
   );
 
-  const tableData: SaleRow[] = (data?.data ?? []) as SaleRow[];
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
+
+  const handleSort = (key: string, direction: SortDirection) => {
+    setSortKey(key);
+    setSortDirection(direction);
+    setPage(1);
+  };
 
   const tableLoading = isLoading || isFetching;
-
-  const emptyTitle = isSearchMode
-    ? "No matching sales found"
-    : "No sales found";
+  const isSearchMode = search.trim().length > 0;
 
   const columns: DataTableColumn<SaleRow>[] = useMemo(
     () => [
@@ -63,6 +74,7 @@ export default function SalesListPage() {
         dataKey: "saleNumber",
         title: "Sale #",
         width: 220,
+        sortable: true,
         render: (row) => (
           <span className="font-mono text-xs font-semibold">
             {row.saleNumber}
@@ -74,12 +86,14 @@ export default function SalesListPage() {
         dataKey: "date",
         title: "Date",
         width: 150,
+        sortable: true,
         render: (row) => formatDate(row.date as string),
       },
       {
         key: "customerName",
         dataKey: "customerName",
         title: "Customer",
+        sortable: true,
       },
       {
         key: "type",
@@ -102,6 +116,7 @@ export default function SalesListPage() {
         title: "Net Amount",
         width: 160,
         align: "right",
+        sortable: true,
         render: (row) => (
           <span className="font-semibold">{formatCurrency(row.netAmount)}</span>
         ),
@@ -137,13 +152,10 @@ export default function SalesListPage() {
 
       <PageSection>
         <SearchBar
-          value={searchInput}
-          onChange={(value) => {
-            setSearchInput(value);
-            setPage(1);
-          }}
+          value={search}
+          onChange={handleSearchChange}
           placeholder="Search by sale number or customer..."
-          count={data?.total}
+          count={meta?.total ?? 0}
           entityLabelPlural="sales"
         />
       </PageSection>
@@ -161,9 +173,11 @@ export default function SalesListPage() {
         ) : (
           <DataTable
             columns={columns}
-            data={tableData}
+            data={sales}
             loading={tableLoading}
-            emptyTitle={emptyTitle}
+            emptyTitle={
+              isSearchMode ? "No matching sales found" : "No sales found"
+            }
             emptyDescription={
               isSearchMode
                 ? "Try a different sale number or customer name."
@@ -171,32 +185,19 @@ export default function SalesListPage() {
             }
             zebra
             stickyHeader
+            sortKey={sortKey}
+            sortDirection={sortDirection}
+            onSort={handleSort}
             onRowClick={(row) => router.push(`/sales/${row.id}`)}
             footer={
-              data && data.total > PAGE_SIZE ? (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-[var(--color-text-muted)]">
-                    Page {page} of {totalPages} • {data.total} total sales
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="secondary"
-                      disabled={page === 1}
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      disabled={page === totalPages}
-                      onClick={() =>
-                        setPage((p) => Math.min(totalPages, p + 1))
-                      }
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
+              meta && meta.totalPages > 0 ? (
+                <Pagination
+                  currentPage={meta.page}
+                  totalPages={meta.totalPages}
+                  onPageChange={setPage}
+                  itemsPerPage={meta.pageSize}
+                  totalItems={meta.total}
+                />
               ) : null
             }
           />

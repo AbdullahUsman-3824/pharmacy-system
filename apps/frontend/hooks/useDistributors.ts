@@ -1,22 +1,36 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query";
 import { distributorsApi } from "@/lib/api/distributorsApi";
 import type {
   CreateDistributorInput,
   UpdateDistributorInput,
+  DistributorsListQuery,
 } from "@repo/shared";
 
-export function useDistributors() {
+export const distributorKeys = {
+  all: ["distributors"] as const,
+  list: (query: DistributorsListQuery) =>
+    [...distributorKeys.all, "list", query] as const,
+  detail: (id: string) => [...distributorKeys.all, id] as const,
+};
+
+export function useDistributors(query: DistributorsListQuery) {
   return useQuery({
-    queryKey: ["distributors"],
-    queryFn: distributorsApi.list,
+    queryKey: distributorKeys.list(query),
+    queryFn: () => distributorsApi.list(query),
+    placeholderData: keepPreviousData,
   });
 }
 
 export function useDistributor(id: string) {
   return useQuery({
-    queryKey: ["distributors", id],
+    queryKey: distributorKeys.detail(id),
     queryFn: () => distributorsApi.getOne(id),
     enabled: !!id,
   });
@@ -28,7 +42,7 @@ export function useCreateDistributor() {
     mutationFn: (input: CreateDistributorInput) =>
       distributorsApi.create(input),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["distributors"] }),
+      queryClient.invalidateQueries({ queryKey: distributorKeys.all }),
   });
 }
 
@@ -43,9 +57,9 @@ export function useUpdateDistributor() {
       input: UpdateDistributorInput;
     }) => distributorsApi.update(id, input),
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["distributors"] });
+      queryClient.invalidateQueries({ queryKey: distributorKeys.all });
       queryClient.invalidateQueries({
-        queryKey: ["distributors", variables.id],
+        queryKey: distributorKeys.detail(variables.id),
       });
     },
   });
@@ -56,6 +70,6 @@ export function useDeleteDistributor() {
   return useMutation({
     mutationFn: (id: string) => distributorsApi.remove(id),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["distributors"] }),
+      queryClient.invalidateQueries({ queryKey: distributorKeys.all }),
   });
 }

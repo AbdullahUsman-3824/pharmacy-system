@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { DataTable, DataTableColumn } from "@/components/shared/data-table";
 import { VoucherTypeBadge } from "../shared/VoucherTypeBadge";
 import type { StockVoucherListItem } from "@repo/shared";
+import type { ReactNode } from "react";
 
 type SortDirection = "asc" | "desc";
 
@@ -13,6 +14,8 @@ interface StockVouchersTableProps {
   sortKey?: string;
   sortDirection?: SortDirection;
   onSort?: (key: string, direction: SortDirection) => void;
+  page?: { pageNumber: number; pageSize: number };
+  footer?: ReactNode;
 }
 
 export const StockVouchersTable = ({
@@ -21,10 +24,19 @@ export const StockVouchersTable = ({
   sortKey,
   sortDirection,
   onSort,
+  page = { pageNumber: 1, pageSize: 25 },
+  footer,
 }: StockVouchersTableProps) => {
   const router = useRouter();
 
   const columns: DataTableColumn<StockVoucherListItem>[] = [
+    {
+      key: "index",
+      title: "#",
+      width: 30,
+      render: (_row, index) =>
+        (page.pageNumber - 1) * page.pageSize + index + 1,
+    },
     {
       key: "voucherNumber",
       dataKey: "voucherNumber",
@@ -86,7 +98,7 @@ export const StockVouchersTable = ({
             e.stopPropagation();
             router.push(`/stock/${row.id}`);
           }}
-          className="text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text)] transition-colors"
+          className="text-sm font-medium text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text)]"
         >
           View →
         </button>
@@ -106,6 +118,7 @@ export const StockVouchersTable = ({
       sortDirection={sortDirection}
       onSort={onSort}
       zebra
+      footer={footer}
     />
   );
 };

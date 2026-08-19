@@ -33,7 +33,7 @@ export interface InventoryListResponse extends PaginatedResult<InventoryProductD
   };
 }
 
-export declare enum InventoryStatus {
+export enum InventoryStatus {
   LOW_STOCK = "LOW_STOCK",
   NEAR_EXPIRY = "NEAR_EXPIRY",
   OUT_OF_STOCK = "OUT_OF_STOCK",

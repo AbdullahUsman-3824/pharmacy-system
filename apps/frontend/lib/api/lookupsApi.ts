@@ -1,9 +1,18 @@
 import { apiClient } from "../axios";
-import { LookupInterface, LookupType, LookupEntity } from "@repo/shared";
+import {
+  LookupInterface,
+  LookupType,
+  LookupEntity,
+  LookupsListQuery,
+  LookupsListResponse,
+} from "@repo/shared";
 
 export const lookupsApi = {
-  list: async (type: LookupType): Promise<LookupEntity[]> => {
-    const { data } = await apiClient.get(`/lookups/${type}`);
+  list: async (
+    type: LookupType,
+    params?: LookupsListQuery,
+  ): Promise<LookupsListResponse> => {
+    const { data } = await apiClient.get(`/lookups/${type}`, { params });
     return data;
   },
 

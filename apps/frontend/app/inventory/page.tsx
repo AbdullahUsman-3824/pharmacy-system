@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useInventory } from "@/hooks/useInventory";
 import {
   InventoryFilters,
   type InventoryFilterState,
 } from "@/components/features/inventory/InventoryFilters";
 import { InventoryTable } from "@/components/features/inventory/InventoryTable";
-import type { InventoryListQuery } from "@repo/shared";
+import { InventorySortField } from "@repo/shared";
 import { PageContainer, PageHeader, PageSection } from "@/components/layout";
 import Button from "@/components/ui/button";
 import { Download } from "lucide-react";
@@ -15,32 +15,34 @@ import { Pagination } from "@/components/shared/pagination";
 
 const PAGE_SIZE = 25;
 
+type SortDirection = "asc" | "desc";
+
 export default function InventoryPage() {
   const [filters, setFilters] = useState<InventoryFilterState>({
     search: "",
-    lowStockOnly: false,
-    outOfStockOnly: false,
-    nearExpiryOnly: false,
+    status: undefined,
   });
-  const [sortBy, setSortBy] = useState<InventoryListQuery["sortBy"]>("name");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [sortBy, setSortBy] = useState<InventorySortField>(
+    InventorySortField.PRODUCT_NAME,
+  );
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState(1);
 
   const { data, isLoading, isFetching } = useInventory({
-    ...filters,
-    sortBy,
-    sortDir,
     page,
     pageSize: PAGE_SIZE,
+    search: filters.search || undefined,
+    sortBy,
+    sortOrder,
+    status: filters.status,
   });
 
-  const handleSortChange = (col: string) => {
-    if (col === sortBy) {
-      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
-    } else {
-      setSortBy(col as InventoryListQuery["sortBy"]);
-      setSortDir("asc");
-    }
+  const items = useMemo(() => data?.data ?? [], [data?.data]);
+  const meta = data?.meta;
+
+  const handleSort = (key: string, direction: "asc" | "desc") => {
+    setSortBy(key as InventorySortField);
+    setSortOrder(direction);
     setPage(1);
   };
 
@@ -48,8 +50,6 @@ export default function InventoryPage() {
     setFilters(next);
     setPage(1);
   };
-
-  const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 0;
 
   return (
     <PageContainer>
@@ -68,43 +68,40 @@ export default function InventoryPage() {
           <InventoryFilters
             value={filters}
             onChange={handleFiltersChange}
-            resultCount={data?.total}
+            resultCount={meta?.total}
           />
         </div>
 
         <InventoryTable
-          items={data?.items ?? []}
+          items={items}
           isLoading={isLoading}
-          sortBy={sortBy ?? "name"}
-          sortDir={sortDir}
-          onSortChange={handleSortChange}
+          sortBy={sortBy}
+          sortDir={sortOrder}
+          onSort={handleSort}
           page={{ pageNumber: page, pageSize: PAGE_SIZE }}
           footer={
-            totalPages > 0 ? (
+            meta && meta.totalPages > 0 ? (
               <Pagination
-                currentPage={page}
-                totalPages={totalPages}
+                currentPage={meta.page}
+                totalPages={meta.totalPages}
                 onPageChange={setPage}
-                itemsPerPage={PAGE_SIZE}
-                totalItems={data?.total ?? 0}
+                itemsPerPage={meta.pageSize}
+                totalItems={meta.total}
               />
             ) : null
           }
         />
 
-        {/* Filtered-set summary — reflects ALL matching rows, not just the
-            current page, since data.totalQuantitySum / totalStockValue are
-            computed server-side before pagination. */}
+        {/* Filtered-set summary — server-side aggregates before pagination */}
         {data && (
           <div className="mt-3 text-sm text-[var(--color-text-secondary)]">
-            {data.total} products · Total Qty:{" "}
+            {meta?.total ?? 0} products · Total Qty:{" "}
             <span className="font-medium text-[var(--color-text)]">
-              {data.totalQuantitySum.toLocaleString()}
+              {(data.summary.totalQuantitySum ?? 0).toLocaleString()}
             </span>{" "}
             · Stock Value:{" "}
             <span className="font-medium text-[var(--color-text)]">
-              PKR {data.totalStockValue.toLocaleString()}
-              /-
+              PKR {(data.summary.totalStockValue ?? 0).toLocaleString()}/-
             </span>
             {isFetching && !isLoading && (
               <span className="ml-2">· updating...</span>

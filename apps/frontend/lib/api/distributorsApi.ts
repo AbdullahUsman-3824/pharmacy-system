@@ -3,11 +3,15 @@ import type {
   DistributorDto,
   CreateDistributorInput,
   UpdateDistributorInput,
+  DistributorsListQuery,
+  DistributorsListResponse,
 } from "@repo/shared";
 
 export const distributorsApi = {
-  list: async (): Promise<DistributorDto[]> => {
-    const { data } = await apiClient.get("/distributors");
+  list: async (
+    params?: DistributorsListQuery,
+  ): Promise<DistributorsListResponse> => {
+    const { data } = await apiClient.get("/distributors", { params });
     return data;
   },
   getOne: async (id: string): Promise<DistributorDto> => {

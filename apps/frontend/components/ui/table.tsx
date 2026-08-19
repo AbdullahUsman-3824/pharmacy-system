@@ -9,15 +9,31 @@ import {
 interface TableProps extends TableHTMLAttributes<HTMLTableElement> {
   striped?: boolean;
   hover?: boolean;
+  rounded?: boolean | null;
 }
 
 const Table = forwardRef<HTMLTableElement, TableProps>(
   (
-    { className = "", children, striped = false, hover = true, ...props },
+    {
+      className = "",
+      children,
+      striped = false,
+      hover = true,
+      rounded = true,
+      ...props
+    },
     ref,
   ) => {
     return (
-      <div className="w-full overflow-x-auto rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-card)] shadow-[var(--shadow-sm)]">
+      <div
+        className={`
+          w-full overflow-x-auto
+          border border-[var(--color-border)]
+          bg-[var(--color-card)]
+          shadow-[var(--shadow-sm)]
+          ${rounded !== false && rounded !== null ? "rounded-[var(--radius-md)]" : ""}
+        `}
+      >
         <table
           ref={ref}
           className={`w-full border-collapse text-sm ${className}`}
@@ -87,8 +103,6 @@ const TableHead = forwardRef<HTMLTableCellElement, TableHeadProps>(
     />
   ),
 );
-
-TableHead.displayName = "TableHead";
 
 TableHead.displayName = "TableHead";
 

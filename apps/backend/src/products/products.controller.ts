@@ -11,7 +11,7 @@ import {
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import type { ProductsListQuery } from '@repo/shared';
+import { ProductListQueryDto } from './dto/product-list-query.dto';
 
 @Controller('products')
 export class ProductsController {
@@ -23,7 +23,7 @@ export class ProductsController {
   }
 
   @Get()
-  findAll(@Query() query: ProductsListQuery) {
+  findAll(@Query() query: ProductListQueryDto) {
     return this.productsService.findAll(query);
   }
 

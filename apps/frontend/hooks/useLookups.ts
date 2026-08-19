@@ -1,17 +1,34 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query";
 import { lookupsApi } from "../lib/api/lookupsApi";
-import { LookupType, LookupEntity } from "@repo/shared/types/lookups";
+import {
+  LookupType,
+  LookupsListQuery,
+  LookupsListResponse,
+} from "@repo/shared";
+
+export const lookupKeys = {
+  all: ["lookups"] as const,
+  list: (type: LookupType, query: LookupsListQuery) =>
+    [...lookupKeys.all, type, "list", query] as const,
+};
 
 export function useLookup(
   type: LookupType,
-  options?: { initialData?: LookupEntity[] },
+  query: LookupsListQuery = {},
+  options?: { initialData?: LookupsListResponse },
 ) {
   return useQuery({
-    queryKey: ["lookups", type],
-    queryFn: () => lookupsApi.list(type),
+    queryKey: lookupKeys.list(type, query),
+    queryFn: () => lookupsApi.list(type, query),
     initialData: options?.initialData,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -20,7 +37,7 @@ export function useCreateLookup(type: LookupType) {
   return useMutation({
     mutationFn: (name: string) => lookupsApi.create(type, name),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["lookups", type] });
+      queryClient.invalidateQueries({ queryKey: [...lookupKeys.all, type] });
     },
   });
 }
@@ -31,7 +48,7 @@ export function useUpdateLookup(type: LookupType) {
     mutationFn: ({ id, name }: { id: string; name: string }) =>
       lookupsApi.update(type, id, name),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["lookups", type] });
+      queryClient.invalidateQueries({ queryKey: [...lookupKeys.all, type] });
     },
   });
 }
@@ -41,7 +58,7 @@ export function useDeleteLookup(type: LookupType) {
   return useMutation({
     mutationFn: (id: string) => lookupsApi.remove(type, id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["lookups", type] });
+      queryClient.invalidateQueries({ queryKey: [...lookupKeys.all, type] });
     },
   });
 }

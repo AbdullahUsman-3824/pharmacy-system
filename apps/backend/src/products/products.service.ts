@@ -42,7 +42,7 @@ export class ProductsService {
           group: true,
           generic: true,
         },
-        orderBy: { name: 'asc' },
+        // orderBy: { name: 'asc' },
         skip,
         take,
       }),

@@ -1,39 +1,26 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query";
 import { saleApi } from "../lib/api/saleApi";
-import { CreateSaleInput } from "@repo/shared";
+import { CreateSaleInput, SalesListQuery } from "@repo/shared";
 import { stockKeys } from "./useStock";
-import { useDebounce } from "./useDebounce";
 
 export const saleKeys = {
-  sales: (params?: { skip?: number; take?: number; search?: string }) =>
-    [
-      "sales",
-      params?.skip ?? 0,
-      params?.take ?? 20,
-      params?.search?.trim() ?? "",
-    ] as const,
+  all: ["sales"] as const,
+  list: (query: SalesListQuery) => [...saleKeys.all, "list", query] as const,
   sale: (id: string) => ["sale", id] as const,
   saleByNumber: (saleNumber: string) => ["sale", "number", saleNumber] as const,
   returnable: (id: string) => ["sale", id, "returnable"] as const,
 };
 
-export function useSales(params?: {
-  skip?: number;
-  take?: number;
-  search?: string;
-}) {
-  const debouncedSearch = useDebounce(params?.search ?? "", 300);
-  const trimmedSearch = debouncedSearch.trim();
-
+export function useSales(query: SalesListQuery) {
   return useQuery({
-    queryKey: saleKeys.sales({ ...params, search: trimmedSearch }),
-    queryFn: () =>
-      saleApi.list({
-        skip: params?.skip,
-        take: params?.take,
-        q: trimmedSearch || undefined,
-      }),
-    placeholderData: (prev) => prev,
+    queryKey: saleKeys.list(query),
+    queryFn: () => saleApi.list(query),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -67,9 +54,7 @@ export function useCreateSale() {
   return useMutation({
     mutationFn: (payload: CreateSaleInput) => saleApi.create(payload),
     onSuccess: (data) => {
-      // list queries are keyed as ["sales", skip, take] — invalidate by
-      // the shared "sales" prefix so every page/variant refreshes
-      queryClient.invalidateQueries({ queryKey: ["sales"] });
+      queryClient.invalidateQueries({ queryKey: saleKeys.all });
 
       data.items?.forEach((item) => {
         queryClient.invalidateQueries({

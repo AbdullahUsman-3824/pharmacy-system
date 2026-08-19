@@ -12,8 +12,8 @@ import { LookupType } from '@repo/shared';
 import { LookupsService } from './lookups.service';
 import { CreateLookupDto } from './dto/create-lookups.dto';
 import { UpdateLookupDto } from './dto/update-lookups.dto';
+import { LookupsListQueryDto } from './dto/lookups-list-query.dto';
 import { LookupTypePipe } from './pipes/lookup-type.pipe';
-import type { LookupsListQuery } from '@repo/shared';
 
 @Controller('lookups/:type')
 export class LookupsController {
@@ -22,7 +22,7 @@ export class LookupsController {
   @Get()
   findAll(
     @Param('type', LookupTypePipe) type: LookupType,
-    @Query() query: LookupsListQuery,
+    @Query() query: LookupsListQueryDto,
   ) {
     return this.lookupsService.findAll(type, query);
   }

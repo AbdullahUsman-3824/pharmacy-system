@@ -1,9 +1,10 @@
-import axios from 'axios';
+import axios from "axios";
 
 export const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001',
+  baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001",
+  paramsSerializer: { indexes: null },
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
@@ -12,7 +13,7 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     const message =
-      error.response?.data?.message ?? error.message ?? 'Something went wrong';
+      error.response?.data?.message ?? error.message ?? "Something went wrong";
     return Promise.reject(new Error(message));
-  }
+  },
 );

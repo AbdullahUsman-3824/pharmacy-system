@@ -1,6 +1,6 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { apiClient } from "../lib/axios";
-import type { InventoryListQuery, InventoryListResponse } from "@repo/shared";
+import { inventoryApi } from "../lib/api/inventoryApi";
+import type { InventoryListQuery } from "@repo/shared";
 
 export const inventoryKeys = {
   all: ["inventory"] as const,
@@ -11,15 +11,7 @@ export const inventoryKeys = {
 export function useInventory(query: InventoryListQuery) {
   return useQuery({
     queryKey: inventoryKeys.list(query),
-    queryFn: async () => {
-      const { data } = await apiClient.get<InventoryListResponse>(
-        "/stocks/inventory",
-        {
-          params: query,
-        },
-      );
-      return data;
-    },
+    queryFn: () => inventoryApi.list(query),
     placeholderData: keepPreviousData,
   });
 }
