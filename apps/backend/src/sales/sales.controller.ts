@@ -17,6 +17,11 @@ export class SalesController {
     return this.salesService.findAll(query);
   }
 
+  @Get('product-options')
+  getSaleProductOptions(@Query('search') search: string) {
+    return this.salesService.getSaleProductOptions(search);
+  }
+
   @Get('number/:saleNumber')
   findBySaleNumber(@Param('saleNumber') saleNumber: string) {
     return this.salesService.findBySaleNumber(saleNumber);

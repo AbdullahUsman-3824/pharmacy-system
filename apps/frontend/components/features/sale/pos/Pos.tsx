@@ -44,7 +44,7 @@ export default function PosPage() {
     resolver: zodResolver(saleFormSchema),
     defaultValues: {
       type: SaleType.SALE,
-      customerName: "Walk-in Customer",
+      customerId: "",
       saleDate: new Date().toISOString().slice(0, 10),
       remarks: "",
       discountPercent: 0,
@@ -53,20 +53,15 @@ export default function PosPage() {
     },
   });
 
-  // `replace` is used any time the whole items array needs swapping out
-  // (recall, clear) instead of reset({ items }) — reset() alone left
-  // useFieldArray's internal keyed state out of sync with the form's real
-  // values once handleAddItem's insert() ran afterward, which is exactly
-  // why recalled items were dropping out on a subsequent hold.
   const { fields, insert, remove, replace } = useFieldArray({
     control,
     name: "items",
   });
   const items = useWatch({ control, name: "items" });
+  const customerId = useWatch({ control, name: "customerId" });
   const discountPercent = (useWatch({ control, name: "discountPercent" }) ??
     0) as number;
   const taxPercent = (useWatch({ control, name: "taxPercent" }) ?? 0) as number;
-  const customerName = useWatch({ control, name: "customerName" });
 
   const [stockError, setStockError] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
@@ -74,6 +69,7 @@ export default function PosPage() {
     null,
   );
   const [showRecallPopover, setShowRecallPopover] = useState(false);
+  const [customerLabel, setCustomerLabel] = useState("");
 
   const entryRowRef = useRef<SaleEntryRowRef>(null);
   const paymentRef = useRef<SalePaymentRef>(null);
@@ -136,6 +132,7 @@ export default function PosPage() {
     setCompletedSale(null);
     replace([]);
     reset();
+    setCustomerLabel("");
     requestAnimationFrame(() => entryRowRef.current?.focus());
   };
 
@@ -149,10 +146,14 @@ export default function PosPage() {
   // Snapshots the current cart into the held list. Used both for the
   // explicit F6/"Hold invoice" action and silently before switching to a
   // recalled cart, so nothing the cashier was working on is ever lost.
+  // customerId/customerName are only included when an actual customer was
+  // selected — walk-in sales are held with no customer info at all, and
+  // the UI falls back to a "Walk-in Customer" label wherever it's displayed.
   const holdCurrentCart = () => {
     if (!items || items.length === 0) return;
     hold({
-      customerName: customerName ?? "Walk-in Customer",
+      customerId: customerId || undefined,
+      customerName: customerId ? customerLabel : undefined,
       items: items as SaleFormInput["items"],
       netAmount: totals.net,
     });
@@ -174,7 +175,8 @@ export default function PosPage() {
     const recalled = recall(id);
     if (recalled) {
       replace(recalled.items);
-      setValue("customerName", recalled.customerName);
+      setValue("customerId", recalled.customerId ?? "");
+      setCustomerLabel(recalled.customerName ?? "");
     }
     setShowRecallPopover(false);
   };
@@ -182,6 +184,7 @@ export default function PosPage() {
   const handleClear = () => {
     replace([]);
     reset();
+    setCustomerLabel("");
   };
 
   usePageShortcuts([
@@ -247,7 +250,16 @@ export default function PosPage() {
       <div className="flex-1 max-w-7xl mx-auto w-full -mt-2 pb-6">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
           <div className="flex flex-col lg:col-span-3 min-h-0">
-            <PosHeader register={register} />
+            <PosHeader
+              register={register}
+              customerId={customerId || null}
+              customerLabel={customerLabel}
+              onCustomerChange={(id, name) => {
+                setValue("customerId", id ?? "", { shouldValidate: true });
+                setCustomerLabel(name);
+              }}
+              customerError={errors.customerId?.message}
+            />
 
             <StockError message={stockError} />
 

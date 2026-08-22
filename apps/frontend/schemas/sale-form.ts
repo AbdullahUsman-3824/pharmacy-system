@@ -18,17 +18,25 @@ export const saleItemSchema = z
     path: ["packQuantity"],
   });
 
+const paymentSchema = z.object({
+  paymentAccountId: z.string().min(1, "Payment account required"),
+  amount: z.coerce.number().positive("Amount too low"),
+});
+
 export const saleFormSchema = z
   .object({
     type: z.nativeEnum(SaleType),
+    customerId: z.string().min(1, "Customer required"),
     customerName: z.string().default("Walk-in Customer"),
     saleDate: z.string().min(1, "Date required"),
     originalSaleId: z.string().optional().nullable(),
     remarks: z.string().optional(),
+    
     // bill-level discount/tax — applied once on the invoice total
     discountPercent: z.coerce.number().min(0).max(100).default(0),
     taxPercent: z.coerce.number().min(0).max(100).default(0),
     items: z.array(saleItemSchema).min(1, "Add at least one item"),
+    payments: z.array(paymentSchema).min(1, "Add at least one payment"),
   })
   .superRefine((data, ctx) => {
     if (data.type === SaleType.SALE_RETURN && !data.originalSaleId) {

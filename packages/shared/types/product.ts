@@ -9,7 +9,7 @@ export interface CreateProductInput {
   typeId: string;
   groupId?: string | null;
   genericId?: string | null;
-  defaultDistributorId?: string | null;
+  distributorId?: string | null;
 
   registrationNo?: string;
   originalReference?: string;
@@ -42,7 +42,6 @@ export type UpdateProductInput = Partial<CreateProductInput>;
 
 export interface LookupRef {
   id: string;
-  code: string;
   name: string;
 }
 
@@ -55,11 +54,12 @@ export interface ProductDto extends CreateProductInput {
   type: LookupRef;
   group: LookupRef | null;
   generic: LookupRef | null;
+  distributor: LookupRef | null;
 }
 
 export interface ProductListItemDto {
   id: string;
-  name:string;
+  name: string;
   company: string;
   type: string;
   group: string;

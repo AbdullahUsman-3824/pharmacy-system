@@ -16,6 +16,16 @@ export const lookupsApi = {
     return data;
   },
 
+  options: async (
+    type: LookupType,
+    search: string,
+  ): Promise<LookupEntity[]> => {
+    const { data } = await apiClient.get(`/lookups/${type}/options`, {
+      params: { search },
+    });
+
+    return data;
+  },
   create: async (type: LookupType, name: string): Promise<LookupEntity> => {
     const { data } = await apiClient.post(`/lookups/${type}`, { name });
     return data;

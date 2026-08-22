@@ -7,9 +7,14 @@ import { TableCell, TableRow } from "@/components/ui/table";
 interface LookupAddRowProps {
   onAdd: (name: string) => void;
   entityLabel: string;
+  isHighlighted?: boolean;
 }
 
-export function LookupAddRow({ onAdd, entityLabel }: LookupAddRowProps) {
+export function LookupAddRow({
+  onAdd,
+  entityLabel,
+  isHighlighted = false,
+}: LookupAddRowProps) {
   const [name, setName] = useState("");
   const nameRef = useRef<HTMLInputElement>(null);
 
@@ -21,7 +26,16 @@ export function LookupAddRow({ onAdd, entityLabel }: LookupAddRowProps) {
   }
 
   return (
-    <TableRow className="bg-[var(--color-primary-soft)]">
+    <TableRow
+      className={`
+        transition-colors duration-500
+        ${
+          isHighlighted
+            ? "bg-[var(--color-success-soft)]"
+            : "bg-[var(--color-primary-soft)]"
+        }
+      `}
+    >
       <TableCell colSpan={3} className="p-2">
         <div className="flex items-center gap-2">
           <span className="text-sm text-[var(--color-text-muted)]">New</span>

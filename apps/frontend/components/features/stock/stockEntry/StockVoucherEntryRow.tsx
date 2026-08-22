@@ -2,13 +2,15 @@
 
 import { forwardRef, useRef, useState, useImperativeHandle } from "react";
 import { itemSchema, StockVoucherItemValues } from "@/schemas/stock-voucher";
-import { ProductSelect } from "@/components/ProductSelect";
+import { AsyncSelect } from "@/components/ui/async-select";
+import { useProductsOptions } from "@/hooks/useProducts";
 import { calculateItemAmounts } from "@/lib/stock-calculations";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
 interface EntryRowState {
   productId: string;
+  productName: string;
   batchNumber: string;
   expiryDate: string;
   quantity: string;
@@ -21,6 +23,7 @@ interface EntryRowState {
 
 const blankEntry: EntryRowState = {
   productId: "",
+  productName: "",
   batchNumber: "",
   expiryDate: "",
   quantity: "",
@@ -33,13 +36,13 @@ const blankEntry: EntryRowState = {
 
 interface Props {
   showAdvanced: boolean;
-  onAdd: (item: StockVoucherItemValues) => void;
+  onAdd: (item: StockVoucherItemValues, productName: string) => void;
   onProductPicked?: (productId: string) => void;
 }
 
 export interface StockVoucherEntryRowRef {
   commit: () => void;
-  setData: (data: StockVoucherItemValues) => void;
+  setData: (data: StockVoucherItemValues, productName?: string) => void;
 }
 
 export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
@@ -80,7 +83,7 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
       }
 
       setErrors({});
-      onAdd(result.data);
+      onAdd(result.data, entry.productName);
       setEntry(blankEntry);
       requestAnimationFrame(() => {
         containerRef.current?.querySelector<HTMLElement>("input")?.focus();
@@ -89,9 +92,10 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
 
     useImperativeHandle(ref, () => ({
       commit,
-      setData: (data: StockVoucherItemValues) => {
+      setData: (data: StockVoucherItemValues, productName?: string) => {
         setEntry({
           productId: data.productId || "",
+          productName: productName ?? "",
           batchNumber: data.batchNumber || "",
           expiryDate: data.expiryDate || "",
           quantity: String(data.quantity ?? ""),
@@ -142,18 +146,19 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
       >
         <td className="px-3 py-1.5">
           <div className="min-h-[60px] flex flex-col justify-center">
-            <ProductSelect
-              value={entry.productId}
-              onChange={(id) => {
-                set("productId", id);
-                onProductPicked?.(id);
+            <AsyncSelect
+              placeholder="Scan barcode, medicine, generic..."
+              value={entry.productId || null}
+              selectedLabel={entry.productName}
+              useOptions={useProductsOptions}
+              onChange={(id, option) => {
+                set("productId", id ?? "");
+                set("productName", option?.name ?? "");
+                onProductPicked?.(id ?? "");
               }}
+              error={errors.productId}
+              minChars={2}
             />
-            {errors.productId && (
-              <div className="text-xs text-red-600 mt-0.5 leading-none">
-                {errors.productId}
-              </div>
-            )}
           </div>
         </td>
         <td className="px-3 py-1.5">

@@ -18,6 +18,8 @@ export const distributorKeys = {
   list: (query: DistributorsListQuery) =>
     [...distributorKeys.all, "list", query] as const,
   detail: (id: string) => [...distributorKeys.all, id] as const,
+  options: (search: string) =>
+    [...distributorKeys.all, "options", search] as const,
 };
 
 export function useDistributors(query: DistributorsListQuery) {
@@ -25,6 +27,13 @@ export function useDistributors(query: DistributorsListQuery) {
     queryKey: distributorKeys.list(query),
     queryFn: () => distributorsApi.list(query),
     placeholderData: keepPreviousData,
+  });
+}
+
+export function useDistributorsOptions(search: string) {
+  return useQuery({
+    queryKey: distributorKeys.options(search),
+    queryFn: () => distributorsApi.options(search),
   });
 }
 

@@ -12,6 +12,9 @@ import { Check, X, CircleAlert, AlertCircle } from "lucide-react";
 import { saleItemSchema, SaleItemValues } from "@/schemas/sale-form";
 import { ProductSelect } from "@/components/ProductSelect";
 import { useProductStock } from "@/hooks/useStock";
+import { AsyncSelect } from "@/components/ui/async-select";
+import { useSaleProductOptions } from "@/hooks/useSale";
+import { SaleProductOption } from "@repo/shared";
 
 interface EntryRowState {
   productId: string;
@@ -152,12 +155,12 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
       setEntry((prev) => ({ ...prev, [key]: value }));
     }
 
-    function handleProductChange(productId: string, productName?: string) {
+    function handleProductChange(productId: string, option?: { name: string }) {
       setEntry({
         ...blankEntry,
         productId,
-        productName: productName ?? "",
-        productDisplayName: productName ?? "",
+        productName: option?.name ?? "",
+        productDisplayName: option?.name ?? "",
       });
       setErrors({});
       requestAnimationFrame(() => packQtyRef.current?.focus());
@@ -342,13 +345,27 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
           className={mainRowClasses}
         >
           {/* Product */}
+          {/* Product */}
           <td className="px-3 py-2">
             <div className="flex items-center gap-1 product-select">
-              <ProductSelect
-                value={entry.productId}
-                onChange={handleProductChange}
-                dataNav="true"
-                className="h-9 w-full text-sm"
+              <AsyncSelect
+                placeholder="Search product..."
+                value={entry.productId || null}
+                selectedLabel={entry.productDisplayName}
+                onChange={(id, option) => handleProductChange(id ?? "", option)}
+                useOptions={useSaleProductOptions}
+                renderOption={(option) => (
+                  <div className="flex w-full items-center justify-between gap-2 overflow-hidden">
+                    <span className="truncate">{option.name}</span>
+                    <span className="flex-shrink-0 text-xs text-gray-400">
+                      {option.stock
+                        ? `${option.stock.packs} pack, ${option.stock.loose} loose`
+                        : "—"}
+                    </span>
+                  </div>
+                )}
+                minChars={2}
+                triggerClassName="h-9 py-0 px-3 rounded-md text-sm"
               />
               {errors.productId && <ErrorIcon message={errors.productId} />}
             </div>

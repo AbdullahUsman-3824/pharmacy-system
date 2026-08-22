@@ -17,6 +17,8 @@ export const lookupKeys = {
   all: ["lookups"] as const,
   list: (type: LookupType, query: LookupsListQuery) =>
     [...lookupKeys.all, type, "list", query] as const,
+  options: (type: LookupType, search: string) =>
+    [...lookupKeys.all, type, "options", search] as const,
 };
 
 export function useLookup(
@@ -29,6 +31,13 @@ export function useLookup(
     queryFn: () => lookupsApi.list(type, query),
     initialData: options?.initialData,
     placeholderData: keepPreviousData,
+  });
+}
+
+export function useLookupsOptions(type: LookupType, search: string) {
+  return useQuery({
+    queryKey: lookupKeys.options(type, search),
+    queryFn: () => lookupsApi.options(type, search),
   });
 }
 

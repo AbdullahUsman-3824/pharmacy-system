@@ -8,7 +8,7 @@ interface CheckboxProps extends InputHTMLAttributes<HTMLInputElement> {
 const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
   ({ label, error, className = "", ...props }, ref) => {
     return (
-      <div className="flex items-start">
+      <div className="flex items-center pt-5">
         <div className="flex items-center h-5">
           <input
             ref={ref}

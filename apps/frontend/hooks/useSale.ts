@@ -7,6 +7,7 @@ import {
 import { saleApi } from "../lib/api/saleApi";
 import { CreateSaleInput, SalesListQuery } from "@repo/shared";
 import { stockKeys } from "./useStock";
+import { distributorKeys } from "./useDistributors";
 
 export const saleKeys = {
   all: ["sales"] as const,
@@ -14,6 +15,8 @@ export const saleKeys = {
   sale: (id: string) => ["sale", id] as const,
   saleByNumber: (saleNumber: string) => ["sale", "number", saleNumber] as const,
   returnable: (id: string) => ["sale", id, "returnable"] as const,
+  productOptions: (search: string) =>
+    [...distributorKeys.all, "product-options", search] as const,
 };
 
 export function useSales(query: SalesListQuery) {
@@ -45,6 +48,14 @@ export function useReturnableItems(saleId: string) {
     queryKey: saleKeys.returnable(saleId),
     queryFn: () => saleApi.getReturnable(saleId),
     enabled: !!saleId,
+  });
+}
+
+export function useSaleProductOptions(search: string) {
+  return useQuery({
+    queryKey: saleKeys.productOptions(search),
+    queryFn: () => saleApi.getProductOptions(search),
+    staleTime: 1000 * 60 * 5,
   });
 }
 

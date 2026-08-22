@@ -14,14 +14,16 @@ import { SaleFormInput } from "@/schemas/sale-form";
 export interface HeldInvoice {
   id: string;
   heldAt: Date;
-  customerName: string;
+  customerId?: string;
+  customerName?: string;
   items: SaleFormInput["items"];
   itemCount: number;
   netAmount: number;
 }
 
 interface HoldInput {
-  customerName: string;
+  customerId?: string;
+  customerName?: string;
   items: SaleFormInput["items"];
   netAmount: number;
 }

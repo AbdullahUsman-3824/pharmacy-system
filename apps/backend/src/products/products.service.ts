@@ -2,7 +2,11 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { ProductsListQuery, ProductsListResponse } from '@repo/shared';
+import {
+  ProductDto,
+  ProductsListQuery,
+  ProductsListResponse,
+} from '@repo/shared';
 import { buildPagination } from '../common/pagination.helper';
 import { Prisma } from '../generated/prisma/client';
 
@@ -64,17 +68,15 @@ export class ProductsService {
     };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string): Promise<ProductDto> {
     const product = await this.prisma.product.findFirst({
-      where: {
-        id,
-        deletedAt: null,
-      },
+      where: { id, deletedAt: null },
       include: {
         company: true,
         type: true,
         group: true,
         generic: true,
+        distributor: true,
       },
     });
 
@@ -82,7 +84,64 @@ export class ProductsService {
       throw new NotFoundException('Product not found');
     }
 
-    return product;
+    const {
+      company,
+      type,
+      group,
+      generic,
+      distributor,
+      createdAt,
+      updatedAt,
+      deletedAt,
+      ...rest
+    } = product;
+
+    // Prisma nullable columns return `null`, but CreateProductInput's optional
+    // fields expect `undefined` — normalize here instead of fighting types.
+    const normalized: Record<string, unknown> = { ...rest };
+    for (const key of Object.keys(normalized)) {
+      if (normalized[key] === null) {
+        normalized[key] = undefined;
+      }
+    }
+
+    return {
+      ...normalized,
+      company,
+      type,
+      group,
+      generic,
+      distributor,
+      createdAt: createdAt.toISOString(),
+      updatedAt: updatedAt.toISOString(),
+      deletedAt: deletedAt?.toISOString() ?? null,
+    } as unknown as ProductDto;
+  }
+
+  async findOptions(search: string): Promise<{ id: string; name: string }[]> {
+    const trimmedSearch = search.trim();
+
+    if (trimmedSearch.length < 2) {
+      return [];
+    }
+
+    return this.prisma.product.findMany({
+      where: {
+        deletedAt: null,
+        name: {
+          contains: trimmedSearch,
+          mode: 'insensitive',
+        },
+      },
+      take: 20,
+      orderBy: {
+        name: 'asc',
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
   }
 
   async search(query: string, limit = 20) {

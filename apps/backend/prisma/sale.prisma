@@ -16,8 +16,8 @@ model Sale {
 
     date DateTime @default(now())
 
-    customerId String
-    customer   BusinessContact @relation(fields: [customerId], references: [id])
+    customerId String?
+    customer   BusinessContact? @relation(fields: [customerId], references: [id])
 
     remarks String?
 

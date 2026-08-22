@@ -37,7 +37,7 @@ export const productSchema = z.object({
   typeId: requiredString("Type"),
   groupId: z.string().optional().nullable(),
   genericId: z.string().optional().nullable(),
-  defaultDistributorId: z.string().optional().nullable(),
+  distributorId: z.string().optional().nullable(),
   registrationNo: z.string().optional(),
   originalReference: z.string().optional(),
 

@@ -52,6 +52,61 @@ export class BusinessContactsService {
     });
   }
 
+  async findSupplierOptions(
+    search: string,
+  ): Promise<{ id: string; name: string }[]> {
+    const trimmedSearch = search.trim();
+
+    if (trimmedSearch.length < 2) {
+      return [];
+    }
+
+    return this.prisma.businessContact.findMany({
+      where: {
+        name: {
+          contains: trimmedSearch,
+          mode: 'insensitive',
+        },
+        type: BusinessContactType.SUPPLIER,
+      },
+      take: 20,
+      orderBy: {
+        name: 'asc',
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+  }
+  async findCustomerOptions(
+    search: string,
+  ): Promise<{ id: string; name: string }[]> {
+    const trimmedSearch = search.trim();
+
+    if (trimmedSearch.length < 2) {
+      return [];
+    }
+
+    return this.prisma.businessContact.findMany({
+      where: {
+        name: {
+          contains: trimmedSearch,
+          mode: 'insensitive',
+        },
+        type: BusinessContactType.CUSTOMER,
+      },
+      take: 20,
+      orderBy: {
+        name: 'asc',
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+  }
+
   async findOne(id: string) {
     const contact = await this.prisma.businessContact.findUnique({
       where: { id },

@@ -72,7 +72,7 @@ export function RecallHeldPopover({
                 >
                   <div>
                     <p className="text-sm font-medium text-gray-800">
-                      {invoice.customerName}
+                      {invoice.customerName || "Walk-in Customer"}
                     </p>
                     <p className="text-xs text-gray-400">
                       {invoice.itemCount} item

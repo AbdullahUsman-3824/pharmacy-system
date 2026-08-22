@@ -14,6 +14,12 @@ export const distributorsApi = {
     const { data } = await apiClient.get("/distributors", { params });
     return data;
   },
+  options: async (search: string): Promise<{ id: string; name: string }[]> => {
+    const { data } = await apiClient.get("/distributors/options", {
+      params: { search },
+    });
+    return data;
+  },
   getOne: async (id: string): Promise<DistributorDto> => {
     const { data } = await apiClient.get(`/distributors/${id}`);
     return data;

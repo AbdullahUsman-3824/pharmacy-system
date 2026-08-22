@@ -62,6 +62,32 @@ export class DistributorService {
     };
   }
 
+  async findOptions(search: string): Promise<{ id: string; name: string }[]> {
+    const trimmedSearch = search.trim();
+
+    if (trimmedSearch.length < 2) {
+      return [];
+    }
+
+    return this.prisma.distributor.findMany({
+      where: {
+        deletedAt: null,
+        name: {
+          contains: trimmedSearch,
+          mode: 'insensitive',
+        },
+      },
+      take: 20,
+      orderBy: {
+        name: 'asc',
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+  }
+
   async findOne(id: string) {
     const distributor = await this.prisma.distributor.findFirst({
       where: {

@@ -24,9 +24,9 @@ import {
 } from "../../../components/features/stock/stockEntry/StockVoucherEntryRow";
 import { StockVoucherItemRow } from "../../../components/features/stock/stockEntry/StockVoucherItemRow";
 import { useCreateStockVoucher } from "@/hooks/useStock";
-import { useProducts } from "@/hooks/useProducts";
-import { DistributorSelect } from "@/components/DistributorSelect";
+import { useDistributorsOptions } from "@/hooks/useDistributors";
 import { calculateItemAmounts } from "@/lib/stock-calculations";
+import { AsyncSelect } from "@/components/ui/async-select";
 import {
   Save,
   Trash2,
@@ -45,14 +45,6 @@ import Button from "@/components/ui/button";
 export default function NewStockVoucherPage() {
   const router = useRouter();
   const createVoucher = useCreateStockVoucher();
-  const { data: productsResponse } = useProducts();
-
-  const products = productsResponse?.data ?? [];
-
-  // Build a map of productId -> productName for display in the item rows
-  const productMap = Object.fromEntries(
-    (products ?? []).map((p) => [p.id, p.name]),
-  );
 
   const {
     register,
@@ -64,9 +56,10 @@ export default function NewStockVoucherPage() {
     resolver: zodResolver(stockVoucherFormSchema),
     defaultValues: {
       type: StockVoucherType.PURCHASE,
-      distributorId: "",
+      supplierId: "",
       voucherDate: new Date().toISOString().slice(0, 10),
       remarks: "",
+      payments: [], // dummy — will be wired later
       items: [],
     },
   });
@@ -74,7 +67,7 @@ export default function NewStockVoucherPage() {
   const { fields, insert, remove } = useFieldArray({ control, name: "items" });
   const type = useWatch({ control, name: "type" });
   const items = useWatch({ control, name: "items" });
-  const distributorId = useWatch({ control, name: "distributorId" });
+  const supplierId = useWatch({ control, name: "supplierId" });
   const [showAdvanced, setShowAdvanced] = useState(false);
   const columns = getColumns(showAdvanced);
 
@@ -87,26 +80,25 @@ export default function NewStockVoucherPage() {
   const [entryProductId, setEntryProductId] = useState("");
   const effectiveProductId = entryProductId || items?.[0]?.productId;
 
-  useEffect(() => {
-    if (distributorTouched) return;
-    if (!effectiveProductId || !products) return;
-    const product = products.find((p) => p.id === effectiveProductId);
-    if (product?.defaultDistributorId) {
-      setValue("distributorId", product.defaultDistributorId, {
-        shouldValidate: true,
-      });
-    }
-  }, [effectiveProductId, products, setValue, distributorTouched]);
+  // productId -> name map, populated as items are added
+  const [productNames, setProductNames] = useState<Record<string, string>>({});
 
-  function handleAddItem(item: StockVoucherItemValues) {
+  // Track the label of the currently selected distributor for AsyncSelect
+  const [distributorLabel, setDistributorLabel] = useState<string>("");
+
+  // NOTE: auto-fill from product's distributorId is removed because we no
+  // longer eagerly fetch all products. It can be re-added when a
+  // useProduct(id) lookup is threaded through StockVoucherEntryRow.
+
+  function handleAddItem(item: StockVoucherItemValues, productName: string) {
     insert(0, item);
+    if (productName) {
+      setProductNames((prev) => ({ ...prev, [item.productId]: productName }));
+    }
   }
 
-  // Called when the user clicks "Edit" on an existing item row.
-  // It removes the item from the list (already done by the row itself)
-  // and populates the entry row with the item's data for editing.
   function handleEditItem(item: StockVoucherItemValues) {
-    entryRowRef.current?.setData(item);
+    entryRowRef.current?.setData(item, productNames[item.productId]);
   }
 
   const totals = items.reduce(
@@ -127,7 +119,7 @@ export default function NewStockVoucherPage() {
   );
 
   const onSubmit = async (data: StockVoucherFormOutput) => {
-    const confirmedBatchKeys = new Set<string>(); // batches the user has approved this submit attempt
+    const confirmedBatchKeys = new Set<string>();
 
     const trySubmit = async (): Promise<void> => {
       const payload = buildCreateVoucherPayload(data, confirmedBatchKeys);
@@ -138,7 +130,6 @@ export default function NewStockVoucherPage() {
       } catch (error: any) {
         const responseData = error?.response?.data;
 
-        // only handle the specific rate-mismatch case — everything else bubbles up as before
         if (responseData?.code === "BATCH_RATE_MISMATCH") {
           const confirmed = window.confirm(
             `Batch ${responseData.batchNumber} already exists at ` +
@@ -162,17 +153,11 @@ export default function NewStockVoucherPage() {
   };
 
   const handleAddButtonClick = () => {
-    if (entryRowRef.current) {
-      entryRowRef.current.commit();
-    }
+    entryRowRef.current?.commit();
   };
 
-  // Create options for voucher type select
   const voucherTypeOptions = Object.entries(VOUCHER_TYPE_LABELS).map(
-    ([value, label]) => ({
-      value,
-      label,
-    }),
+    ([value, label]) => ({ value, label }),
   );
 
   return (
@@ -207,29 +192,23 @@ export default function NewStockVoucherPage() {
           </div>
 
           <div className="min-w-[200px] flex-1 relative">
-            <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">
-              Distributor{" "}
-              {type === StockVoucherType.PURCHASE && (
-                <span className="text-red-500">*</span>
-              )}
-            </label>
-            <DistributorSelect
-              value={distributorId || ""}
-              onChange={(id) => {
+            <AsyncSelect
+              label={
+                type === StockVoucherType.PURCHASE
+                  ? "Distributor *"
+                  : "Distributor"
+              }
+              placeholder="Search distributor..."
+              value={supplierId ?? null}
+              selectedLabel={distributorLabel}
+              useOptions={useDistributorsOptions}
+              onChange={(id, option) => {
                 setDistributorTouched(true);
-                setValue("distributorId", id, { shouldValidate: true });
+                setValue("supplierId", id ?? "", { shouldValidate: true });
+                setDistributorLabel(option?.name ?? "");
               }}
+              error={errors.supplierId?.message}
             />
-            {effectiveProductId && !distributorTouched && distributorId && (
-              <p className="text-xs text-gray-400 mt-0.5 absolute top-full left-0">
-                Auto-selected from product default
-              </p>
-            )}
-            {errors.distributorId && (
-              <p className="text-xs text-red-600 mt-0.5">
-                {errors.distributorId.message}
-              </p>
-            )}
           </div>
 
           <div className="min-w-[160px]">
@@ -312,7 +291,7 @@ export default function NewStockVoucherPage() {
                     onEdit={handleEditItem}
                     itemErrors={errors.items?.[index]}
                     showAdvanced={showAdvanced}
-                    products={productMap}
+                    products={productNames}
                   />
                 ))}
               </tbody>
@@ -360,7 +339,7 @@ export default function NewStockVoucherPage() {
         <div className="h-20 shrink-0" aria-hidden />
       </form>
 
-      <div className="sticky bottom-0 bg-gray-100 rounded-lg shadow-xl border border-gray-400 ">
+      <div className="sticky bottom-0 bg-gray-100 rounded-lg shadow-xl border border-gray-400">
         <div className="px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-6 text-sm">
             <span className="text-gray-500">

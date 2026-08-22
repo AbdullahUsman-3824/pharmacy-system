@@ -11,6 +11,7 @@ import {
   SaleSortField,
   SalesListQuery,
   SaleListResponse,
+  SaleProductOption,
 } from '@repo/shared';
 import { buildPagination, withOrder } from '../common/pagination.helper';
 import { Prisma } from '../generated/prisma/client';
@@ -106,7 +107,7 @@ export class SalesService {
     return this.serializeSale(sale);
   }
 
-  // ===================== FIND ALL (with search support) =====================
+  // ===================== FIND ALL ========================
 
   saleSortFieldMap: Record<SaleSortField, object> = {
     [SaleSortField.DATE]: { date: undefined },
@@ -162,7 +163,7 @@ export class SalesService {
     return {
       data: sales.map((s) => ({
         ...s,
-        customerName: s.customer.name,
+        customerName: s.customer?.name ?? 'Walk-in Customer',
         type: s.type as unknown as SaleType,
         date: s.date.toISOString(),
         grossAmount: Number(s.grossAmount),
@@ -320,6 +321,52 @@ export class SalesService {
     return this.prisma.sale.update({
       where: { id },
       data: { deletedAt: new Date() },
+    });
+  }
+
+  // ===================== GET SALE-PRODUCT OPTIONS =====================
+  async getSaleProductOptions(search: string): Promise<SaleProductOption[]> {
+    const trimmedSearch = search.trim();
+
+    if (trimmedSearch.length < 2) {
+      return [];
+    }
+    const products = await this.prisma.product.findMany({
+      where: {
+        isActive: true,
+        deletedAt: null,
+        OR: [
+          { name: { contains: trimmedSearch, mode: 'insensitive' } },
+          { code: { contains: trimmedSearch, mode: 'insensitive' } },
+        ],
+      },
+      take: 20,
+      select: {
+        id: true,
+        name: true,
+        batches: {
+          where: { deletedAt: null },
+          select: { currentQuantity: true, looseQuantity: true },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    return products.map((p) => {
+      const totalPacks = p.batches.reduce(
+        (sum, b) => sum + b.currentQuantity,
+        0,
+      );
+      const totalLoose = p.batches.reduce((sum, b) => sum + b.looseQuantity, 0);
+
+      return {
+        id: p.id,
+        name: p.name,
+        stock:
+          p.batches.length > 0
+            ? { packs: totalPacks, loose: totalLoose }
+            : null,
+      };
     });
   }
 

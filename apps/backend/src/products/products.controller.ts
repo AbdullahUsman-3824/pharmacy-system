@@ -27,6 +27,11 @@ export class ProductsController {
     return this.productsService.findAll(query);
   }
 
+  @Get('options')
+  findOptions(@Query('search') search: string) {
+    return this.productsService.findOptions(search);
+  }
+
   @Get('search')
   search(@Query('q') q: string, @Query('limit') limit?: string) {
     return this.productsService.search(q, limit ? Number(limit) : 20);

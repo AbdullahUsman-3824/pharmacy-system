@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateLookupDto } from './dto/create-lookups.dto';
 import { UpdateLookupDto } from './dto/update-lookups.dto';
 import {
+  LookupEntity,
   LookupInterface,
   LookupType,
   LookupsListQuery,
@@ -16,12 +17,14 @@ type LookupDelegate = {
     orderBy?: { name: 'asc' };
     skip?: number;
     take?: number;
-  }) => Promise<Record<string, unknown>[]>;
+  }) => Promise<LookupEntity[]>;
   count: (args: { where?: Record<string, unknown> }) => Promise<number>;
   findFirst: (args: {
     where: { id: string; deletedAt: null } | { code: string };
-  }) => Promise<Record<string, unknown> | null>;
-  create: (args: { data: CreateLookupDto }) => Promise<Record<string, unknown>>;
+  }) => Promise<LookupEntity | null>;
+  create: (args: {
+    data: CreateLookupDto & { code: string };
+  }) => Promise<Record<string, unknown>>;
   update: (args: {
     where: { id: string };
     data: UpdateLookupDto;
@@ -101,15 +104,44 @@ export class LookupsService {
       delegate.count({ where }),
     ]);
 
-    const data: LookupsListResponse['data'] = items.map((item) => ({
-      id: item.id as string,
-      name: item.name as string,
-    }));
-
     return {
-      data,
+      data: items,
       meta: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
     };
+  }
+
+  async findOptions(type: LookupType, search: string): Promise<LookupEntity[]> {
+    const delegate = this.getDelegate(type);
+
+    const trimmedSearch = search.trim();
+
+    if (trimmedSearch.length < 2) {
+      return [];
+    }
+
+    return delegate.findMany({
+      where: {
+        deletedAt: null,
+        OR: [
+          {
+            name: {
+              contains: trimmedSearch,
+              mode: 'insensitive',
+            },
+          },
+          {
+            code: {
+              contains: trimmedSearch,
+              mode: 'insensitive',
+            },
+          },
+        ],
+      },
+      take: 20,
+      orderBy: {
+        name: 'asc',
+      },
+    });
   }
 
   async create(type: LookupType, data: LookupInterface) {

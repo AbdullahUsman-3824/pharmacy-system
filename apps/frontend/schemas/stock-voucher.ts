@@ -13,20 +13,26 @@ export const itemSchema = z.object({
   taxPercent: z.coerce.number().min(0).max(100).default(0),
 });
 
+export const paymentSchema = z.object({
+  paymentAccountId: z.string().min(1, "Payment account required"),
+  amount: z.coerce.number().positive("Amount too low"),
+});
+
 export const stockVoucherFormSchema = z
   .object({
     type: z.nativeEnum(StockVoucherType),
-    distributorId: z.string().optional().nullable(),
+    supplierId: z.string().optional().nullable(),
     voucherDate: z.string().min(1, "Date required"),
     remarks: z.string().optional(),
+    payments: z.array(paymentSchema),
     items: z.array(itemSchema).min(1, "Add at least one item"),
   })
   .superRefine((data, ctx) => {
-    if (data.type === StockVoucherType.PURCHASE && !data.distributorId) {
+    if (data.type === StockVoucherType.PURCHASE && !data.supplierId) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["distributorId"],
-        message: "Distributor required for Purchase voucher",
+        path: ["supplierId"],
+        message: "Supplier required for Purchase voucher",
       });
     }
   });

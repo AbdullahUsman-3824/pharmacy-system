@@ -8,9 +8,10 @@ export function buildCreateVoucherPayload(
 ): CreateStockVoucherInput {
   return {
     type: form.type,
-    distributorId: form.distributorId || null,
+    supplierId: form.supplierId || null,
     voucherDate: new Date(form.voucherDate).toISOString(),
     remarks: form.remarks,
+    payments: form.payments,
     items: form.items.map((item) => {
       const amounts = calculateItemAmounts(item);
       const batchKey = `${item.productId}::${item.batchNumber}`;
@@ -26,7 +27,7 @@ export function buildCreateVoucherPayload(
         saleRate: item.saleRate,
         discountPercent: item.discountPercent,
         taxPercent: item.taxPercent,
-        confirmRateUpdate: confirmedBatchKeys.has(batchKey), // NEW
+        confirmRateUpdate: confirmedBatchKeys.has(batchKey),
         ...amounts,
       };
     }),

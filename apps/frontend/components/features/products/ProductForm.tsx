@@ -9,14 +9,14 @@ import {
   type ProductFormInput,
   type ProductFormOutput,
 } from "./productSchema";
-import { useLookup, useCreateLookup } from "@/hooks/useLookups";
-import { useDistributors } from "@/hooks/useDistributors";
+import { useCreateLookup, useLookupsOptions } from "@/hooks/useLookups";
+import { useDistributorsOptions } from "@/hooks/useDistributors";
 import { LookupType, CreateProductInput, ProductDto } from "@repo/shared";
 import Button from "@/components/ui/button";
 import Checkbox from "@/components/ui/checkbox";
 import Input from "@/components/ui/input";
 import { FormSection } from "@/components/ui/form-section";
-import { LookupSelect } from "@/components/ui/lookup-select";
+import { AsyncSelect } from "@/components/ui/async-select";
 
 export type ProductFormMode = "create" | "edit" | "view";
 
@@ -33,13 +33,6 @@ const DEFAULT_VALUES: Partial<ProductFormInput> = {
   packingSize: 1,
 };
 
-function toLookupOptions(items: Array<{ id: string; name: string }>) {
-  return items.map((item) => ({
-    value: item.id,
-    label: item.name,
-  }));
-}
-
 export function ProductForm({
   mode,
   initialData,
@@ -48,22 +41,10 @@ export function ProductForm({
 }: ProductFormProps) {
   const isReadOnly = mode === "view";
 
-  const { data: companies = [] } = useLookup(LookupType.Company);
-  const { data: types = [] } = useLookup(LookupType.ProductType);
-  const { data: groups = [] } = useLookup(LookupType.ProductGroup);
-  const { data: generics = [] } = useLookup(LookupType.Generic);
-  const { data: distributors = [] } = useDistributors();
-
   const { mutate: createCompany } = useCreateLookup(LookupType.Company);
   const { mutate: createType } = useCreateLookup(LookupType.ProductType);
   const { mutate: createGroup } = useCreateLookup(LookupType.ProductGroup);
   const { mutate: createGeneric } = useCreateLookup(LookupType.Generic);
-
-  const companyOptions = toLookupOptions(companies);
-  const typeOptions = toLookupOptions(types);
-  const groupOptions = toLookupOptions(groups);
-  const genericOptions = toLookupOptions(generics);
-  const distributorOptions = toLookupOptions(distributors);
 
   const {
     register,
@@ -132,85 +113,104 @@ export function ProductForm({
               description="Core lookup values and identifiers for the catalog record."
             >
               <div className="space-y-4">
-                <Controller
-                  name="companyId"
-                  control={control}
-                  render={({ field }) => (
-                    <LookupSelect
-                      label="Company *"
-                      placeholder="Select company"
-                      options={companyOptions}
-                      value={field.value ?? null}
-                      onChange={field.onChange}
-                      error={errors.companyId?.message}
-                      disabled={isReadOnly}
-                      onQuickAdd={(name) =>
-                        createCompany(name, {
-                          onSuccess: (company) => field.onChange(company.id),
-                        })
-                      }
-                    />
-                  )}
-                />
-
-                <Controller
-                  name="typeId"
-                  control={control}
-                  render={({ field }) => (
-                    <LookupSelect
-                      label="Type *"
-                      placeholder="Select type"
-                      options={typeOptions}
-                      value={field.value ?? null}
-                      onChange={field.onChange}
-                      error={errors.typeId?.message}
-                      disabled={isReadOnly}
-                      onQuickAdd={(name) =>
-                        createType(name, {
-                          onSuccess: (type) => field.onChange(type.id),
-                        })
-                      }
-                    />
-                  )}
-                />
-
                 <div className="grid gap-4 md:grid-cols-2">
-                  <Input
-                    label="Code *"
-                    placeholder="Product code"
-                    error={errors.code?.message}
-                    {...register("code")}
+                  <Controller
+                    name="companyId"
+                    control={control}
+                    render={({ field }) => (
+                      <AsyncSelect
+                        label="Company *"
+                        placeholder="Search company"
+                        value={field.value ?? null}
+                        selectedLabel={initialData?.company?.name}
+                        onChange={(id) => field.onChange(id)}
+                        useOptions={(search) =>
+                          useLookupsOptions(LookupType.Company, search)
+                        }
+                        error={errors.companyId?.message}
+                        disabled={isReadOnly}
+                        onQuickAdd={(name, onCreated) =>
+                          createCompany(name, {
+                            onSuccess: (company) => {
+                              field.onChange(company.id);
+                              onCreated(company);
+                            },
+                          })
+                        }
+                      />
+                    )}
                   />
-                  <Input
-                    label="Name *"
-                    placeholder="e.g. Panadol 500mg"
-                    error={errors.name?.message}
-                    {...register("name")}
+
+                  <Controller
+                    name="typeId"
+                    control={control}
+                    render={({ field }) => (
+                      <AsyncSelect
+                        label="Type *"
+                        placeholder="Select type"
+                        value={field.value ?? null}
+                        selectedLabel={initialData?.type?.name}
+                        onChange={(id) => field.onChange(id)}
+                        useOptions={(search) =>
+                          useLookupsOptions(LookupType.ProductType, search)
+                        }
+                        error={errors.typeId?.message}
+                        disabled={isReadOnly}
+                        onQuickAdd={(name, onCreated) =>
+                          createType(name, {
+                            onSuccess: (type) => {
+                              field.onChange(type.id);
+                              onCreated(type);
+                            },
+                          })
+                        }
+                      />
+                    )}
                   />
                 </div>
 
                 <Input
-                  label="Barcode"
-                  error={errors.barcode?.message}
-                  {...register("barcode")}
+                  label="Name *"
+                  placeholder="e.g. Panadol 500mg"
+                  error={errors.name?.message}
+                  {...register("name")}
                 />
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Input
+                    label="Product Code *"
+                    placeholder="e.g. PRC-123456"
+                    error={errors.code?.message}
+                    {...register("code")}
+                  />
+                  <Input
+                    label="Barcode"
+                    error={errors.barcode?.message}
+                    {...register("barcode")}
+                  />
+                </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <Controller
                     name="groupId"
                     control={control}
                     render={({ field }) => (
-                      <LookupSelect
-                        label="Group"
+                      <AsyncSelect
+                        label="Group *"
                         placeholder="Select group"
-                        options={groupOptions}
                         value={field.value ?? null}
-                        onChange={field.onChange}
+                        selectedLabel={initialData?.group?.name}
+                        onChange={(id) => field.onChange(id)}
+                        useOptions={(search) =>
+                          useLookupsOptions(LookupType.ProductGroup, search)
+                        }
                         error={errors.groupId?.message}
                         disabled={isReadOnly}
-                        onQuickAdd={(name) =>
+                        onQuickAdd={(name, onCreated) =>
                           createGroup(name, {
-                            onSuccess: (group) => field.onChange(group.id),
+                            onSuccess: (group) => {
+                              field.onChange(group.id);
+                              onCreated(group);
+                            },
                           })
                         }
                       />
@@ -221,17 +221,23 @@ export function ProductForm({
                     name="genericId"
                     control={control}
                     render={({ field }) => (
-                      <LookupSelect
-                        label="Generic"
+                      <AsyncSelect
+                        label="Generic *"
                         placeholder="Select generic"
-                        options={genericOptions}
                         value={field.value ?? null}
-                        onChange={field.onChange}
+                        selectedLabel={initialData?.generic?.name}
+                        onChange={(id) => field.onChange(id)}
+                        useOptions={(search) =>
+                          useLookupsOptions(LookupType.Generic, search)
+                        }
                         error={errors.genericId?.message}
                         disabled={isReadOnly}
-                        onQuickAdd={(name) =>
+                        onQuickAdd={(name, onCreated) =>
                           createGeneric(name, {
-                            onSuccess: (generic) => field.onChange(generic.id),
+                            onSuccess: (generic) => {
+                              field.onChange(generic.id);
+                              onCreated(generic);
+                            },
                           })
                         }
                       />
@@ -240,15 +246,16 @@ export function ProductForm({
                 </div>
 
                 <Controller
-                  name="defaultDistributorId"
+                  name="distributorId"
                   control={control}
                   render={({ field }) => (
-                    <LookupSelect
+                    <AsyncSelect
                       label="Distributor"
-                      placeholder="Select distributor"
-                      options={distributorOptions}
+                      placeholder="Search distributor"
                       value={field.value ?? null}
-                      onChange={field.onChange}
+                      selectedLabel={initialData?.distributor?.name}
+                      onChange={(id) => field.onChange(id)}
+                      useOptions={useDistributorsOptions}
                       disabled={isReadOnly}
                     />
                   )}
@@ -376,6 +383,8 @@ export function ProductForm({
                   error={errors.maximumStock?.message}
                   {...register("maximumStock")}
                 />
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
                 <Input
                   type="number"
                   label="Shelf No."
@@ -385,15 +394,8 @@ export function ProductForm({
                   {...register("shelfNo")}
                 />
 
-                <div className="rounded-[var(--radius-md)] border border-[var(--color-border-light)] bg-[var(--color-background-muted)]/40 p-4">
-                  <div className="space-y-3">
-                    <Checkbox
-                      label="NIV Formulary"
-                      {...register("nivFormulary")}
-                    />
-                    <Checkbox label="Active" {...register("isActive")} />
-                  </div>
-                </div>
+                <Checkbox label="NIV Formulary" {...register("nivFormulary")} />
+                <Checkbox label="Active" {...register("isActive")} />
               </div>
             </FormSection>
           </div>

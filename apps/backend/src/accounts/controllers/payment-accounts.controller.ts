@@ -21,9 +21,16 @@ export class PaymentAccountsController {
     private readonly paymentAccountsService: PaymentAccountsService,
   ) {}
 
+  // Payment selection
+  @Get('options')
+  getPaymentOptions() {
+    return this.paymentAccountsService.getPaymentOptions();
+  }
+
+  // Bank accounts management
   @Post()
   create(@Body() createPaymentAccountDto: CreatePaymentAccountDto) {
-    return this.paymentAccountsService.addBankAccount(createPaymentAccountDto);
+    return this.paymentAccountsService.create(createPaymentAccountDto);
   }
 
   @Get()
@@ -31,19 +38,9 @@ export class PaymentAccountsController {
     const isActiveBool =
       isActive === undefined ? undefined : isActive === 'true';
 
-    return this.paymentAccountsService.findAllBanks({
+    return this.paymentAccountsService.findAll({
       isActive: isActiveBool,
     });
-  }
-
-  @Get('cash')
-  getCashAccount() {
-    return this.paymentAccountsService.getCashAccount();
-  }
-
-  @Get('available')
-  getAvailableAccounts() {
-    return this.paymentAccountsService.getAvailableAccounts();
   }
 
   @Get(':id')

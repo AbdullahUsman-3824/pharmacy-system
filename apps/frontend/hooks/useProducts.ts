@@ -19,6 +19,7 @@ export const productKeys = {
     [...productKeys.all, "list", query] as const,
   search: (search: string) => [...productKeys.all, "search", search] as const,
   detail: (id: string) => [...productKeys.all, id] as const,
+  options: (search: string) => [...productKeys.all, "options", search] as const,
 };
 
 export function useProducts(query: ProductsListQuery) {
@@ -26,6 +27,13 @@ export function useProducts(query: ProductsListQuery) {
     queryKey: productKeys.list(query),
     queryFn: () => productsApi.list(query),
     placeholderData: keepPreviousData,
+  });
+}
+
+export function useProductsOptions(search: string) {
+  return useQuery({
+    queryKey: productKeys.options(search),
+    queryFn: () => productsApi.options(search),
   });
 }
 

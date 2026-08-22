@@ -36,6 +36,7 @@ export function LookupTable({
 }: LookupTableProps) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [highlightedAdd, setHighlightedAdd] = useState(false);
 
   const { data, isLoading } = useLookup(type, {
     page,
@@ -55,7 +56,15 @@ export function LookupTable({
   }
 
   function handleAdd(name: string) {
-    createLookup(name);
+    createLookup(name, {
+      onSuccess: () => {
+        setHighlightedAdd(true);
+
+        setTimeout(() => {
+          setHighlightedAdd(false);
+        }, 1800); // 1.8s flash
+      },
+    });
   }
 
   function handleSave(id: string, name: string) {
@@ -63,9 +72,7 @@ export function LookupTable({
   }
 
   function handleDelete(id: string) {
-    if (confirm(`Delete this ${entityLabel}?`)) {
-      deleteLookup(id);
-    }
+    deleteLookup(id);
   }
 
   return (
@@ -79,7 +86,10 @@ export function LookupTable({
 
       <div className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-card)] shadow-[var(--shadow-sm)]">
         <div className="overflow-x-auto">
-          <Table className="min-w-full border-collapse rounded-none" rounded={false}>
+          <Table
+            className="min-w-full border-collapse rounded-none"
+            rounded={false}
+          >
             <TableHeader className="border-b border-[var(--color-border)] bg-[var(--color-background-muted)]">
               <TableRow className="border-b-0 hover:bg-transparent">
                 <TableHead className="h-12 w-12 px-5 text-sm font-semibold text-[var(--color-text-secondary)]">
@@ -98,7 +108,11 @@ export function LookupTable({
             </TableHeader>
 
             <TableBody>
-              <LookupAddRow onAdd={handleAdd} entityLabel={entityLabel} />
+              <LookupAddRow
+                onAdd={handleAdd}
+                entityLabel={entityLabel}
+                isHighlighted={highlightedAdd}
+              />
 
               {isLoading ? (
                 <TableRow className="border-b-0">

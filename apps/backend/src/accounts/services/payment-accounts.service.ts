@@ -16,22 +16,7 @@ import { Prisma } from '../../generated/prisma/browser';
 export class PaymentAccountsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getCashAccount() {
-    const account = await this.prisma.paymentAccount.findFirst({
-      where: {
-        type: PaymentAccountType.CASH,
-        isActive: true,
-      },
-    });
-
-    if (!account) {
-      throw new NotFoundException('Cash payment account not configured');
-    }
-
-    return account;
-  }
-
-  async getAvailableAccounts() {
+  async getPaymentOptions() {
     const [cash, banks] = await Promise.all([
       this.prisma.paymentAccount.findFirst({
         where: {
@@ -73,7 +58,7 @@ export class PaymentAccountsService {
     };
   }
 
-  async addBankAccount(dto: CreatePaymentAccountDto) {
+  async create(dto: CreatePaymentAccountDto) {
     return this.prisma.paymentAccount.create({
       data: {
         name: dto.name,
@@ -83,7 +68,7 @@ export class PaymentAccountsService {
     });
   }
 
-  async findAllBanks(filters: { isActive?: boolean }) {
+  async findAll(filters: { isActive?: boolean }) {
     const where: Prisma.PaymentAccountWhereInput = {
       type: PaymentAccountType.BANK,
     };

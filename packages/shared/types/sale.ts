@@ -19,7 +19,7 @@ export interface CreateSaleItemInput {
 
 export interface CreateSaleInput {
   type: SaleType;
-  customerId: string;
+  customerId?: string | null;
   saleDate: string;
   originalSaleId?: string | null;
   remarks?: string;
@@ -49,7 +49,7 @@ export interface SaleDto {
   saleNumber: string;
   type: SaleType;
   date: string;
-  customerId: string;
+  customerId?: string | null;
   customerName: string;
   originalSaleId?: string | null;
   remarks?: string | null;
@@ -109,4 +109,13 @@ export interface ReturnableSaleDto {
   saleId: string;
   saleNumber: string;
   items: ReturnableItemDto[];
+}
+
+export interface SaleProductOption {
+  id: string;
+  name: string;
+  stock: {
+    packs: number;
+    loose: number;
+  } | null;
 }

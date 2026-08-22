@@ -8,13 +8,14 @@ function round2(value: number): number {
 export function buildCreateSalePayload(form: SaleFormOutput): CreateSaleInput {
   return {
     type: form.type,
-    customerName: form.customerName || "Walk-in Customer",
+    customerId: form.customerId || undefined,
     saleDate: new Date(form.saleDate).toISOString(),
     originalSaleId:
       form.type === SaleType.SALE_RETURN ? form.originalSaleId : undefined,
     remarks: form.remarks,
     discountPercent: form.discountPercent || undefined,
     taxPercent: form.taxPercent || undefined,
+    payments: form.payments,
     items: form.items.map((item) => {
       const grossAmount = round2(
         item.packQuantity * item.saleRate + item.looseQuantity * item.looseRate,

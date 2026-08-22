@@ -42,6 +42,16 @@ export class BusinessContactsController {
     });
   }
 
+  @Get('suppliers/options')
+  findSupplierOptions(@Query('search') search: string) {
+    return this.businessContactsService.findSupplierOptions(search);
+  }
+
+  @Get('customers/options')
+  findCustomerOptions(@Query('search') search: string) {
+    return this.businessContactsService.findCustomerOptions(search);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.businessContactsService.findOne(id);

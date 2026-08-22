@@ -27,6 +27,11 @@ export class DistributorController {
     return this.distributorService.findAll(query);
   }
 
+  @Get('options')
+  findOptions(@Query('search') search: string) {
+    return this.distributorService.findOptions(search);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.distributorService.findOne(id);

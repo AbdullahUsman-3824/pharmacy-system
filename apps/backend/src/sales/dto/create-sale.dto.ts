@@ -23,8 +23,8 @@ export class CreateSaleDto implements CreateSaleInput {
   type!: SaleType;
 
   @IsOptional()
-  @IsString()
-  customerId!: string;
+  @IsUUID()
+  customerId?: string;
 
   @IsDateString()
   saleDate!: string;

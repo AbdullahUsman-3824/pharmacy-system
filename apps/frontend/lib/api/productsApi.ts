@@ -7,10 +7,16 @@ import {
   ProductsListResponse,
 } from "@repo/shared";
 
-
 export const productsApi = {
   list: async (params?: ProductsListQuery): Promise<ProductsListResponse> => {
     const { data } = await apiClient.get("/products", { params });
+    return data;
+  },
+
+  options: async (search: string): Promise<{ id: string; name: string }[]> => {
+    const { data } = await apiClient.get("/products/options", {
+      params: { search },
+    });
     return data;
   },
 

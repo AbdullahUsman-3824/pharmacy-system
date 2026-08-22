@@ -11,7 +11,7 @@ import { useProducts, useDeleteProduct } from "@/hooks/useProducts";
 import { useLookup } from "@/hooks/useLookups";
 import { LookupEntity, LookupType } from "@repo/shared/types/lookups";
 import { SearchBar } from "../../ui/searchBar";
-import { ProductDto, ProductListItemDto } from "@repo/shared";
+import {ProductListItemDto } from "@repo/shared";
 
 const PAGE_SIZE = 100;
 
