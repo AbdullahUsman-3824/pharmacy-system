@@ -1,5 +1,3 @@
-// account.types.ts
-
 export enum BusinessContactType {
   CUSTOMER = "CUSTOMER",
   SUPPLIER = "SUPPLIER",
@@ -72,3 +70,14 @@ export interface PaymentOutput {
 }
 
 export type UpdatePaymentAccount = Partial<CreatePaymentAccount>;
+
+export interface PaymentOptions {
+  cash: {
+    id: string;
+    name: string;
+  };
+  banks: {
+    id: string;
+    name: string;
+  }[];
+}

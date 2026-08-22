@@ -25,6 +25,7 @@ import {
 import { useHeldInvoices } from "@/lib/context/HeldInvoicesContext";
 import { RecallHeldPopover, SaleCompleteModal, CompletedSale } from ".";
 import { usePageShortcuts } from "@/lib/shortcuts/usePageShortcuts";
+import type { PaymentOption } from "@/components/shared/payment-select";
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
@@ -71,6 +72,10 @@ export default function PosPage() {
   const [showRecallPopover, setShowRecallPopover] = useState(false);
   const [customerLabel, setCustomerLabel] = useState("");
 
+  const [selectedPayment, setSelectedPayment] = useState<PaymentOption | null>(
+    null,
+  );
+
   const entryRowRef = useRef<SaleEntryRowRef>(null);
   const paymentRef = useRef<SalePaymentRef>(null);
   const summaryRef = useRef<SaleSummaryRef>(null);
@@ -100,9 +105,29 @@ export default function PosPage() {
     return { gross, discount, tax, net };
   }, [items, discountPercent, taxPercent]);
 
+  // Keep amountPaid in sync when net changes (and cart is not empty)
+  const [prevNet, setPrevNet] = useState(totals.net);
+  if (totals.net !== prevNet) {
+    setPrevNet(totals.net);
+  }
+
   const onSubmit = async (data: SaleFormOutput) => {
     setStockError(null);
+    setPaymentError(null);
+
+    if (!selectedPayment) {
+      setPaymentError("Please select a payment method.");
+      return;
+    }
+
     const payload = buildCreateSalePayload(data);
+    // If your API expects payment info, merge it here, e.g.:
+    // const payload = {
+    //   ...buildCreateSalePayload(data),
+    //   paymentMethodId: selectedPayment.id, // or whatever the shape is
+    //   amountPaid,
+    // };
+
     try {
       const result = await createSale.mutateAsync(payload);
       setCompletedSale(result as unknown as CompletedSale);
@@ -119,13 +144,18 @@ export default function PosPage() {
     }
   };
 
-  const handleCompleteSale = (paidAmount: number) => {
-    if (paidAmount < totals.net) {
-      setPaymentError("Amount paid is less than the net amount.");
+  const handleCompleteSale = () => {
+    if (!selectedPayment) {
+      setPaymentError("Please select a payment method.");
       return;
     }
     setPaymentError(null);
     handleSubmit(onSubmit)();
+  };
+
+  const resetPayment = () => {
+    setSelectedPayment(null);
+    setPaymentError(null);
   };
 
   const handleNewSale = () => {
@@ -133,6 +163,7 @@ export default function PosPage() {
     replace([]);
     reset();
     setCustomerLabel("");
+    resetPayment();
     requestAnimationFrame(() => entryRowRef.current?.focus());
   };
 
@@ -143,12 +174,6 @@ export default function PosPage() {
 
   const { heldInvoices, hold, recall } = useHeldInvoices();
 
-  // Snapshots the current cart into the held list. Used both for the
-  // explicit F6/"Hold invoice" action and silently before switching to a
-  // recalled cart, so nothing the cashier was working on is ever lost.
-  // customerId/customerName are only included when an actual customer was
-  // selected — walk-in sales are held with no customer info at all, and
-  // the UI falls back to a "Walk-in Customer" label wherever it's displayed.
   const holdCurrentCart = () => {
     if (!items || items.length === 0) return;
     hold({
@@ -159,6 +184,7 @@ export default function PosPage() {
     });
     replace([]);
     reset();
+    resetPayment();
   };
 
   const handleOpenRecall = () => {
@@ -166,9 +192,6 @@ export default function PosPage() {
   };
 
   const handleSelectHeld = (id: string) => {
-    // If the cashier already has items in progress for someone else,
-    // auto-hold that cart first — silent, no confirm — before loading the
-    // one they picked. Nothing typed so far is lost.
     if (items && items.length > 0) {
       holdCurrentCart();
     }
@@ -177,6 +200,7 @@ export default function PosPage() {
       replace(recalled.items);
       setValue("customerId", recalled.customerId ?? "");
       setCustomerLabel(recalled.customerName ?? "");
+      // amountPaid will be synced via the net change effect above
     }
     setShowRecallPopover(false);
   };
@@ -185,6 +209,7 @@ export default function PosPage() {
     replace([]);
     reset();
     setCustomerLabel("");
+    resetPayment();
   };
 
   usePageShortcuts([
@@ -195,7 +220,6 @@ export default function PosPage() {
       priority: 300,
       execute: () => paymentRef.current?.complete(),
     },
-
     {
       id: "hold",
       shortcut: "F9",
@@ -203,7 +227,6 @@ export default function PosPage() {
       priority: 300,
       execute: holdCurrentCart,
     },
-
     {
       id: "discount",
       shortcut: "F8",
@@ -211,7 +234,6 @@ export default function PosPage() {
       priority: 300,
       execute: () => summaryRef.current?.openDiscountEditor(),
     },
-
     {
       id: "tax",
       shortcut: "F10",
@@ -219,7 +241,6 @@ export default function PosPage() {
       priority: 300,
       execute: () => summaryRef.current?.openTaxEditor(),
     },
-
     {
       id: "recall",
       shortcut: "F12",
@@ -227,7 +248,6 @@ export default function PosPage() {
       priority: 300,
       execute: handleOpenRecall,
     },
-
     {
       id: "focus-search",
       shortcut: "/",
@@ -235,7 +255,6 @@ export default function PosPage() {
       priority: 300,
       execute: () => entryRowRef.current?.focus(),
     },
-
     {
       id: "clear-cart",
       shortcut: "Ctrl+Delete",
@@ -308,6 +327,8 @@ export default function PosPage() {
                 ref={paymentRef}
                 netAmount={totals.net}
                 saleCompleted={!!completedSale}
+                selectedPayment={selectedPayment}
+                onPaymentChange={setSelectedPayment}
                 onComplete={handleCompleteSale}
                 onPrint={handlePrint}
                 paymentError={paymentError}

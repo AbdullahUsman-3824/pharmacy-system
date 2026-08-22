@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, forwardRef, useImperativeHandle } from "react";
+import PaymentSelect from "@/components/shared/payment-select";
+import type { PaymentOption } from "@/components/shared/payment-select";
 
 export interface SalePaymentRef {
   complete: () => void;
@@ -9,6 +11,8 @@ export interface SalePaymentRef {
 interface SalePaymentProps {
   netAmount: number;
   saleCompleted: boolean;
+  selectedPayment: PaymentOption | null;
+  onPaymentChange: (value: PaymentOption | null) => void;
   onComplete?: (paidAmount: number) => void;
   onPrint?: () => void;
   paymentError?: string | null;
@@ -25,14 +29,21 @@ function getQuickAmounts(netAmount: number): number[] {
 
 export const SalePayment = forwardRef<SalePaymentRef, SalePaymentProps>(
   function SalePayment(
-    { netAmount, saleCompleted, onComplete, onPrint, paymentError },
+    {
+      netAmount,
+      saleCompleted,
+      selectedPayment,
+      onPaymentChange,
+      onComplete,
+      onPrint,
+      paymentError,
+    },
     ref,
   ) {
-    const [paidBy, setPaidBy] = useState<"Cash" | "Card" | "Other">("Cash");
+    // amountPaid stays local — only used for change display
     const [amountPaid, setAmountPaid] = useState<number>(netAmount);
 
-    // Adjusted during render (not in an effect) so React applies it in the
-    // same pass — see https://react.dev/learn/you-might-not-need-an-effect
+    // Keep amountPaid in sync when netAmount changes
     const [prevNetAmount, setPrevNetAmount] = useState(netAmount);
     if (netAmount !== prevNetAmount) {
       setPrevNetAmount(netAmount);
@@ -54,15 +65,12 @@ export const SalePayment = forwardRef<SalePaymentRef, SalePaymentProps>(
 
         <div className="mb-4">
           <label className="block text-xs text-gray-500 mb-1">Paid by</label>
-          <select
-            value={paidBy}
-            onChange={(e) => setPaidBy(e.target.value as typeof paidBy)}
-            className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-          >
-            <option value="Cash">Cash</option>
-            <option value="Card">Card</option>
-            <option value="Other">Other</option>
-          </select>
+          <PaymentSelect
+            value={selectedPayment}
+            onChange={onPaymentChange}
+            placeholder="Select payment method"
+            placement="bottom"
+          />
         </div>
 
         <div className="mb-4">

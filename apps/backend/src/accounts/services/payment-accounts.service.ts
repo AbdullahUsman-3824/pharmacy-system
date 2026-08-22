@@ -9,14 +9,14 @@ import {
   CreatePaymentAccountDto,
   UpdatePaymentAccountDto,
 } from '../dto/payment-account.dto';
-import { PaymentAccountType } from '@repo/shared';
+import { PaymentAccountType, PaymentOptions } from '@repo/shared';
 import { Prisma } from '../../generated/prisma/browser';
 
 @Injectable()
 export class PaymentAccountsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getPaymentOptions() {
+  async getPaymentOptions(): Promise<PaymentOptions> {
     const [cash, banks] = await Promise.all([
       this.prisma.paymentAccount.findFirst({
         where: {
@@ -26,7 +26,6 @@ export class PaymentAccountsService {
         select: {
           id: true,
           name: true,
-          type: true,
         },
       }),
 
@@ -38,7 +37,6 @@ export class PaymentAccountsService {
         select: {
           id: true,
           name: true,
-          type: true,
         },
         orderBy: {
           name: 'asc',
