@@ -29,6 +29,7 @@ const icons: Record<NavKey, React.ElementType> = {
   distributors: Truck,
   reports: BarChart3,
   inventory: Layers,
+  accounts: Users,
 };
 
 const collapsedByDefaultOn = ["/pos"];

@@ -4,8 +4,13 @@ import {
   CreateBusinessContactDto,
   UpdateBusinessContactDto,
 } from '../dto/business-contact.dto';
-import { BusinessContactType } from '@repo/shared';
+import {
+  BusinessContactType,
+  AccountsListQuery,
+  AccountsListResponse,
+} from '@repo/shared';
 import { Prisma } from '../../generated/prisma/browser';
+import { buildPagination } from '../../common/pagination.helper';
 
 @Injectable()
 export class BusinessContactsService {
@@ -23,35 +28,55 @@ export class BusinessContactsService {
     });
   }
 
-  async findAll(filters: {
-    type?: BusinessContactType;
-    search?: string;
-    isActive?: boolean;
-  }) {
-    const where: Prisma.BusinessContactWhereInput = {};
+  async findAll(query: AccountsListQuery = {}): Promise<AccountsListResponse> {
+    const { skip, take, page, pageSize } = buildPagination(query);
+    const search = query.search?.trim();
+    const isSearching = !!search && search.length >= 2;
 
-    if (filters.type) {
-      where.type = filters.type;
-    }
+    const where: Prisma.BusinessContactWhereInput = {
+      ...(query.type && { type: query.type }),
+      ...(query.isActive !== undefined && { isActive: query.isActive }),
+      ...(isSearching && {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { phone: { contains: search, mode: 'insensitive' } },
+          { address: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
+    };
 
-    if (filters.isActive !== undefined) {
-      where.isActive = filters.isActive;
-    }
+    const [contacts, total] = await Promise.all([
+      this.prisma.businessContact.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take,
+      }),
+      this.prisma.businessContact.count({ where }),
+    ]);
 
-    if (filters.search) {
-      where.OR = [
-        { name: { contains: filters.search, mode: 'insensitive' } },
-        { phone: { contains: filters.search, mode: 'insensitive' } },
-        { address: { contains: filters.search, mode: 'insensitive' } },
-      ];
-    }
+    console.log('Accounts query:', query);
+    console.log('Prisma where:', JSON.stringify(where));
 
-    return this.prisma.businessContact.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-    });
+    const data: AccountsListResponse['data'] = contacts.map((c) => ({
+      id: c.id,
+      name: c.name,
+      type: c.type as BusinessContactType,
+      phone: c.phone ?? undefined,
+      address: c.address ?? undefined,
+      isActive: c.isActive,
+    }));
+
+    return {
+      data,
+      meta: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    };
   }
-
   async findSupplierOptions(
     search: string,
   ): Promise<{ id: string; name: string }[]> {

@@ -5,19 +5,16 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 
 const tabs = [
-  { label: "Products", href: "/products" },
-  { label: "Distributors", href: "/products/distributors" },
-  { label: "Companies", href: "/products/companies" },
-  { label: "Types", href: "/products/types" },
-  { label: "Groups", href: "/products/groups" },
-  { label: "Generics", href: "/products/generics" },
+  { label: "Customers", href: "/accounts/customers" },
+  { label: "Suppliers", href: "/accounts/suppliers" },
+  { label: "Banks", href: "/accounts/bank" },
 ];
 
-export function ProductsTabs() {
+export function AccountsTabs() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex items-center gap-2 p-1">
+    <nav className="flex items-center gap-4 p-1">
       {tabs.map((tab) => {
         const active = pathname === tab.href;
 

@@ -1,26 +1,16 @@
 "use client";
 
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { businessContactApi } from "@/lib/api/businessContactApi";
 import type {
-  BusinessContactType,
   CreateBusinessContact,
   UpdateBusinessContact,
+  AccountsListQuery,
 } from "@repo/shared";
-
-interface BusinessContactsQuery {
-  type?: BusinessContactType;
-  search?: string;
-  isActive?: boolean;
-}
 
 export const businessContactKeys = {
   all: ["business-contacts"] as const,
-  list: (query: BusinessContactsQuery) =>
+  list: (query: AccountsListQuery) =>
     [...businessContactKeys.all, "list", query] as const,
   detail: (id: string) => [...businessContactKeys.all, id] as const,
   supplierOptions: (search?: string) =>
@@ -29,7 +19,7 @@ export const businessContactKeys = {
     [...businessContactKeys.all, "customer-options", search] as const,
 };
 
-export function useBusinessContacts(query: BusinessContactsQuery = {}) {
+export function useBusinessContacts(query: AccountsListQuery = {}) {
   return useQuery({
     queryKey: businessContactKeys.list(query),
     queryFn: () => businessContactApi.list(query),

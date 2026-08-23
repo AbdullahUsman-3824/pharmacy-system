@@ -13,7 +13,7 @@ import {
   CreateBusinessContactDto,
   UpdateBusinessContactDto,
 } from '../dto/business-contact.dto';
-import { BusinessContactType } from '@repo/shared';
+import { AccountsListQueryDto } from '../dto/accounts-list-query.dto';
 
 @Controller('business-contacts')
 export class BusinessContactsController {
@@ -27,19 +27,8 @@ export class BusinessContactsController {
   }
 
   @Get()
-  findAll(
-    @Query('type') type?: BusinessContactType,
-    @Query('search') search?: string,
-    @Query('isActive') isActive?: string,
-  ) {
-    const isActiveBool =
-      isActive === undefined ? undefined : isActive === 'true';
-
-    return this.businessContactsService.findAll({
-      type,
-      search,
-      isActive: isActiveBool,
-    });
+  findAll(@Query() query: AccountsListQueryDto) {
+    return this.businessContactsService.findAll(query);
   }
 
   @Get('suppliers/options')

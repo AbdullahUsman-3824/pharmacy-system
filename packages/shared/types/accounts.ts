@@ -1,3 +1,5 @@
+import { PaginatedResult } from "../query/paginated-result";
+
 export enum BusinessContactType {
   CUSTOMER = "CUSTOMER",
   SUPPLIER = "SUPPLIER",
@@ -22,8 +24,8 @@ export interface BusinessContact {
   phone?: string | null;
   address?: string | null;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CreateBusinessContact {
@@ -35,6 +37,8 @@ export interface CreateBusinessContact {
 }
 
 export type UpdateBusinessContact = Partial<CreateBusinessContact>;
+
+export interface AccountsListResponse extends PaginatedResult<BusinessContact> {}
 
 // ==================== Payment Account ====================
 

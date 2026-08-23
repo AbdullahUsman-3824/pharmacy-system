@@ -4,14 +4,12 @@ import type {
   BusinessContactType,
   CreateBusinessContact,
   UpdateBusinessContact,
+  AccountsListQuery,
+  AccountsListResponse,
 } from "@repo/shared";
 
 export const businessContactApi = {
-  list: async (params?: {
-    type?: BusinessContactType;
-    search?: string;
-    isActive?: boolean;
-  }): Promise<BusinessContact[]> => {
+  list: async (params?: AccountsListQuery): Promise<AccountsListResponse> => {
     const { data } = await apiClient.get("/business-contacts", { params });
     return data;
   },
@@ -19,18 +17,24 @@ export const businessContactApi = {
   supplierOptions: async (
     search?: string,
   ): Promise<{ id: string; name: string }[]> => {
-    const { data } = await apiClient.get("/business-contacts/suppliers/options", {
-      params: { search },
-    });
+    const { data } = await apiClient.get(
+      "/business-contacts/suppliers/options",
+      {
+        params: { search },
+      },
+    );
     return data;
   },
 
   customerOptions: async (
     search?: string,
   ): Promise<{ id: string; name: string }[]> => {
-    const { data } = await apiClient.get("/business-contacts/customers/options", {
-      params: { search },
-    });
+    const { data } = await apiClient.get(
+      "/business-contacts/customers/options",
+      {
+        params: { search },
+      },
+    );
     return data;
   },
 

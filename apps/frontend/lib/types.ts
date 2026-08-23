@@ -8,7 +8,8 @@ export type NavKey =
   | "customers"
   | "distributors"
   | "reports"
-  | "inventory";
+  | "inventory"
+  | "accounts";
 
 export interface NavItem {
   key: NavKey;

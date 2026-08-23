@@ -57,9 +57,11 @@ export class PaymentAccountsService {
   }
 
   async create(dto: CreatePaymentAccountDto) {
+    const name = dto.name.trim().toUpperCase();
+
     return this.prisma.paymentAccount.create({
       data: {
-        name: dto.name,
+        name: name,
         type: PaymentAccountType.BANK,
         isActive: dto.isActive ?? true,
       },
@@ -102,11 +104,11 @@ export class PaymentAccountsService {
         'Cash in hand is managed by the system and cannot be modified',
       );
     }
-
+    const name = dto.name?.trim().toUpperCase();
     return this.prisma.paymentAccount.update({
       where: { id },
       data: {
-        ...(dto.name !== undefined && { name: dto.name }),
+        ...(name !== undefined && { name: name }),
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
       },
     });
