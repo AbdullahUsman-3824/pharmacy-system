@@ -29,8 +29,9 @@ export class UsersController {
   findAll(
     @Query('type', new ParseEnumPipe(UserType, { optional: true }))
     type?: UserType,
+    @Query('search') search?: string,
   ) {
-    return this.usersService.findAll(type);
+    return this.usersService.findAll({ type, search });
   }
 
   @Get(':id')

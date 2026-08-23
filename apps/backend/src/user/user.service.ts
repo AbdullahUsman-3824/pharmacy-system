@@ -28,9 +28,18 @@ export class UsersService {
     return argon2.hash(pin, { type: argon2.argon2id });
   }
 
-  async findAll(type?: UserType) {
+  async findAll(filters: { type?: UserType; search?: string }) {
+    const { type, search } = filters;
     return this.prisma.user.findMany({
-      where: type ? { type } : undefined,
+      where: {
+        type,
+        OR: search
+          ? [
+              { name: { contains: search, mode: 'insensitive' } },
+              { id: { contains: search, mode: 'insensitive' } },
+            ]
+          : undefined,
+      },
       select: this.userSelect,
       orderBy: { createdAt: 'desc' },
     });

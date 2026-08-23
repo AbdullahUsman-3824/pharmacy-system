@@ -8,6 +8,7 @@ const tabs = [
   { label: "Customers", href: "/accounts/customers" },
   { label: "Suppliers", href: "/accounts/suppliers" },
   { label: "Banks", href: "/accounts/bank" },
+  { label: "Users", href: "/accounts/users" },
 ];
 
 export function AccountsTabs() {
