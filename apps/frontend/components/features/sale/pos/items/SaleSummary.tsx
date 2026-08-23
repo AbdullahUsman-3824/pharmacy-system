@@ -88,7 +88,7 @@ export const SaleSummary = forwardRef<SaleSummaryRef, SaleSummaryProps>(
 
           <div className="border-t border-gray-200 pt-2 flex justify-between font-semibold text-base">
             <span>Net amount</span>
-            <span className="text-blue-700">PKR {netAmount.toFixed(2)}</span>
+            <span className="text-blue-700 font-bold text-lg">PKR {netAmount.toFixed(2)}</span>
           </div>
         </div>
       </div>

@@ -14,9 +14,9 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-import { CreatePaymentDto, CreateSaleInput, SaleType } from '@repo/shared';
-
+import { CreateSaleInput, SaleType } from '@repo/shared';
 import { CreateSaleItemDto } from './create-sale-item.dto';
+import { CreatePaymentDto } from './create-payment-dto';
 
 export class CreateSaleDto implements CreateSaleInput {
   @IsEnum(SaleType)

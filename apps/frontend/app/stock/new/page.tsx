@@ -21,9 +21,9 @@ export default function NewStockVoucherPage() {
     remove,
     type,
     supplierId,
-    distributorLabel,
-    setDistributorTouched,
-    setDistributorLabel,
+    supplierLabel,
+    setSupplierTouched,
+    setSupplierLabel,
     entryRowRef,
     productNames,
     setEntryProductId,
@@ -57,11 +57,11 @@ export default function NewStockVoucherPage() {
           errors={errors}
           type={type}
           supplierId={supplierId}
-          distributorLabel={distributorLabel}
-          onDistributorChange={(id, label) => {
-            setDistributorTouched(true);
+          supplierLabel={supplierLabel}
+          onSupplierChange={(id, label) => {
+            setSupplierTouched(true);
             setValue("supplierId", id ?? "", { shouldValidate: true });
-            setDistributorLabel(label);
+            setSupplierLabel(label);
           }}
         />
 

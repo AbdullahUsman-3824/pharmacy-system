@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm, useWatch, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
@@ -15,6 +15,7 @@ import { useCreateStockVoucher } from "@/hooks/useStock";
 import { calculateItemAmounts } from "@/lib/stock-calculations";
 import { buildCreateVoucherPayload } from "@/components/features/stock/stockEntry/build-payload";
 import { StockVoucherEntryRowRef } from "./VoucherEntryRow";
+import { PaymentOption } from "@/components/shared/payment-select";
 
 export interface VoucherTotals {
   gross: number;
@@ -23,16 +24,13 @@ export interface VoucherTotals {
   net: number;
 }
 
-interface PaymentOption {
-  id: string;
-  name: string;
-}
-
 export function useStockVoucherForm() {
   const router = useRouter();
   const createVoucher = useCreateStockVoucher();
 
-  const [selectedPayment, setSelectedPayment] = useState<PaymentOption | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<PaymentOption | null>(
+    null,
+  );
 
   const {
     register,
@@ -61,8 +59,8 @@ export function useStockVoucherForm() {
   // Ref to the entry row for programmatic commit / setData
   const entryRowRef = useRef<StockVoucherEntryRowRef>(null);
 
-  // Track whether the user has explicitly picked a distributor
-  const [distributorTouched, setDistributorTouched] = useState(false);
+  // Track whether the user has explicitly picked a supplier
+  const [supplierTouched, setSupplierTouched] = useState(false);
 
   // productId of the item currently being typed in the entry row
   const [entryProductId, setEntryProductId] = useState("");
@@ -70,8 +68,8 @@ export function useStockVoucherForm() {
   // productId -> display name map, populated as items are committed
   const [productNames, setProductNames] = useState<Record<string, string>>({});
 
-  // Label shown in the AsyncSelect for the currently selected distributor
-  const [distributorLabel, setDistributorLabel] = useState<string>("");
+  // Label shown in the AsyncSelect for the currently selected supplier
+  const [supplierLabel, setSupplierLabel] = useState<string>("");
 
   // ── Item handlers ──────────────────────────────────────────────────────────
 
@@ -109,16 +107,19 @@ export function useStockVoucherForm() {
     { gross: 0, discount: 0, tax: 0, net: 0 },
   );
 
+  useEffect(() => {
+    if (selectedPayment) {
+      setValue("payments", [
+        { paymentAccountId: selectedPayment.id, amount: totals.net },
+      ]);
+    } else {
+      setValue("payments", []);
+    }
+  }, [selectedPayment, totals.net, setValue]);
+
   // ── Submit ─────────────────────────────────────────────────────────────────
 
   const onSubmit = async (data: StockVoucherFormOutput) => {
-    // Inject selected payment as the single payment entry
-    if (selectedPayment) {
-      data.payments = [
-        { paymentAccountId: selectedPayment.id, amount: totals.net },
-      ];
-    }
-
     const confirmedBatchKeys = new Set<string>();
 
     const trySubmit = async (): Promise<void> => {
@@ -170,11 +171,11 @@ export function useStockVoucherForm() {
     items,
     supplierId,
 
-    // distributor state
-    distributorTouched,
-    setDistributorTouched,
-    distributorLabel,
-    setDistributorLabel,
+    // supplier state
+    supplierTouched,
+    setSupplierTouched,
+    supplierLabel,
+    setSupplierLabel,
 
     // entry product tracking
     entryProductId,

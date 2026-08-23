@@ -8,19 +8,19 @@ import {
   IMPLEMENTED_VOUCHER_TYPES,
 } from "@/constants/stock/stock-voucher";
 import { AsyncSelect } from "@/components/ui/async-select";
-import { useDistributorsOptions } from "@/hooks/useDistributors";
 import Card from "@/components/ui/card";
 import Input from "@/components/ui/input";
 import Select from "@/components/ui/select";
 import { AlertCircle } from "lucide-react";
+import { useSupplierOptions } from "@/hooks/useBusinessContacts";
 
 interface Props {
   register: UseFormRegister<StockVoucherFormInput>;
   errors: FieldErrors<StockVoucherFormInput>;
   type: StockVoucherType;
   supplierId: string | null | undefined;
-  distributorLabel: string;
-  onDistributorChange: (id: string | null, label: string) => void;
+  supplierLabel: string;
+  onSupplierChange: (id: string | null, label: string) => void;
 }
 
 const voucherTypeOptions = Object.entries(VOUCHER_TYPE_LABELS).map(
@@ -32,8 +32,8 @@ export function VoucherHeaderCard({
   errors,
   type,
   supplierId,
-  distributorLabel,
-  onDistributorChange,
+  supplierLabel,
+  onSupplierChange,
 }: Props) {
   return (
     <Card className="flex flex-wrap items-center gap-4">
@@ -54,15 +54,13 @@ export function VoucherHeaderCard({
 
       <div className="min-w-[200px] flex-1 relative">
         <AsyncSelect
-          label={
-            type === StockVoucherType.PURCHASE ? "Distributor *" : "Distributor"
-          }
-          placeholder="Search distributor..."
+          label={type === StockVoucherType.PURCHASE ? "Supplier *" : "Supplier"}
+          placeholder="Search supplier..."
           value={supplierId ?? null}
-          selectedLabel={distributorLabel}
-          useOptions={useDistributorsOptions}
+          selectedLabel={supplierLabel}
+          useOptions={useSupplierOptions}
           onChange={(id, option) => {
-            onDistributorChange(id ?? null, option?.name ?? "");
+            onSupplierChange(id ?? null, option?.name ?? "");
           }}
           error={errors.supplierId?.message}
         />

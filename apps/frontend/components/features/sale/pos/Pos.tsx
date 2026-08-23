@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { useForm, useWatch, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SaleType } from "@repo/shared";
@@ -111,6 +111,16 @@ export default function PosPage() {
     setPrevNet(totals.net);
   }
 
+  useEffect(() => {
+    if (selectedPayment) {
+      setValue("payments", [
+        { paymentAccountId: selectedPayment.id, amount: totals.net },
+      ]);
+    } else {
+      setValue("payments", []);
+    }
+  }, [selectedPayment, totals.net, setValue]);
+
   const onSubmit = async (data: SaleFormOutput) => {
     setStockError(null);
     setPaymentError(null);
@@ -200,7 +210,6 @@ export default function PosPage() {
       replace(recalled.items);
       setValue("customerId", recalled.customerId ?? "");
       setCustomerLabel(recalled.customerName ?? "");
-      // amountPaid will be synced via the net change effect above
     }
     setShowRecallPopover(false);
   };

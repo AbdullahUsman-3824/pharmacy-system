@@ -110,7 +110,7 @@ export const SalePayment = forwardRef<SalePaymentRef, SalePaymentProps>(
         <div className="flex justify-between items-center border-t border-gray-200 pt-3 mb-1">
           <span className="text-sm font-medium text-gray-700">Change</span>
           <span
-            className={`text-lg font-bold ${
+            className={`text-md ${
               change >= 0 ? "text-green-600" : "text-red-600"
             }`}
           >

@@ -10,13 +10,10 @@ import {
   IsBoolean,
 } from 'class-validator';
 
-import {
-  CreatePaymentDto,
-  CreateStockVoucherInput,
-  StockVoucherType,
-} from '@repo/shared';
+import { CreateStockVoucherInput, StockVoucherType } from '@repo/shared';
 
 import { StockVoucherItemDto } from './stock-voucher-item.dto';
+import { CreatePaymentDto } from './create-payment-dto';
 
 export class CreateStockVoucherDto implements CreateStockVoucherInput {
   @IsEnum(StockVoucherType)
