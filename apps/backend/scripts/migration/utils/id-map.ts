@@ -14,10 +14,19 @@ export const accountTypeMap = new Map<
 export const purchaseVoucherMap = new Map<string, string>();
 export const batchMap = new Map<string, string>();
 
+export const productExpiryBatchMap = new Map<string, string>();
+
 export function getBatchMapKey(
   productKey: string,
   batchNumber: string,
   expiryDate: Date | null,
 ) {
   return [productKey, batchNumber, expiryDate?.toISOString() ?? ''].join('|');
+}
+
+export function getProductExpiryKey(
+  productKey: string,
+  expiryDate: Date | null,
+) {
+  return [productKey, expiryDate?.toISOString() ?? ''].join('|');
 }

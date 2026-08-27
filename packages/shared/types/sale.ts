@@ -1,64 +1,64 @@
 import { CreatePaymentDto, PaymentOutput } from "./accounts";
 import { PaginatedResult } from "../query/paginated-result";
+import { ProductSummary, BatchSummary } from "./stock";
 
 export enum SaleType {
   SALE = "SALE",
   SALE_RETURN = "SALE_RETURN",
 }
 
-export interface CreateSaleItemInput {
+// ======================================================
+// Sale Item — shared base between input/output
+// ======================================================
+
+interface SaleItemBase {
   productId: string;
   batchId: string;
   packQuantity: number;
-  saleRate: number;
   looseQuantity: number;
-  looseRate: number;
+  saleRate: number;
   grossAmount: number;
   netAmount: number;
 }
 
-export interface CreateSaleInput {
-  type: SaleType;
-  customerId?: string | null;
-  saleDate: string;
-  originalSaleId?: string | null;
-  remarks?: string;
-  discountPercent?: number;
-  taxPercent?: number;
-  items: CreateSaleItemInput[];
-  payments: CreatePaymentDto[];
-}
+export interface CreateSaleItemInput extends SaleItemBase {}
 
-export interface SaleItemDto {
+export interface SaleItemDto extends SaleItemBase {
   id: string;
   saleId: string;
-  productId: string;
-  batchId: string;
-  packQuantity: number;
-  saleRate: number;
-  looseQuantity: number;
-  looseRate: number;
-  grossAmount: number;
-  netAmount: number;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface SaleDto {
-  id: string;
-  saleNumber: string;
+// ======================================================
+// Sale — shared base between input/output
+// ======================================================
+
+interface SaleBase {
   type: SaleType;
-  date: string;
   customerId?: string | null;
-  customerName: string;
   originalSaleId?: string | null;
   remarks?: string | null;
-  grossAmount: number;
   discountPercent?: number | null;
-  discountAmount: number;
   taxPercent?: number | null;
+}
+
+export interface CreateSaleInput extends SaleBase {
+  saleDate: string;
+  items: CreateSaleItemInput[];
+  payments: CreatePaymentDto[];
+}
+
+export interface SaleDto extends SaleBase {
+  id: string;
+  saleNumber: string;
+  date: string;
+  customer: string | null;
+  grossAmount: number;
+  discountAmount: number;
   taxAmount: number;
   netAmount: number;
+  createdBy: string | null;
   createdAt?: string;
   updatedAt?: string;
   deletedAt?: string | null;
@@ -66,21 +66,21 @@ export interface SaleDto {
   payments?: PaymentOutput[];
 }
 
-export interface SaleItemBatchDto {
-  id: string;
-  batchNumber: string;
-  expiryDate?: string | null;
+// ======================================================
+// Sale detail (item-level product/batch info)
+// ======================================================
+
+export interface SaleItemBatchDto extends BatchSummary {
   purchaseRate: number;
   saleRate: number;
   openingQuantity: number;
   currentQuantity: number;
-  looseQuantity: number;
   manufacturingDate?: string | null;
   isActive: boolean;
 }
 
 export interface SaleItemDetailDto extends SaleItemDto {
-  productName?: string;
+  product: ProductSummary;
   batch: SaleItemBatchDto;
 }
 
@@ -90,13 +90,16 @@ export interface SaleDetailDto extends Omit<SaleDto, "items"> {
 
 export interface SaleListResponse extends PaginatedResult<SaleDto> {}
 
+// ======================================================
+// Returns
+// ======================================================
+
 export interface ReturnableItemDto {
   productId: string;
   productName?: string;
   batchId: string;
   batchNumber?: string;
   saleRate: number;
-  looseRate: number | null;
   originalPackQuantity: number;
   originalLooseQuantity: number;
   alreadyReturnedPacks: number;
@@ -111,11 +114,12 @@ export interface ReturnableSaleDto {
   items: ReturnableItemDto[];
 }
 
+// ======================================================
+// Sale product picker (for POS/sale item selection)
+// ======================================================
+
 export interface SaleProductOption {
   id: string;
   name: string;
-  stock: {
-    packs: number;
-    loose: number;
-  } | null;
+  currentQuantity: number | null;
 }

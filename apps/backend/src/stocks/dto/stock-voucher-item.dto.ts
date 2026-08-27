@@ -23,7 +23,12 @@ export class StockVoucherItemDto implements StockVoucherItemInput {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  quantity!: number;
+  packQuantity!: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  looseQuantity!: number;
 
   @IsOptional()
   @Type(() => Number)

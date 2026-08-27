@@ -9,67 +9,77 @@ export enum StockVoucherType {
   STOCK_TRANSFER = "STOCK_TRANSFER",
 }
 
-export interface StockVoucherItemInput {
+// ======================================================
+// Shared summary shapes (reused across outputs)
+// ======================================================
+
+export interface ProductSummary {
+  id: string;
+  name: string;
+  code: string;
+}
+
+export interface BatchSummary {
+  id: string;
+  batchNumber: string;
+  expiryDate?: string | null;
+}
+
+// ======================================================
+// Stock Voucher Item — shared base between input/output
+// ======================================================
+
+interface StockVoucherItemBase {
   productId: string;
   batchNumber: string;
   expiryDate?: string | null;
-  quantity: number;
-  freeQuantity?: number;
+  packQuantity: number;
+  looseQuantity: number;
   purchaseRate: number;
   saleRate: number;
   grossAmount: number;
   discountPercent?: number;
-  discountAmount?: number;
   taxPercent?: number;
-  taxAmount?: number;
   netAmount: number;
+}
+
+export interface StockVoucherItemInput extends StockVoucherItemBase {
+  freeQuantity?: number;
+  discountAmount?: number;
+  taxAmount?: number;
   confirmRateUpdate?: boolean;
 }
 
-export interface CreateStockVoucherInput {
+export interface StockVoucherItemOutput extends StockVoucherItemBase {
+  id: string;
+  batchId: string;
+  freeQuantity: number;
+  discountAmount: number;
+  taxAmount: number;
+  product: ProductSummary;
+  batch: BatchSummary;
+}
+
+// ======================================================
+// Stock Voucher — shared base between input/output
+// ======================================================
+
+interface StockVoucherBase {
   type: StockVoucherType;
   supplierId?: string | null;
+  remarks?: string | null;
+}
+
+export interface CreateStockVoucherInput extends StockVoucherBase {
   voucherDate: string;
-  remarks?: string;
   items: StockVoucherItemInput[];
   payments: CreatePaymentDto[];
 }
 
-export interface StockVoucherItemOutput {
-  id: string;
-  productId: string;
-  batchId: string;
-  batchNumber: string;
-  expiryDate?: string | null;
-  quantity: number;
-  freeQuantity: number;
-  purchaseRate: number;
-  saleRate: number;
-  grossAmount: number;
-  discountPercent?: number;
-  discountAmount: number;
-  taxPercent?: number;
-  taxAmount: number;
-  netAmount: number;
-  product: {
-    id: string;
-    name: string;
-    code: string;
-  };
-  batch: {
-    id: string;
-    batchNumber: string;
-    expiryDate?: string | null;
-  };
-}
-
-export interface StockVoucherOutput {
+export interface StockVoucherOutput extends StockVoucherBase {
   id: string;
   voucherNumber: string;
-  type: StockVoucherType;
-  supplierId: string | null;
   date: string;
-  remarks?: string | null;
   grossAmount: number;
   discountAmount: number;
   taxAmount: number;
@@ -77,33 +87,35 @@ export interface StockVoucherOutput {
   createdAt: string;
   updatedAt: string;
   items: StockVoucherItemOutput[];
-  supplier: {
-    id: string;
-    name: string;
-    contactPerson?: string | null;
-  };
+  supplier: string | null;
+  createdBy: string | null;
   payments: PaymentOutput[];
 }
+
+// ======================================================
+// Batch / Product stock views
+// ======================================================
 
 export interface BatchStockLine {
   batchId: string;
   batchNumber: string;
   expiryDate?: string | null;
   currentQuantity: number;
-  looseQuantity: number;
+  packingSize: number;
   purchaseRate: number;
   saleRate: number;
-  packingSize: number;
 }
 
 export interface ProductStockView {
   productId: string;
   totalQuantity: number;
-  batches: BatchStockLine[]; // FEFO order
+  batches: BatchStockLine[];
 }
 
-// UPDATED: added supplierName + itemCount, both flattened server-side in
-// StockService.findAll() — same flattening pattern as SalesService.serializeSale()
+// ======================================================
+// Stock Voucher list view
+// ======================================================
+
 export interface StockVoucherListItem {
   id: string;
   voucherNumber: string;
@@ -116,7 +128,7 @@ export interface StockVoucherListItem {
   discountAmount: number;
   taxAmount: number;
   netAmount: number;
-  remarks?: string;
+  remarks?: string | null;
 }
 
 export interface StockVoucherListResponse extends PaginatedResult<StockVoucherListItem> {}

@@ -8,8 +8,10 @@ import {
   productMap,
   accountMap,
   batchMap,
+  productExpiryBatchMap,
   purchaseVoucherMap,
   getBatchMapKey,
+  getProductExpiryKey,
   accountTypeMap,
 } from '../utils/id-map';
 
@@ -23,11 +25,39 @@ import {
 } from '../utils/helpers';
 
 const HISTORY_YEARS = 1;
+const UNBATCHED_PREFIX = 'UNBATCHED-';
 
 function getHistoryCutoffDate(): Date {
   const date = new Date();
   date.setFullYear(date.getFullYear() - HISTORY_YEARS);
   return date;
+}
+
+function isBatchNumberMissing(batchNumber: string): boolean {
+  return !batchNumber || batchNumber.trim() === '';
+}
+
+/**
+ * Formats a date as YYYYMMDD for embedding in generated batch numbers.
+ * Returns 'NOEXP' when there is no expiry date to embed.
+ */
+function formatDateForAutoBatch(date: Date | null): string {
+  if (!date) {
+    return 'NOEXP';
+  }
+
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+
+  return `${year}${month}${day}`;
+}
+
+function generateAutoBatchNumber(
+  productKey: string,
+  expiryDate: Date | null,
+): string {
+  return `AUTO-${productKey}-${formatDateForAutoBatch(expiryDate)}`;
 }
 
 /**
@@ -108,6 +138,22 @@ export async function loadPurchaseDetails(
  * ------------------------------------------------------------
  * STEP 2: Migrate Batches
  * ------------------------------------------------------------
+ *
+ * Old ProductBatch rows with a missing bat_batchid are NOT
+ * dropped. Once every "real" (non-empty batch number) batch
+ * has been migrated:
+ *
+ *   - if EXACTLY ONE real batch exists for the same
+ *     product + expiry, the missing-batch quantity is merged
+ *     into it
+ *   - if there is NO real batch, OR there are multiple real
+ *     batch numbers for the same product + expiry (ambiguous —
+ *     we cannot safely pick one), a synthetic batch is
+ *     generated instead: AUTO-{productKey}-{expiry|NOEXP}
+ *
+ * This keeps the merge deterministic and avoids silently
+ * picking an arbitrary "first" real batch when the source data
+ * doesn't give us a safe target.
  */
 
 export async function migrateBatches(
@@ -130,9 +176,9 @@ export async function migrateBatches(
     FROM dbo.ProductBatch
   `);
 
-  const batches = result.recordset;
+  const allBatches = result.recordset;
 
-  console.log(`  Found ${batches.length} batches`);
+  console.log(`  Found ${allBatches.length} batches`);
 
   let created = 0;
   let updated = 0;
@@ -140,28 +186,74 @@ export async function migrateBatches(
   let failed = 0;
   let noRateHistoryCount = 0;
 
+  let mergedIntoReal = 0;
+  let generatedAuto = 0;
+  let missingFailed = 0;
+
   const skipReasons: Record<string, number> = {
     'product not migrated': 0,
   };
   const errors: { batchNumber: string; error: unknown }[] = [];
+  const missingErrors: { key: string; error: unknown }[] = [];
 
-  for (const [index, oldBatch] of batches.entries()) {
+  // --------------------------------------------------
+  // Classify rows: real (has batch number) vs missing.
+  // Rows whose product never migrated are skipped here
+  // for both passes.
+  // --------------------------------------------------
+
+  const realRows: Row[] = [];
+  const missingGroups = new Map<string, Row[]>();
+
+  for (const oldBatch of allBatches) {
+    const oldProductKey = String(
+      oldBatch[stockMapping.batch.oldProductKey],
+    ).trim();
+
+    if (!productMap.get(oldProductKey)) {
+      skipped++;
+      skipReasons['product not migrated']++;
+      continue;
+    }
+
+    const batchNumber = normalizeBatchNumber(
+      oldBatch[stockMapping.batch.batchNumber],
+    );
+
+    if (isBatchNumberMissing(batchNumber)) {
+      const expiryDate = normalizeExpiryDate(
+        oldBatch[stockMapping.batch.expiryDate],
+      );
+
+      const key = getProductExpiryKey(oldProductKey, expiryDate);
+
+      const rows = missingGroups.get(key) ?? [];
+
+      rows.push(oldBatch);
+
+      missingGroups.set(key, rows);
+    } else {
+      realRows.push(oldBatch);
+    }
+  }
+
+  // --------------------------------------------------
+  // PASS 1: migrate real (identified) batches first, so
+  // missing-batch rows have something to (maybe) merge
+  // into. Track how many real batch numbers exist per
+  // product+expiry — more than one makes that group
+  // ambiguous and ineligible for merging.
+  // --------------------------------------------------
+
+  const realBatchCountByKey = new Map<string, number>();
+
+  for (const [index, oldBatch] of realRows.entries()) {
     try {
       const oldProductKey = String(
         oldBatch[stockMapping.batch.oldProductKey],
       ).trim();
 
-      const productId = productMap.get(oldProductKey);
-
-      if (!productId) {
-        skipped++;
-
-        skipReasons['product not migrated']++;
-
-        renderProgressBar(index + 1, batches.length, 'batches');
-
-        continue;
-      }
+      const productId = productMap.get(oldProductKey)!;
 
       const batchNumber = normalizeBatchNumber(
         oldBatch[stockMapping.batch.batchNumber],
@@ -259,6 +351,23 @@ export async function migrateBatches(
       }
 
       batchMap.set(oldBatchKey, newBatch.id);
+
+      const productExpiryKey = getProductExpiryKey(oldProductKey, expiryDate);
+
+      const count = (realBatchCountByKey.get(productExpiryKey) ?? 0) + 1;
+
+      realBatchCountByKey.set(productExpiryKey, count);
+
+      if (count === 1) {
+        productExpiryBatchMap.set(productExpiryKey, newBatch.id);
+      } else {
+        // Ambiguous: a second real batch number showed up for
+        // this product+expiry. Remove it as a merge target —
+        // missing-batch stock for this key will be
+        // auto-generated instead of guessing which one it
+        // belongs to.
+        productExpiryBatchMap.delete(productExpiryKey);
+      }
     } catch (err) {
       failed++;
 
@@ -268,10 +377,178 @@ export async function migrateBatches(
       });
     }
 
-    renderProgressBar(index + 1, batches.length, 'batches');
+    renderProgressBar(index + 1, realRows.length, 'batches (real)');
   }
 
   process.stdout.write('\n');
+
+  const ambiguousKeys = [...realBatchCountByKey.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([key]) => key);
+
+  // --------------------------------------------------
+  // PASS 2: missing-batch groups — merge into a real
+  // batch for the same product + expiry ONLY if exactly
+  // one exists, otherwise generate a synthetic batch so
+  // the stock isn't lost.
+  // --------------------------------------------------
+
+  const missingGroupEntries = [...missingGroups.entries()];
+
+  for (const [
+    index,
+    [productExpiryKey, rows],
+  ] of missingGroupEntries.entries()) {
+    try {
+      const firstRow = rows[0];
+
+      const oldProductKey = String(
+        firstRow[stockMapping.batch.oldProductKey],
+      ).trim();
+
+      const productId = productMap.get(oldProductKey)!;
+
+      const expiryDate = normalizeExpiryDate(
+        firstRow[stockMapping.batch.expiryDate],
+      );
+
+      const openingQuantitySum = rows.reduce(
+        (sum, row) => sum + Number(row[stockMapping.batch.quantityIn] ?? 0),
+        0,
+      );
+
+      const currentQuantitySum = rows.reduce(
+        (sum, row) =>
+          sum + Number(row[stockMapping.batch.quantityBalance] ?? 0),
+        0,
+      );
+
+      // All rows in this group share the same empty-batch-number
+      // key, since normalizeBatchNumber collapses missing values
+      // the same way for every row.
+      const oldBatchKey = getBatchMapKey(oldProductKey, '', expiryDate);
+
+      // Only a key with EXACTLY ONE real batch remains in
+      // productExpiryBatchMap (ambiguous ones were deleted in
+      // Pass 1).
+      const existingRealBatchId = productExpiryBatchMap.get(productExpiryKey);
+
+      if (existingRealBatchId) {
+        // Merge into the single unambiguous real batch.
+        await prisma.batch.update({
+          where: {
+            id: existingRealBatchId,
+          },
+
+          data: {
+            openingQuantity: {
+              increment: openingQuantitySum,
+            },
+            currentQuantity: {
+              increment: currentQuantitySum,
+            },
+          },
+        });
+
+        batchMap.set(oldBatchKey, existingRealBatchId);
+
+        mergedIntoReal++;
+      } else {
+        // No real batch, or an ambiguous group — generate one.
+        const syntheticBatchNumber = generateAutoBatchNumber(
+          oldProductKey,
+          expiryDate,
+        );
+
+        const purchaseRows = purchaseDetailsByBatch.get(oldBatchKey) ?? [];
+
+        let purchaseRate = 0;
+        let saleRate = 0;
+
+        if (purchaseRows.length > 0) {
+          const latest = purchaseRows[purchaseRows.length - 1];
+
+          purchaseRate = Number(
+            latest[stockMapping.purchaseDetail.purchaseRate] ?? 0,
+          );
+
+          saleRate = Number(
+            latest[stockMapping.purchaseDetail.unitRetailPrice] ?? 0,
+          );
+        } else {
+          noRateHistoryCount++;
+        }
+
+        const batchData = {
+          productId,
+
+          batchNumber: syntheticBatchNumber,
+          expiryDate,
+
+          purchaseRate,
+          saleRate,
+
+          openingQuantity: openingQuantitySum,
+          currentQuantity: currentQuantitySum,
+
+          looseQuantity: 0,
+
+          manufacturingDate: null,
+
+          isActive: true,
+        };
+
+        const existing = await prisma.batch.findFirst({
+          where: {
+            productId,
+            batchNumber: syntheticBatchNumber,
+            expiryDate,
+          },
+
+          select: {
+            id: true,
+          },
+        });
+
+        let newBatch;
+
+        if (existing) {
+          newBatch = await prisma.batch.update({
+            where: {
+              id: existing.id,
+            },
+
+            data: batchData,
+          });
+
+          updated++;
+        } else {
+          newBatch = await prisma.batch.create({
+            data: batchData,
+          });
+
+          created++;
+        }
+
+        batchMap.set(oldBatchKey, newBatch.id);
+
+        generatedAuto++;
+      }
+    } catch (err) {
+      missingFailed++;
+
+      missingErrors.push({ key: productExpiryKey, error: err });
+    }
+
+    renderProgressBar(
+      index + 1,
+      missingGroupEntries.length,
+      'batches (missing)',
+    );
+  }
+
+  process.stdout.write('\n');
+
   if (errors.length > 0) {
     console.log(`  ✗ ${errors.length} batch(es) failed:`);
 
@@ -280,12 +557,33 @@ export async function migrateBatches(
     }
   }
 
+  if (missingErrors.length > 0) {
+    console.log(`  ✗ ${missingErrors.length} missing-batch group(s) failed:`);
+
+    for (const { key, error } of missingErrors) {
+      console.error(`    - ${key}`, error);
+    }
+  }
+
   const seconds = ((Date.now() - startTime) / 1000).toFixed(1);
 
   console.log(
     `✔ batches: ${created} created, ${updated} updated, ` +
-      `${skipped} skipped, ${failed} failed (${seconds}s)`,
+      `${skipped} skipped, ${failed + missingFailed} failed (${seconds}s)`,
   );
+
+  console.log(
+    `  ⚠ missing batch numbers: ${mergedIntoReal} merged into a single ` +
+      `unambiguous real batch, ${generatedAuto} auto-generated`,
+  );
+
+  if (ambiguousKeys.length > 0) {
+    console.log(
+      `  ⚠ ${ambiguousKeys.length} product+expiry group(s) had more than ` +
+        `one real batch number — any missing-batch stock for these was ` +
+        `auto-generated instead of merged. Review these.`,
+    );
+  }
 
   if (skipped > 0) {
     console.log(`  ⚠ Skip reasons for batches:`);
@@ -303,6 +601,232 @@ export async function migrateBatches(
     );
   }
 }
+
+/**
+ * ------------------------------------------------------------
+ * STEP 2b: Migrate leftover product-level stock
+ * ------------------------------------------------------------
+ *
+ * Some products carry stock on Products.prd_stock that isn't
+ * backed by any ProductBatch row at all (e.g. ALZILO, ANNUVA).
+ * Run this AFTER migrateBatches() so every real + merged +
+ * auto-generated batch already exists.
+ *
+ *   leftover = prd_stock - sum(Batch.currentQuantity)
+ *
+ *   leftover > 0  → create/update an UNBATCHED-{key} batch
+ *   leftover == 0 → nothing to do
+ *   leftover < 0  → prd_stock is LOWER than what we already
+ *                    migrated from ProductBatch. We do NOT
+ *                    silently ignore this — it's reported as a
+ *                    mismatch for review. Nothing is deleted or
+ *                    reduced; batch data from ProductBatch stays
+ *                    authoritative.
+ */
+
+export async function migrateUnbatchedProductStock(
+  sqlPool: sql.ConnectionPool,
+  prisma: Prisma,
+) {
+  console.log(`\n▶ Reconciling unbatched product-level stock...`);
+
+  const startTime = Date.now();
+
+  const result = await sqlPool.request().query(`
+    SELECT
+      ${stockMapping.product.oldKey},
+      ${stockMapping.product.stock}
+    FROM dbo.Products
+  `);
+
+  const oldProducts = result.recordset;
+
+  console.log(`  Found ${oldProducts.length} products`);
+
+  const batchTotals = await prisma.batch.groupBy({
+    by: ['productId'],
+    _sum: {
+      currentQuantity: true,
+    },
+  });
+
+  const totalByProductId = new Map(
+    batchTotals.map((row) => [
+      row.productId,
+      Number(row._sum.currentQuantity ?? 0),
+    ]),
+  );
+
+  let created = 0;
+  let updated = 0;
+  let skipped = 0;
+  let failed = 0;
+  let noLeftover = 0;
+  let negativeMismatch = 0;
+
+  const skipReasons: Record<string, number> = {
+    'product not migrated': 0,
+  };
+  const errors: { productKey: string; error: unknown }[] = [];
+
+  const negativeMismatchExamples: Array<{
+    productKey: string;
+    prdStock: number;
+    alreadyBatched: number;
+    leftover: number;
+  }> = [];
+
+  for (const [index, oldProduct] of oldProducts.entries()) {
+    try {
+      const oldProductKey = String(
+        oldProduct[stockMapping.product.oldKey],
+      ).trim();
+
+      const productId = productMap.get(oldProductKey);
+
+      if (!productId) {
+        skipped++;
+        skipReasons['product not migrated']++;
+
+        renderProgressBar(index + 1, oldProducts.length, 'unbatched stock');
+
+        continue;
+      }
+
+      const prdStock = Number(oldProduct[stockMapping.product.stock] ?? 0);
+
+      const alreadyBatched = totalByProductId.get(productId) ?? 0;
+
+      const leftover = prdStock - alreadyBatched;
+
+      if (leftover === 0) {
+        noLeftover++;
+
+        renderProgressBar(index + 1, oldProducts.length, 'unbatched stock');
+
+        continue;
+      }
+
+      if (leftover < 0) {
+        // prd_stock is lower than what ProductBatch already
+        // accounts for. Don't touch migrated batch data — just
+        // report it so it can be reviewed against the source.
+        negativeMismatch++;
+
+        if (negativeMismatchExamples.length < 20) {
+          negativeMismatchExamples.push({
+            productKey: oldProductKey,
+            prdStock,
+            alreadyBatched,
+            leftover,
+          });
+        }
+
+        renderProgressBar(index + 1, oldProducts.length, 'unbatched stock');
+
+        continue;
+      }
+
+      // leftover > 0: create/update the unbatched-stock batch.
+
+      const syntheticBatchNumber = `${UNBATCHED_PREFIX}${oldProductKey}`;
+
+      const batchData = {
+        productId,
+
+        batchNumber: syntheticBatchNumber,
+        expiryDate: null,
+
+        purchaseRate: 0,
+        saleRate: 0,
+
+        openingQuantity: leftover,
+        currentQuantity: leftover,
+
+        looseQuantity: 0,
+
+        manufacturingDate: null,
+
+        isActive: true,
+      };
+
+      const existing = await prisma.batch.findFirst({
+        where: {
+          productId,
+          batchNumber: syntheticBatchNumber,
+          expiryDate: null,
+        },
+
+        select: {
+          id: true,
+        },
+      });
+
+      if (existing) {
+        await prisma.batch.update({
+          where: {
+            id: existing.id,
+          },
+
+          data: batchData,
+        });
+
+        updated++;
+      } else {
+        await prisma.batch.create({
+          data: batchData,
+        });
+
+        created++;
+      }
+    } catch (err) {
+      failed++;
+
+      errors.push({
+        productKey: String(oldProduct[stockMapping.product.oldKey]),
+        error: err,
+      });
+    }
+
+    renderProgressBar(index + 1, oldProducts.length, 'unbatched stock');
+  }
+
+  process.stdout.write('\n');
+
+  if (errors.length > 0) {
+    console.log(`  ✗ ${errors.length} product(s) failed:`);
+
+    for (const { productKey, error } of errors) {
+      console.error(`    - ${productKey}`, error);
+    }
+  }
+
+  const seconds = ((Date.now() - startTime) / 1000).toFixed(1);
+
+  console.log(
+    `✔ unbatched stock: ${created} created, ${updated} updated, ` +
+      `${noLeftover} had no leftover, ${skipped} skipped, ` +
+      `${failed} failed (${seconds}s)`,
+  );
+
+  if (negativeMismatch > 0) {
+    console.log(
+      `  ✗ ${negativeMismatch} product(s) have prd_stock LOWER than ` +
+        `their migrated ProductBatch total — NOT auto-corrected, ` +
+        `review these:`,
+    );
+
+    for (const item of negativeMismatchExamples) {
+      console.log(
+        `    Product=${item.productKey} ` +
+          `prd_stock=${item.prdStock} ` +
+          `batched=${item.alreadyBatched} ` +
+          `diff=${item.leftover}`,
+      );
+    }
+  }
+}
+
 /**
  * ------------------------------------------------------------
  * STEP 3: Migrate PurchaseMain → StockVoucher
@@ -874,108 +1398,52 @@ export async function validateStockMigration(
 ) {
   console.log(`\n▶ Validating stock migration...`);
 
-  // ==================================================
-  // 1. BATCH STOCK VALIDATION
-  // ==================================================
-  //
-  // Authoritative comparison:
-  //
-  // Old:
-  //   ProductBatch.bat_qtybal
-  //
-  // New:
-  //   Batch.currentQuantity
-  //
-  // We do NOT compare Products.prd_stock.
-  // ==================================================
-
-  const oldBatchResult = await sqlPool.request().query(`
+  const oldTotalsResult = await sqlPool.request().query(`
     SELECT
-      ${stockMapping.batch.oldProductKey},
-      ${stockMapping.batch.batchNumber},
-      ${stockMapping.batch.expiryDate},
-      ${stockMapping.batch.quantityBalance}
+      ${stockMapping.batch.oldProductKey} AS oldProductKey,
+      SUM(${stockMapping.batch.quantityBalance}) AS totalQty
     FROM dbo.ProductBatch
+    GROUP BY ${stockMapping.batch.oldProductKey}
   `);
 
-  const oldBatches = oldBatchResult.recordset;
+  const oldTotals = oldTotalsResult.recordset;
 
-  console.log(`  Found ${oldBatches.length} old batches`);
+  console.log(`  Found ${oldTotals.length} products with old batch stock`);
 
-  // --------------------------------------------------
-  // Build new-product lookup
-  // --------------------------------------------------
-  //
-  // productMap should already contain:
-  //
-  // old prd_mainkey -> new Product.id
-  //
-  // because products were migrated before batches.
-  // --------------------------------------------------
-
-  let matched = 0;
-  let mismatched = 0;
-  let missingProduct = 0;
-  let missingBatch = 0;
-
-  const mismatchExamples: Array<{
-    productKey: string;
-    batchNumber: string;
-    expiryDate: Date | null;
-    oldQuantity: number;
-    newQuantity: number | null;
-    difference: number;
-  }> = [];
-
-  // --------------------------------------------------
-  // Load all PostgreSQL batches once
-  // --------------------------------------------------
-
-  const newBatches = await prisma.batch.findMany({
-    select: {
-      id: true,
-      productId: true,
-      batchNumber: true,
-      expiryDate: true,
+  const newTotals = await prisma.batch.groupBy({
+    by: ['productId'],
+    where: {
+      NOT: {
+        batchNumber: {
+          startsWith: UNBATCHED_PREFIX,
+        },
+      },
+    },
+    _sum: {
       currentQuantity: true,
     },
   });
 
-  // --------------------------------------------------
-  // Create lookup:
-  //
-  // productId + batchNumber + expiryDate
-  // --------------------------------------------------
+  const newTotalByProductId = new Map(
+    newTotals.map((row) => [
+      row.productId,
+      Number(row._sum.currentQuantity ?? 0),
+    ]),
+  );
 
-  const newBatchMap = new Map<
-    string,
-    {
-      id: string;
-      currentQuantity: number;
-    }
-  >();
+  let matched = 0;
+  let mismatched = 0;
+  let missingProduct = 0;
 
-  for (const batch of newBatches) {
-    const key = getBatchMapKey(
-      batch.productId,
-      normalizeBatchNumber(batch.batchNumber),
-      batch.expiryDate,
-    );
+  const mismatchExamples: Array<{
+    productKey: string;
+    oldTotal: number;
+    newTotal: number;
+    difference: number;
+  }> = [];
 
-    newBatchMap.set(key, {
-      id: batch.id,
-      currentQuantity: Number(batch.currentQuantity),
-    });
-  }
-
-  // --------------------------------------------------
-  // Compare every old batch
-  // --------------------------------------------------
-
-  for (const oldBatch of oldBatches) {
-    const oldProductKey = String(
-      oldBatch[stockMapping.batch.oldProductKey],
-    ).trim();
+  for (const row of oldTotals) {
+    const oldProductKey = String(row.oldProductKey).trim();
 
     const productId = productMap.get(oldProductKey);
 
@@ -984,50 +1452,10 @@ export async function validateStockMigration(
       continue;
     }
 
-    const batchNumber = normalizeBatchNumber(
-      oldBatch[stockMapping.batch.batchNumber],
-    );
+    const oldTotal = Number(row.totalQty ?? 0);
+    const newTotal = newTotalByProductId.get(productId) ?? 0;
 
-    const expiryDate = normalizeExpiryDate(
-      oldBatch[stockMapping.batch.expiryDate],
-    );
-
-    const key = getBatchMapKey(productId, batchNumber, expiryDate);
-
-    const newBatch = newBatchMap.get(key);
-
-    const oldQuantity = Number(
-      oldBatch[stockMapping.batch.quantityBalance] ?? 0,
-    );
-
-    // ------------------------------------------------
-    // Batch doesn't exist in PostgreSQL
-    // ------------------------------------------------
-
-    if (!newBatch) {
-      missingBatch++;
-
-      if (mismatchExamples.length < 20) {
-        mismatchExamples.push({
-          productKey: oldProductKey,
-          batchNumber,
-          expiryDate,
-          oldQuantity,
-          newQuantity: null,
-          difference: -oldQuantity,
-        });
-      }
-
-      continue;
-    }
-
-    // ------------------------------------------------
-    // Compare quantity
-    // ------------------------------------------------
-
-    const newQuantity = newBatch.currentQuantity;
-
-    if (oldQuantity === newQuantity) {
+    if (oldTotal === newTotal) {
       matched++;
     } else {
       mismatched++;
@@ -1035,30 +1463,19 @@ export async function validateStockMigration(
       if (mismatchExamples.length < 20) {
         mismatchExamples.push({
           productKey: oldProductKey,
-          batchNumber,
-          expiryDate,
-          oldQuantity,
-          newQuantity,
-          difference: newQuantity - oldQuantity,
+          oldTotal,
+          newTotal,
+          difference: newTotal - oldTotal,
         });
       }
     }
   }
 
-  // ==================================================
-  // RESULT
-  // ==================================================
-
-  console.log(`\n  Batch stock validation:`);
-  console.log(`    Old batches:       ${oldBatches.length}`);
+  console.log(`\n  ProductBatch → Batch stock validation (primary):`);
+  console.log(`    Old products:       ${oldTotals.length}`);
   console.log(`    Matched:            ${matched}`);
   console.log(`    Mismatched:         ${mismatched}`);
   console.log(`    Missing product:    ${missingProduct}`);
-  console.log(`    Missing batch:      ${missingBatch}`);
-
-  // --------------------------------------------------
-  // Show examples
-  // --------------------------------------------------
 
   if (mismatchExamples.length > 0) {
     console.log(`\n  ⚠ First ${mismatchExamples.length} problems:`);
@@ -1066,27 +1483,17 @@ export async function validateStockMigration(
     for (const item of mismatchExamples) {
       console.log(
         `    Product=${item.productKey} ` +
-          `Batch="${item.batchNumber}" ` +
-          `Expiry=${
-            item.expiryDate
-              ? item.expiryDate.toISOString().slice(0, 10)
-              : 'NULL'
-          } ` +
-          `old=${item.oldQuantity} ` +
-          `new=${item.newQuantity ?? 'MISSING'} ` +
+          `old=${item.oldTotal} ` +
+          `new=${item.newTotal} ` +
           `diff=${item.difference}`,
       );
     }
   }
 
-  // ==================================================
-  // FINAL STATUS
-  // ==================================================
-
-  if (mismatched === 0 && missingProduct === 0 && missingBatch === 0) {
-    console.log(`\n✔ Batch stock validation passed.`);
+  if (mismatched === 0 && missingProduct === 0) {
+    console.log(`\n✔ ProductBatch → Batch stock validation passed.`);
   } else {
-    console.log(`\n✗ Batch stock validation failed.`);
+    console.log(`\n✗ ProductBatch → Batch stock validation failed.`);
   }
 
   console.log(`\n✔ Stock validation completed.`);
@@ -1103,6 +1510,8 @@ export async function migrateStock(
   const purchaseDetailsByBatch = await loadPurchaseDetails(sqlPool);
 
   await migrateBatches(sqlPool, prisma, purchaseDetailsByBatch);
+
+  await migrateUnbatchedProductStock(sqlPool, prisma);
 
   await migratePurchaseVouchers(sqlPool, prisma);
 

@@ -68,11 +68,10 @@ model SaleItem {
     batchId String
     batch   Batch  @relation(fields: [batchId], references: [id])
 
-    packQuantity Int     @default(0)
-    saleRate     Decimal @db.Decimal(10, 2)
+    packQuantity  Int @default(0)
+    looseQuantity Int @default(0)
 
-    looseQuantity Int      @default(0)
-    looseRate     Decimal? @db.Decimal(10, 2)
+    saleRate Decimal @db.Decimal(10, 2)
 
     grossAmount Decimal @db.Decimal(12, 2)
     netAmount   Decimal @db.Decimal(12, 2)

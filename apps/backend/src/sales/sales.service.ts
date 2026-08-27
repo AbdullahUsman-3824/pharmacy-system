@@ -7,11 +7,15 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import {
   CreatePaymentDto,
+  CreateSaleItemInput,
   SaleType,
   SaleSortField,
   SalesListQuery,
   SaleListResponse,
   SaleProductOption,
+  SaleDetailDto,
+  SaleDto,
+  ReturnableSaleDto,
 } from '@repo/shared';
 import { buildPagination, withOrder } from '../common/pagination.helper';
 import { Prisma } from '../generated/prisma/client';
@@ -21,7 +25,7 @@ export class SalesService {
   constructor(private readonly prisma: PrismaService) {}
 
   // ===================== CREATE SALE =====================
-  async createSale(dto: CreateSaleDto) {
+  async createSale(dto: CreateSaleDto): Promise<SaleDetailDto> {
     const sale = await this.prisma.$transaction(async (tx) => {
       if (dto.type === SaleType.SALE_RETURN && !dto.originalSaleId) {
         throw new BadRequestException(
@@ -30,7 +34,6 @@ export class SalesService {
       }
 
       const saleNumber = await this.generateSaleNumber(tx, dto.type);
-
       const mergedItems = this.mergeDuplicateItems(dto.items);
 
       await this.validateCustomer(tx, dto);
@@ -39,25 +42,32 @@ export class SalesService {
         data: {
           saleNumber,
           type: dto.type,
-          customerId: dto.customerId,
+          customerId: dto.customerId ?? null,
           originalSaleId: dto.originalSaleId ?? null,
           date: new Date(dto.saleDate),
           remarks: dto.remarks,
         },
       });
 
+      const packingSizeMap = await this.getPackingSizeMap(tx, [
+        ...new Set(mergedItems.map((i) => i.productId)),
+      ]);
+
       let grossTotal = 0;
 
       for (const item of mergedItems) {
-        this.validateSaleItemAmounts(item);
+        const packingSize = packingSizeMap.get(item.productId)!;
+        const unitQuantity =
+          item.packQuantity * packingSize + item.looseQuantity;
+
+        this.validateSaleItemAmounts(item, unitQuantity);
 
         if (dto.type === SaleType.SALE_RETURN) {
           await this.validateReturnQuantity(tx, dto.originalSaleId!, item);
         }
 
-        const batch = await this.resolveBatchForSale(tx, item, dto.type);
-
-        await this.createSaleItem(tx, createdSale.id, batch.id, item);
+        await this.resolveBatchForSale(tx, item, dto.type, unitQuantity);
+        await this.createSaleItem(tx, createdSale.id, item.batchId, item);
 
         grossTotal += item.grossAmount;
       }
@@ -84,23 +94,8 @@ export class SalesService {
       await this.createPayments(tx, createdSale.id, netTotal, dto.payments);
 
       return tx.sale.findUnique({
-        where: {
-          id: createdSale.id,
-        },
-        include: {
-          customer: true,
-          payments: {
-            include: {
-              paymentAccount: true,
-            },
-          },
-          items: {
-            include: {
-              batch: true,
-              product: true,
-            },
-          },
-        },
+        where: { id: createdSale.id },
+        include: this.saleIncludeShape,
       });
     });
 
@@ -145,13 +140,17 @@ export class SalesService {
           type: true,
           date: true,
           customerId: true,
-          customer: { select: { id: true, name: true } },
+          customer: { select: { name: true } },
+          originalSaleId: true,
+          remarks: true,
           grossAmount: true,
           discountPercent: true,
           discountAmount: true,
           taxPercent: true,
           taxAmount: true,
           netAmount: true,
+          createdAt: true,
+          updatedAt: true,
         },
         orderBy,
         skip,
@@ -160,44 +159,38 @@ export class SalesService {
       this.prisma.sale.count({ where }),
     ]);
 
+    const data: SaleDto[] = sales.map((s) => ({
+      id: s.id,
+      saleNumber: s.saleNumber,
+      type: s.type as unknown as SaleType,
+      date: s.date.toISOString(),
+      customerId: s.customerId,
+      customer: s.customer?.name ?? null,
+      originalSaleId: s.originalSaleId,
+      remarks: s.remarks,
+      grossAmount: Number(s.grossAmount),
+      discountPercent:
+        s.discountPercent !== null ? Number(s.discountPercent) : null,
+      discountAmount: Number(s.discountAmount),
+      taxPercent: s.taxPercent !== null ? Number(s.taxPercent) : null,
+      taxAmount: Number(s.taxAmount),
+      netAmount: Number(s.netAmount),
+      createdBy: null,
+      createdAt: s.createdAt?.toISOString(),
+      updatedAt: s.updatedAt?.toISOString(),
+    }));
+
     return {
-      data: sales.map((s) => ({
-        ...s,
-        customerName: s.customer?.name ?? 'Walk-in Customer',
-        type: s.type as unknown as SaleType,
-        date: s.date.toISOString(),
-        grossAmount: Number(s.grossAmount),
-        discountPercent:
-          s.discountPercent !== null ? Number(s.discountPercent) : null,
-        discountAmount: Number(s.discountAmount),
-        taxPercent: s.taxPercent !== null ? Number(s.taxPercent) : null,
-        taxAmount: Number(s.taxAmount),
-        netAmount: Number(s.netAmount),
-      })),
+      data,
       meta: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
     };
   }
 
   // ===================== FIND ONE =====================
-  async findOne(id: string) {
+  async findOne(id: string): Promise<SaleDetailDto> {
     const sale = await this.prisma.sale.findFirst({
       where: { id, deletedAt: null },
-      include: {
-        customer: true,
-
-        payments: {
-          include: {
-            paymentAccount: true,
-          },
-        },
-
-        items: {
-          include: {
-            batch: true,
-            product: true,
-          },
-        },
-      },
+      include: this.saleIncludeShape,
     });
 
     if (!sale) {
@@ -208,26 +201,13 @@ export class SalesService {
   }
 
   // ===================== FIND BY SALE NUMBER =====================
-  async findBySaleNumber(saleNumber: string) {
+  async findBySaleNumber(saleNumber: string): Promise<SaleDetailDto> {
     const sale = await this.prisma.sale.findFirst({
       where: {
         saleNumber: { equals: saleNumber, mode: 'insensitive' },
         deletedAt: null,
       },
-      include: {
-        customer: true,
-        payments: {
-          include: {
-            paymentAccount: true,
-          },
-        },
-        items: {
-          include: {
-            batch: true,
-            product: true,
-          },
-        },
-      },
+      include: this.saleIncludeShape,
     });
 
     if (!sale) {
@@ -237,8 +217,8 @@ export class SalesService {
     return this.serializeSale(sale);
   }
 
-  // ===================== GET RETURNABLE ITEMS (optimized) =====================
-  async getReturnableItems(originalSaleId: string) {
+  // ===================== GET RETURNABLE ITEMS =====================
+  async getReturnableItems(originalSaleId: string): Promise<ReturnableSaleDto> {
     const originalSale = await this.prisma.sale.findFirst({
       where: { id: originalSaleId, deletedAt: null },
       include: {
@@ -258,7 +238,6 @@ export class SalesService {
       );
     }
 
-    // Aggregate previous returns efficiently using groupBy
     const previousReturns = await this.prisma.saleItem.groupBy({
       by: ['productId', 'batchId'],
       where: {
@@ -296,7 +275,6 @@ export class SalesService {
           batchId: item.batchId,
           batchNumber: item.batch?.batchNumber,
           saleRate: Number(item.saleRate),
-          looseRate: item.looseRate !== null ? Number(item.looseRate) : null,
           originalPackQuantity: item.packQuantity,
           originalLooseQuantity: item.looseQuantity,
           alreadyReturnedPacks: returned.pack,
@@ -331,6 +309,7 @@ export class SalesService {
     if (trimmedSearch.length < 2) {
       return [];
     }
+
     const products = await this.prisma.product.findMany({
       where: {
         isActive: true,
@@ -346,31 +325,34 @@ export class SalesService {
         name: true,
         batches: {
           where: { deletedAt: null },
-          select: { currentQuantity: true, looseQuantity: true },
+          select: { currentQuantity: true },
         },
       },
       orderBy: { name: 'asc' },
     });
 
     return products.map((p) => {
-      const totalPacks = p.batches.reduce(
+      const totalUnits = p.batches.reduce(
         (sum, b) => sum + b.currentQuantity,
         0,
       );
-      const totalLoose = p.batches.reduce((sum, b) => sum + b.looseQuantity, 0);
 
       return {
         id: p.id,
         name: p.name,
-        stock:
-          p.batches.length > 0
-            ? { packs: totalPacks, loose: totalLoose }
-            : null,
+        currentQuantity: p.batches.length > 0 ? totalUnits : null,
       };
     });
   }
 
   // ===================== PRIVATE HELPERS =====================
+
+  private readonly saleIncludeShape = {
+    customer: { select: { name: true } },
+    createdBy: { select: { name: true } },
+    payments: { include: { paymentAccount: true } },
+    items: { include: { batch: true, product: true } },
+  } as const;
 
   private async generateSaleNumber(tx: any, type: SaleType): Promise<string> {
     const dateKey = this.formatDateKey(new Date());
@@ -393,49 +375,79 @@ export class SalesService {
     return `${yy}${mm}${dd}`;
   }
 
-  private serializeSale(sale: any) {
+  private serializeSale(sale: any): SaleDetailDto {
     return {
-      ...sale,
-
-      grossAmount: Number(sale.grossAmount),
-
+      id: sale.id,
+      saleNumber: sale.saleNumber,
+      type: sale.type,
+      customerId: sale.customerId,
+      customer: sale.customer?.name ?? null,
+      originalSaleId: sale.originalSaleId,
+      remarks: sale.remarks,
+      date: sale.date.toISOString(),
       discountPercent:
         sale.discountPercent !== null ? Number(sale.discountPercent) : null,
-
-      discountAmount: Number(sale.discountAmount),
-
       taxPercent: sale.taxPercent !== null ? Number(sale.taxPercent) : null,
-
+      grossAmount: Number(sale.grossAmount),
+      discountAmount: Number(sale.discountAmount),
       taxAmount: Number(sale.taxAmount),
-
       netAmount: Number(sale.netAmount),
-
-      payments:
-        sale.payments?.map((payment: any) => ({
-          ...payment,
-          amount: Number(payment.amount),
-          paymentAccount: payment.paymentAccount,
-        })) ?? [],
-
-      items: sale.items.map((item: any) => ({
-        ...item,
-        productName: item.product?.name,
+      createdBy: sale.createdBy?.name ?? null,
+      createdAt: sale.createdAt?.toISOString(),
+      updatedAt: sale.updatedAt?.toISOString(),
+      deletedAt: sale.deletedAt ? sale.deletedAt.toISOString() : null,
+      items: (sale.items ?? []).map((item: any) => ({
+        id: item.id,
+        saleId: item.saleId,
+        productId: item.productId,
+        batchId: item.batchId,
+        packQuantity: item.packQuantity,
+        looseQuantity: item.looseQuantity,
         saleRate: Number(item.saleRate),
-        looseRate: item.looseRate !== null ? Number(item.looseRate) : null,
         grossAmount: Number(item.grossAmount),
         netAmount: Number(item.netAmount),
-
+        createdAt: item.createdAt?.toISOString(),
+        updatedAt: item.updatedAt?.toISOString(),
+        product: {
+          id: item.product.id,
+          name: item.product.name,
+          code: item.product.code,
+        },
         batch: {
-          ...item.batch,
+          id: item.batch.id,
+          batchNumber: item.batch.batchNumber,
+          expiryDate: item.batch.expiryDate
+            ? item.batch.expiryDate.toISOString()
+            : null,
           purchaseRate: Number(item.batch.purchaseRate),
           saleRate: Number(item.batch.saleRate),
+          openingQuantity: item.batch.openingQuantity,
+          currentQuantity: item.batch.currentQuantity,
+          manufacturingDate: item.batch.manufacturingDate
+            ? item.batch.manufacturingDate.toISOString()
+            : null,
+          isActive: item.batch.isActive,
         },
+      })),
+      payments: (sale.payments ?? []).map((p: any) => ({
+        id: p.id,
+        amount: Number(p.amount),
+        paymentAccountId: p.paymentAccountId,
+        type: p.type,
+        paymentAccount: p.paymentAccount
+          ? {
+              id: p.paymentAccount.id,
+              name: p.paymentAccount.name,
+            }
+          : null,
       })),
     };
   }
 
-  private mergeDuplicateItems(items: any[]): any[] {
-    const grouped = new Map<string, any>();
+  private mergeDuplicateItems(
+    items: CreateSaleItemInput[],
+  ): CreateSaleItemInput[] {
+    const grouped = new Map<string, CreateSaleItemInput>();
 
     for (const item of items) {
       const key = `${item.productId}|${item.batchId}`;
@@ -446,17 +458,7 @@ export class SalesService {
         continue;
       }
 
-      const existingSaleRate = Number(existing.saleRate);
-      const itemSaleRate = Number(item.saleRate);
-      const existingLooseRate =
-        existing.looseRate === null ? null : Number(existing.looseRate);
-      const itemLooseRate =
-        item.looseRate === null ? null : Number(item.looseRate);
-
-      if (
-        existingSaleRate !== itemSaleRate ||
-        existingLooseRate !== itemLooseRate
-      ) {
+      if (Number(existing.saleRate) !== Number(item.saleRate)) {
         throw new BadRequestException(
           `Conflicting rate for the same product/batch in one invoice (batch ${item.batchId})`,
         );
@@ -471,29 +473,35 @@ export class SalesService {
     return Array.from(grouped.values());
   }
 
-  private validateSaleItemAmounts(item: any): void {
+  private validateSaleItemAmounts(
+    item: CreateSaleItemInput,
+    unitQuantity: number,
+  ): void {
     if (item.packQuantity < 0 || item.looseQuantity < 0) {
       throw new BadRequestException(
         `Quantities must be non-negative for batch ${item.batchId}`,
       );
     }
 
-    if (item.packQuantity <= 0 && item.looseQuantity <= 0) {
+    if (unitQuantity <= 0) {
       throw new BadRequestException(
-        `Line for batch ${item.batchId} must have a pack or loose quantity greater than 0`,
+        `Line for batch ${item.batchId} must have quantity greater than 0`,
       );
     }
 
-    const expectedGross = this.round2(
-      item.packQuantity * item.saleRate +
-        item.looseQuantity * (item.looseRate || 0),
-    );
+    if (item.saleRate < 0) {
+      throw new BadRequestException(
+        `Sale rate must be non-negative for batch ${item.batchId}`,
+      );
+    }
 
+    const expectedGross = this.round2(unitQuantity * item.saleRate);
     if (Math.abs(expectedGross - item.grossAmount) > 0.01) {
       throw new BadRequestException(
         `Gross amount mismatch for batch ${item.batchId}: expected ${expectedGross}, got ${item.grossAmount}`,
       );
     }
+
     if (Math.abs(item.grossAmount - item.netAmount) > 0.01) {
       throw new BadRequestException(
         `Net amount must equal gross amount at the line level for batch ${item.batchId}`,
@@ -501,106 +509,84 @@ export class SalesService {
     }
   }
 
+  private async getPackingSizeMap(
+    tx: any,
+    productIds: string[],
+  ): Promise<Map<string, number>> {
+    const products = await tx.product.findMany({
+      where: { id: { in: productIds }, deletedAt: null },
+      select: { id: true, packingSize: true },
+    });
+
+    if (products.length !== productIds.length) {
+      const found = new Set(products.map((p: any) => p.id));
+      const missing = productIds.filter((id) => !found.has(id));
+      throw new BadRequestException(
+        `Product(s) not found: ${missing.join(', ')}`,
+      );
+    }
+
+    const map = new Map<string, number>();
+    for (const p of products) {
+      const size = Number(p.packingSize);
+      if (!size || size <= 0) {
+        throw new BadRequestException(
+          `Invalid packingSize for product ${p.id}`,
+        );
+      }
+      map.set(p.id, size);
+    }
+    return map;
+  }
+
   private async resolveBatchForSale(
     tx: any,
-    item: any,
+    item: CreateSaleItemInput,
     saleType: SaleType,
-  ): Promise<any> {
+    unitQuantity: number,
+  ): Promise<void> {
     const batch = await tx.batch.findFirst({
       where: { id: item.batchId, deletedAt: null },
-      include: { product: true },
     });
 
     if (!batch) {
       throw new NotFoundException(`Batch ${item.batchId} not found`);
     }
 
-    const packingSize = Number(batch.product.packingSize) || 1;
-
-    if (saleType === SaleType.SALE) {
-      const { currentQuantityDelta, looseQuantityDelta } =
-        this.computeStockDeltaForSale(batch, item, packingSize);
-
-      await tx.batch.update({
-        where: { id: batch.id },
-        data: {
-          currentQuantity: { increment: currentQuantityDelta },
-          looseQuantity: { increment: looseQuantityDelta },
-        },
-      });
-    } else {
-      // Return: add stock back
-      await tx.batch.update({
-        where: { id: batch.id },
-        data: {
-          currentQuantity: { increment: item.packQuantity },
-          looseQuantity: { increment: item.looseQuantity },
-        },
-      });
-    }
-
-    return batch;
-  }
-
-  private computeStockDeltaForSale(
-    batch: any,
-    item: any,
-    packingSize: number,
-  ): { currentQuantityDelta: number; looseQuantityDelta: number } {
-    if (packingSize <= 0) {
+    if (batch.productId !== item.productId) {
       throw new BadRequestException(
-        `Invalid packingSize (${packingSize}) for product in batch ${batch.batchNumber}`,
+        `Batch ${item.batchId} does not belong to product ${item.productId}`,
       );
     }
 
-    if (batch.currentQuantity < item.packQuantity) {
-      throw new BadRequestException({
-        message: `Insufficient stock in batch ${batch.batchNumber}. Available: ${batch.currentQuantity} packs, requested: ${item.packQuantity}.`,
-        code: 'INSUFFICIENT_STOCK',
-        batchId: batch.id,
-        available: batch.currentQuantity,
-        requested: item.packQuantity,
+    if (saleType === SaleType.SALE) {
+      if (batch.currentQuantity < unitQuantity) {
+        throw new BadRequestException({
+          message: `Insufficient stock in batch ${batch.batchNumber}. Available: ${batch.currentQuantity} units, requested: ${unitQuantity}.`,
+          code: 'INSUFFICIENT_STOCK',
+          batchId: batch.id,
+          available: batch.currentQuantity,
+          requested: unitQuantity,
+        });
+      }
+
+      await tx.batch.update({
+        where: { id: batch.id },
+        data: { currentQuantity: { decrement: unitQuantity } },
       });
-    }
-
-    const remainingPacksAfterPackSale =
-      batch.currentQuantity - item.packQuantity;
-
-    const availableForLoose =
-      batch.looseQuantity + remainingPacksAfterPackSale * packingSize;
-
-    if (availableForLoose < item.looseQuantity) {
-      throw new BadRequestException({
-        message: `Insufficient stock in batch ${batch.batchNumber}. Available: ${availableForLoose} loose units, requested: ${item.looseQuantity}.`,
-        code: 'INSUFFICIENT_STOCK',
-        batchId: batch.id,
-        available: availableForLoose,
-        requested: item.looseQuantity,
-      });
-    }
-
-    let currentQuantityDelta = -item.packQuantity;
-    let looseQuantityDelta = 0;
-
-    if (item.looseQuantity <= batch.looseQuantity) {
-      looseQuantityDelta = -item.looseQuantity;
     } else {
-      const shortfall = item.looseQuantity - batch.looseQuantity;
-      const packsToBreak = Math.ceil(shortfall / packingSize);
-      currentQuantityDelta -= packsToBreak;
-
-      const looseAfterBreaking =
-        batch.looseQuantity + packsToBreak * packingSize - item.looseQuantity;
-      looseQuantityDelta = looseAfterBreaking - batch.looseQuantity;
+      // SALE_RETURN → add units back
+      await tx.batch.update({
+        where: { id: batch.id },
+        data: { currentQuantity: { increment: unitQuantity } },
+      });
     }
-
-    return { currentQuantityDelta, looseQuantityDelta };
   }
 
   private async validateReturnQuantity(
     tx: any,
     originalSaleId: string,
-    item: any,
+    item: CreateSaleItemInput,
   ): Promise<void> {
     if (item.packQuantity < 0 || item.looseQuantity < 0) {
       throw new BadRequestException(
@@ -629,7 +615,11 @@ export class SalesService {
       where: {
         productId: item.productId,
         batchId: item.batchId,
-        sale: { type: SaleType.SALE_RETURN, originalSaleId },
+        sale: {
+          type: SaleType.SALE_RETURN,
+          originalSaleId,
+          deletedAt: null,
+        },
       },
     });
 
@@ -670,7 +660,7 @@ export class SalesService {
     tx: any,
     saleId: string,
     batchId: string,
-    item: any,
+    item: CreateSaleItemInput,
   ): Promise<void> {
     await tx.saleItem.create({
       data: {
@@ -678,9 +668,8 @@ export class SalesService {
         productId: item.productId,
         batchId,
         packQuantity: item.packQuantity,
-        saleRate: item.saleRate,
         looseQuantity: item.looseQuantity,
-        looseRate: item.looseQuantity > 0 ? item.looseRate : null,
+        saleRate: item.saleRate,
         grossAmount: item.grossAmount,
         netAmount: item.netAmount,
       },
@@ -696,8 +685,8 @@ export class SalesService {
     taxPercent: number,
     taxTotal: number,
     netTotal: number,
-  ): Promise<any> {
-    return tx.sale.update({
+  ): Promise<void> {
+    await tx.sale.update({
       where: { id: saleId },
       data: {
         grossAmount: grossTotal,
@@ -706,14 +695,6 @@ export class SalesService {
         taxPercent,
         taxAmount: taxTotal,
         netAmount: netTotal,
-      },
-      include: {
-        items: {
-          include: {
-            batch: true,
-            product: true,
-          },
-        },
       },
     });
   }
@@ -775,6 +756,9 @@ export class SalesService {
   }
 
   private async validateCustomer(tx: any, dto: CreateSaleDto): Promise<void> {
+    // Walk-in allowed when customerId is omitted / null
+    if (!dto.customerId) return;
+
     const customer = await tx.businessContact.findFirst({
       where: {
         id: dto.customerId,

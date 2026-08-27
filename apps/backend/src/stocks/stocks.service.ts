@@ -17,6 +17,9 @@ import {
   InventoryListResponse,
   InventorySortField,
   InventoryStatus,
+  StockVoucherItemInput,
+  StockVoucherOutput,
+  ProductStockView,
 } from '@repo/shared';
 import { buildPagination, withOrder } from '../common/pagination.helper';
 
@@ -65,13 +68,25 @@ export class StockService {
       });
 
       const mergedItems = this.mergeDuplicateItems(dto.items);
+      const packingSizeMap = await this.getPackingSizeMap(tx, [
+        ...new Set(mergedItems.map((i) => i.productId)),
+      ]);
 
       for (const item of mergedItems) {
         const expiryDate = item.expiryDate ? new Date(item.expiryDate) : null;
+        const packingSize = packingSizeMap.get(item.productId)!;
+        const unitQuantity =
+          item.packQuantity * packingSize + item.looseQuantity;
 
-        this.validateVoucherItemAmounts(item);
+        this.validateVoucherItemAmounts(item, unitQuantity);
 
-        const batch = await this.resolveBatch(tx, item, dto.type, expiryDate);
+        const batch = await this.resolveBatch(
+          tx,
+          item,
+          dto.type,
+          expiryDate,
+          unitQuantity,
+        );
 
         await this.createStockVoucherItem(tx, voucher.id, batch.id, item);
 
@@ -92,25 +107,11 @@ export class StockService {
 
       await this.createPayments(tx, voucher.id, netTotal, dto.payments);
 
-      return tx.stockVoucher.findUnique({
-        where: {
-          id: voucher.id,
-        },
-        include: {
-          supplier: true,
-          payments: {
-            include: {
-              paymentAccount: true,
-            },
-          },
-          items: {
-            include: {
-              batch: true,
-              product: true,
-            },
-          },
-        },
+      const fullVoucher = await tx.stockVoucher.findUnique({
+        where: { id: voucher.id },
+        include: this.voucherIncludeShape,
       });
+      return this.mapVoucherToDto(fullVoucher);
     });
   }
 
@@ -184,53 +185,20 @@ export class StockService {
     };
   }
 
-  async findOneVoucher(id: string) {
+  async findOneVoucher(id: string): Promise<StockVoucherOutput> {
     const voucher = await this.prisma.stockVoucher.findFirst({
       where: { id, deletedAt: null },
-      include: {
-        supplier: true,
-        payments: {
-          include: {
-            paymentAccount: true,
-          },
-        },
-        items: {
-          include: {
-            batch: true,
-            product: true,
-          },
-        },
-      },
+      include: this.voucherIncludeShape,
     });
 
     if (!voucher) {
       throw new NotFoundException(`Voucher ${id} not found`);
     }
 
-    return {
-      ...voucher,
-      grossAmount: Number(voucher.grossAmount),
-      discountAmount: Number(voucher.discountAmount),
-      taxAmount: Number(voucher.taxAmount),
-      netAmount: Number(voucher.netAmount),
-      items: voucher.items.map((item) => ({
-        ...item,
-        purchaseRate: Number(item.purchaseRate),
-        saleRate: Number(item.saleRate),
-        grossAmount: Number(item.grossAmount),
-        discountAmount: Number(item.discountAmount),
-        taxAmount: Number(item.taxAmount),
-        netAmount: Number(item.netAmount),
-        batch: {
-          ...item.batch,
-          purchaseRate: Number(item.batch.purchaseRate),
-          saleRate: Number(item.batch.saleRate),
-        },
-      })),
-    };
+    return this.mapVoucherToDto(voucher);
   }
 
-  async getProductStock(productId: string) {
+  async getProductStock(productId: string): Promise<ProductStockView> {
     const batches = await this.prisma.batch.findMany({
       where: {
         productId,
@@ -240,8 +208,6 @@ export class StockService {
         },
       },
       include: {
-        // needed for packingSize — POS uses this to compute the per-unit
-        // (loose) rate and to know how many loose units one pack breaks into
         product: {
           select: {
             packingSize: true,
@@ -249,16 +215,15 @@ export class StockService {
         },
       },
       orderBy: {
-        expiryDate: 'asc', // FEFO
+        expiryDate: 'asc',
       },
     });
 
     const mappedBatches = batches.map((b) => ({
       batchId: b.id,
       batchNumber: b.batchNumber,
-      expiryDate: b.expiryDate,
+      expiryDate: b.expiryDate ? b.expiryDate.toISOString() : null,
       currentQuantity: b.currentQuantity,
-      looseQuantity: b.looseQuantity,
       packingSize: Number(b.product.packingSize),
       purchaseRate: Number(b.purchaseRate),
       saleRate: Number(b.saleRate),
@@ -574,7 +539,9 @@ export class StockService {
     return `${yy}${mm}${dd}`;
   }
 
-  private mergeDuplicateItems(items: any[]): any[] {
+  private mergeDuplicateItems(
+    items: StockVoucherItemInput[],
+  ): StockVoucherItemInput[] {
     const grouped = new Map<string, any>();
 
     for (const item of items) {
@@ -596,7 +563,8 @@ export class StockService {
         );
       }
 
-      existing.quantity += item.quantity;
+      existing.packQuantity += item.packQuantity;
+      existing.looseQuantity += item.looseQuantity;
       existing.freeQuantity =
         (existing.freeQuantity ?? 0) + (item.freeQuantity ?? 0);
       existing.grossAmount += item.grossAmount;
@@ -609,11 +577,19 @@ export class StockService {
     return Array.from(grouped.values());
   }
 
-  private validateVoucherItemAmounts(item: any): void {
+  private validateVoucherItemAmounts(
+    item: StockVoucherItemInput,
+    unitQuantity: number,
+  ): void {
     // Prevent negative quantities and rates
-    if (item.quantity < 0) {
+    if (item.packQuantity < 0) {
       throw new BadRequestException(
-        `Quantity must be non-negative for batch ${item.batchNumber}`,
+        `Pack quantity must be non-negative for batch ${item.batchNumber}`,
+      );
+    }
+    if (item.looseQuantity < 0) {
+      throw new BadRequestException(
+        `Loose quantity must be non-negative for batch ${item.batchNumber}`,
       );
     }
     if ((item.freeQuantity ?? 0) < 0) {
@@ -627,8 +603,14 @@ export class StockService {
       );
     }
 
+    if (unitQuantity + (item.freeQuantity ?? 0) <= 0) {
+      throw new BadRequestException(
+        `Quantity must be greater than zero for batch ${item.batchNumber}`,
+      );
+    }
+
     // Validate gross amount = quantity * purchaseRate with rounding tolerance
-    const expectedGross = this.round2(item.quantity * item.purchaseRate);
+    const expectedGross = this.round2(unitQuantity * item.purchaseRate);
     if (Math.abs(expectedGross - item.grossAmount) > 0.01) {
       throw new BadRequestException(
         `Gross amount mismatch for batch ${item.batchNumber}: expected ${expectedGross}, got ${item.grossAmount}`,
@@ -636,11 +618,42 @@ export class StockService {
     }
   }
 
+  private async getPackingSizeMap(
+    tx: any,
+    productIds: string[],
+  ): Promise<Map<string, number>> {
+    const products = await tx.product.findMany({
+      where: { id: { in: productIds }, deletedAt: null },
+      select: { id: true, packingSize: true },
+    });
+
+    if (products.length !== productIds.length) {
+      const found = new Set(products.map((p) => p.id));
+      const missing = productIds.filter((id) => !found.has(id));
+      throw new BadRequestException(
+        `Product(s) not found: ${missing.join(', ')}`,
+      );
+    }
+
+    const map = new Map<string, number>();
+    for (const p of products) {
+      const size = Number(p.packingSize);
+      if (!size || size <= 0) {
+        throw new BadRequestException(
+          `Invalid packingSize for product ${p.id}`,
+        );
+      }
+      map.set(p.id, size);
+    }
+    return map;
+  }
+
   private async resolveBatch(
     tx: any,
-    item: any,
+    item: StockVoucherItemInput,
     voucherType: StockVoucherType,
     expiryDate: Date | null,
+    unitQuantity: number,
   ): Promise<any> {
     let batch = await tx.batch.findFirst({
       where: {
@@ -661,9 +674,9 @@ export class StockService {
           saleRate: item.saleRate,
           openingQuantity:
             voucherType === StockVoucherType.OPENING
-              ? item.quantity + (item.freeQuantity ?? 0)
+              ? unitQuantity + (item.freeQuantity ?? 0)
               : 0,
-          currentQuantity: item.quantity + (item.freeQuantity ?? 0),
+          currentQuantity: unitQuantity + (item.freeQuantity ?? 0),
         },
       });
     } else {
@@ -701,7 +714,7 @@ export class StockService {
         },
         data: {
           currentQuantity: {
-            increment: item.quantity + (item.freeQuantity ?? 0),
+            increment: unitQuantity + (item.freeQuantity ?? 0),
           },
           ...(rateChanged && {
             purchaseRate: item.purchaseRate,
@@ -713,7 +726,7 @@ export class StockService {
       batch = {
         ...batch,
         currentQuantity:
-          batch.currentQuantity + item.quantity + (item.freeQuantity ?? 0),
+          batch.currentQuantity + unitQuantity + (item.freeQuantity ?? 0),
         ...(rateChanged && {
           purchaseRate: item.purchaseRate,
           saleRate: item.saleRate,
@@ -727,7 +740,7 @@ export class StockService {
     tx: any,
     voucherId: string,
     batchId: string,
-    item: any,
+    item: StockVoucherItemInput,
   ): Promise<void> {
     await tx.stockVoucherItem.create({
       data: {
@@ -736,7 +749,8 @@ export class StockService {
         batchId,
         purchaseRate: item.purchaseRate,
         saleRate: item.saleRate,
-        quantity: item.quantity,
+        packQuantity: item.packQuantity,
+        looseQuantity: item.looseQuantity,
         freeQuantity: item.freeQuantity ?? 0,
         grossAmount: item.grossAmount,
         discountPercent: item.discountPercent ?? null,
@@ -780,5 +794,77 @@ export class StockService {
 
   private round2(value: number): number {
     return parseFloat(value.toFixed(2));
+  }
+
+  private readonly voucherIncludeShape = {
+    supplier: { select: { name: true } },
+    createdBy: { select: { name: true } },
+    payments: { include: { paymentAccount: true } },
+    items: { include: { batch: true, product: true } },
+  } as const;
+
+  private mapVoucherToDto(voucher: any): StockVoucherOutput {
+    return {
+      id: voucher.id,
+      voucherNumber: voucher.voucherNumber,
+      type: voucher.type,
+      supplierId: voucher.supplierId,
+      supplier: voucher.supplier?.name ?? null,
+      date: voucher.date.toISOString(),
+      remarks: voucher.remarks,
+      grossAmount: Number(voucher.grossAmount),
+      discountAmount: Number(voucher.discountAmount),
+      taxAmount: Number(voucher.taxAmount),
+      netAmount: Number(voucher.netAmount),
+      createdBy: voucher.createdBy?.name ?? null,
+      createdAt: voucher.createdAt.toISOString(),
+      updatedAt: voucher.updatedAt.toISOString(),
+      items: voucher.items.map((item: any) => ({
+        id: item.id,
+        productId: item.productId,
+        batchId: item.batchId,
+        batchNumber: item.batch.batchNumber,
+        expiryDate: item.batch.expiryDate
+          ? item.batch.expiryDate.toISOString()
+          : null,
+        packQuantity: item.packQuantity,
+        looseQuantity: item.looseQuantity,
+        freeQuantity: item.freeQuantity,
+        purchaseRate: Number(item.purchaseRate),
+        saleRate: Number(item.saleRate),
+        grossAmount: Number(item.grossAmount),
+        discountPercent: item.discountPercent
+          ? Number(item.discountPercent)
+          : undefined,
+        discountAmount: Number(item.discountAmount),
+        taxPercent: item.taxPercent ? Number(item.taxPercent) : undefined,
+        taxAmount: Number(item.taxAmount),
+        netAmount: Number(item.netAmount),
+        product: {
+          id: item.product.id,
+          name: item.product.name,
+          code: item.product.code,
+        },
+        batch: {
+          id: item.batch.id,
+          batchNumber: item.batch.batchNumber,
+          expiryDate: item.batch.expiryDate
+            ? item.batch.expiryDate.toISOString()
+            : null,
+        },
+      })),
+      payments: (voucher.payments ?? []).map((p: any) => ({
+        id: p.id,
+        amount: Number(p.amount),
+        paymentAccountId: p.paymentAccountId,
+        paymentAccount: p.paymentAccount
+          ? {
+              id: p.paymentAccount.id,
+              name: p.paymentAccount.name,
+              type: p.paymentAccount.type,
+            }
+          : null,
+      })),
+    };
   }
 }
