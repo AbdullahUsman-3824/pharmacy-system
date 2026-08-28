@@ -154,6 +154,11 @@ export async function loadPurchaseDetails(
  * This keeps the merge deterministic and avoids silently
  * picking an arbitrary "first" real batch when the source data
  * doesn't give us a safe target.
+ *
+ * NOTE: Batch.currentQuantity / openingQuantity are unit-based
+ * in the new schema, and bat_qtyin / bat_qtybal are already
+ * unit-based in the old system, so no pack/loose conversion is
+ * needed here. Batch has no looseQuantity column at all.
  */
 
 export async function migrateBatches(
@@ -193,8 +198,6 @@ export async function migrateBatches(
   const skipReasons: Record<string, number> = {
     'product not migrated': 0,
   };
-  const errors: { batchNumber: string; error: unknown }[] = [];
-  const missingErrors: { key: string; error: unknown }[] = [];
 
   // --------------------------------------------------
   // Classify rows: real (has batch number) vs missing.
@@ -310,8 +313,6 @@ export async function migrateBatches(
         openingQuantity,
         currentQuantity,
 
-        looseQuantity: 0,
-
         manufacturingDate: null,
 
         isActive: true,
@@ -368,13 +369,8 @@ export async function migrateBatches(
         // belongs to.
         productExpiryBatchMap.delete(productExpiryKey);
       }
-    } catch (err) {
+    } catch {
       failed++;
-
-      errors.push({
-        batchNumber: String(oldBatch[stockMapping.batch.batchNumber]),
-        error: err,
-      });
     }
 
     renderProgressBar(index + 1, realRows.length, 'batches (real)');
@@ -382,9 +378,9 @@ export async function migrateBatches(
 
   process.stdout.write('\n');
 
-  const ambiguousKeys = [...realBatchCountByKey.entries()]
-    .filter(([, count]) => count > 1)
-    .map(([key]) => key);
+  const ambiguousKeyCount = [...realBatchCountByKey.values()].filter(
+    (count) => count > 1,
+  ).length;
 
   // --------------------------------------------------
   // PASS 2: missing-batch groups — merge into a real
@@ -491,8 +487,6 @@ export async function migrateBatches(
           openingQuantity: openingQuantitySum,
           currentQuantity: currentQuantitySum,
 
-          looseQuantity: 0,
-
           manufacturingDate: null,
 
           isActive: true,
@@ -534,10 +528,8 @@ export async function migrateBatches(
 
         generatedAuto++;
       }
-    } catch (err) {
+    } catch {
       missingFailed++;
-
-      missingErrors.push({ key: productExpiryKey, error: err });
     }
 
     renderProgressBar(
@@ -548,22 +540,6 @@ export async function migrateBatches(
   }
 
   process.stdout.write('\n');
-
-  if (errors.length > 0) {
-    console.log(`  ✗ ${errors.length} batch(es) failed:`);
-
-    for (const { batchNumber, error } of errors) {
-      console.error(`    - ${batchNumber}`, error);
-    }
-  }
-
-  if (missingErrors.length > 0) {
-    console.log(`  ✗ ${missingErrors.length} missing-batch group(s) failed:`);
-
-    for (const { key, error } of missingErrors) {
-      console.error(`    - ${key}`, error);
-    }
-  }
 
   const seconds = ((Date.now() - startTime) / 1000).toFixed(1);
 
@@ -577,11 +553,11 @@ export async function migrateBatches(
       `unambiguous real batch, ${generatedAuto} auto-generated`,
   );
 
-  if (ambiguousKeys.length > 0) {
+  if (ambiguousKeyCount > 0) {
     console.log(
-      `  ⚠ ${ambiguousKeys.length} product+expiry group(s) had more than ` +
-        `one real batch number — any missing-batch stock for these was ` +
-        `auto-generated instead of merged. Review these.`,
+      `  ⚠ ${ambiguousKeyCount} product+expiry group(s) had more than one ` +
+        `real batch number — any missing-batch stock for these was ` +
+        `auto-generated instead of merged.`,
     );
   }
 
@@ -667,14 +643,6 @@ export async function migrateUnbatchedProductStock(
   const skipReasons: Record<string, number> = {
     'product not migrated': 0,
   };
-  const errors: { productKey: string; error: unknown }[] = [];
-
-  const negativeMismatchExamples: Array<{
-    productKey: string;
-    prdStock: number;
-    alreadyBatched: number;
-    leftover: number;
-  }> = [];
 
   for (const [index, oldProduct] of oldProducts.entries()) {
     try {
@@ -710,17 +678,8 @@ export async function migrateUnbatchedProductStock(
       if (leftover < 0) {
         // prd_stock is lower than what ProductBatch already
         // accounts for. Don't touch migrated batch data — just
-        // report it so it can be reviewed against the source.
+        // count it so it can be reviewed against the source.
         negativeMismatch++;
-
-        if (negativeMismatchExamples.length < 20) {
-          negativeMismatchExamples.push({
-            productKey: oldProductKey,
-            prdStock,
-            alreadyBatched,
-            leftover,
-          });
-        }
 
         renderProgressBar(index + 1, oldProducts.length, 'unbatched stock');
 
@@ -742,8 +701,6 @@ export async function migrateUnbatchedProductStock(
 
         openingQuantity: leftover,
         currentQuantity: leftover,
-
-        looseQuantity: 0,
 
         manufacturingDate: null,
 
@@ -779,27 +736,14 @@ export async function migrateUnbatchedProductStock(
 
         created++;
       }
-    } catch (err) {
+    } catch {
       failed++;
-
-      errors.push({
-        productKey: String(oldProduct[stockMapping.product.oldKey]),
-        error: err,
-      });
     }
 
     renderProgressBar(index + 1, oldProducts.length, 'unbatched stock');
   }
 
   process.stdout.write('\n');
-
-  if (errors.length > 0) {
-    console.log(`  ✗ ${errors.length} product(s) failed:`);
-
-    for (const { productKey, error } of errors) {
-      console.error(`    - ${productKey}`, error);
-    }
-  }
 
   const seconds = ((Date.now() - startTime) / 1000).toFixed(1);
 
@@ -811,19 +755,9 @@ export async function migrateUnbatchedProductStock(
 
   if (negativeMismatch > 0) {
     console.log(
-      `  ✗ ${negativeMismatch} product(s) have prd_stock LOWER than ` +
-        `their migrated ProductBatch total — NOT auto-corrected, ` +
-        `review these:`,
+      `  ✗ ${negativeMismatch} product(s) have prd_stock LOWER than their ` +
+        `migrated ProductBatch total — NOT auto-corrected, review these.`,
     );
-
-    for (const item of negativeMismatchExamples) {
-      console.log(
-        `    Product=${item.productKey} ` +
-          `prd_stock=${item.prdStock} ` +
-          `batched=${item.alreadyBatched} ` +
-          `diff=${item.leftover}`,
-      );
-    }
   }
 }
 
@@ -871,8 +805,6 @@ export async function migratePurchaseVouchers(
   let paymentsCreated = 0;
   let paymentsUpdated = 0;
   let failed = 0;
-
-  const errors: { oldKey: string; error: unknown }[] = [];
 
   for (const [index, oldVoucher] of vouchers.entries()) {
     try {
@@ -1060,26 +992,14 @@ export async function migratePurchaseVouchers(
       // --------------------------------------------------
 
       purchaseVoucherMap.set(oldKey, newVoucher.id);
-    } catch (err) {
+    } catch {
       failed++;
-
-      errors.push({
-        oldKey: String(oldVoucher[stockMapping.purchaseMain.oldKey]),
-        error: err,
-      });
     }
 
     renderProgressBar(index + 1, vouchers.length, 'purchase vouchers');
   }
 
   process.stdout.write('\n');
-  if (errors.length > 0) {
-    console.log(`  ✗ ${errors.length} voucher(s) failed:`);
-
-    for (const { oldKey, error } of errors) {
-      console.error(`    - ${oldKey}`, error);
-    }
-  }
 
   const seconds = ((Date.now() - startTime) / 1000).toFixed(1);
 
@@ -1096,6 +1016,12 @@ export async function migratePurchaseVouchers(
  * ------------------------------------------------------------
  * STEP 4: Migrate PurchaseDetail → StockVoucherItem, routing
  * ------------------------------------------------------------
+ *
+ * pur_pack / pur_loose map directly to the new
+ * StockVoucherItem.packQuantity / looseQuantity columns — the
+ * schema is hybrid now (pack + loose kept separate), so no
+ * packingSize conversion into a combined unit quantity is
+ * needed here anymore.
  */
 
 export async function migratePurchaseItems(
@@ -1107,17 +1033,6 @@ export async function migratePurchaseItems(
   const startTime = Date.now();
 
   const cutoffDate = getHistoryCutoffDate();
-
-  const products = await prisma.product.findMany({
-    select: {
-      id: true,
-      packingSize: true,
-    },
-  });
-
-  const packingSizeByProductId = new Map(
-    products.map((product) => [product.id, Number(product.packingSize)]),
-  );
 
   const result = await sqlPool.request().input('cutoffDate', cutoffDate).query(`
       SELECT
@@ -1163,8 +1078,6 @@ export async function migratePurchaseItems(
   };
 
   const grossByVoucherId = new Map<string, number>();
-
-  const errors: { index: number; error: unknown }[] = [];
 
   for (const [index, oldItem] of items.entries()) {
     try {
@@ -1265,12 +1178,9 @@ export async function migratePurchaseItems(
         oldItem[stockMapping.purchaseDetail.netAmount] ?? 0,
       );
 
-      const packingSize = packingSizeByProductId.get(productId) ?? 1;
-
-      const quantity = pack * packingSize + loose;
-
       const allFit =
-        fitsInt(quantity) &&
+        fitsInt(pack) &&
+        fitsInt(loose) &&
         fitsInt(free) &&
         fitsDecimal(purchaseRate, 10, 2) &&
         fitsDecimal(saleRate, 10, 2) &&
@@ -1296,7 +1206,8 @@ export async function migratePurchaseItems(
           productId,
           batchId,
 
-          quantity: Math.round(quantity),
+          packQuantity: Math.round(pack),
+          looseQuantity: Math.round(loose),
 
           freeQuantity: Math.round(free),
 
@@ -1321,23 +1232,14 @@ export async function migratePurchaseItems(
         voucherId,
         (grossByVoucherId.get(voucherId) ?? 0) + grossAmount,
       );
-    } catch (err) {
+    } catch {
       failed++;
-
-      errors.push({ index, error: err });
     }
 
     renderProgressBar(index + 1, items.length, 'purchase items');
   }
 
   process.stdout.write('\n');
-  if (errors.length > 0) {
-    console.log(`  ✗ ${errors.length} purchase item(s) failed:`);
-
-    for (const { index, error } of errors) {
-      console.error(`    - index ${index}`, error);
-    }
-  }
 
   console.log(
     `  Backfilling StockVoucher.grossAmount for ` +
@@ -1435,13 +1337,6 @@ export async function validateStockMigration(
   let mismatched = 0;
   let missingProduct = 0;
 
-  const mismatchExamples: Array<{
-    productKey: string;
-    oldTotal: number;
-    newTotal: number;
-    difference: number;
-  }> = [];
-
   for (const row of oldTotals) {
     const oldProductKey = String(row.oldProductKey).trim();
 
@@ -1459,15 +1354,6 @@ export async function validateStockMigration(
       matched++;
     } else {
       mismatched++;
-
-      if (mismatchExamples.length < 20) {
-        mismatchExamples.push({
-          productKey: oldProductKey,
-          oldTotal,
-          newTotal,
-          difference: newTotal - oldTotal,
-        });
-      }
     }
   }
 
@@ -1476,19 +1362,6 @@ export async function validateStockMigration(
   console.log(`    Matched:            ${matched}`);
   console.log(`    Mismatched:         ${mismatched}`);
   console.log(`    Missing product:    ${missingProduct}`);
-
-  if (mismatchExamples.length > 0) {
-    console.log(`\n  ⚠ First ${mismatchExamples.length} problems:`);
-
-    for (const item of mismatchExamples) {
-      console.log(
-        `    Product=${item.productKey} ` +
-          `old=${item.oldTotal} ` +
-          `new=${item.newTotal} ` +
-          `diff=${item.difference}`,
-      );
-    }
-  }
 
   if (mismatched === 0 && missingProduct === 0) {
     console.log(`\n✔ ProductBatch → Batch stock validation passed.`);

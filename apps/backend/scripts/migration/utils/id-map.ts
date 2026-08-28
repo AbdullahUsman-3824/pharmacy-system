@@ -11,6 +11,8 @@ export const accountTypeMap = new Map<
   'BUSINESS_CONTACT' | 'PAYMENT_ACCOUNT'
 >();
 
+export const userMap = new Map<string | number, string>();
+
 export const purchaseVoucherMap = new Map<string, string>();
 export const batchMap = new Map<string, string>();
 

@@ -14,16 +14,10 @@ import { UserType } from '@repo/shared';
 import { UsersService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { VerifyPinDto } from './dto/verify-pin.dto';
 
 @Controller('user')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
-
-  @Post('verify-pin')
-  verifyPin(@Body() verifyPinDto: VerifyPinDto) {
-    return this.usersService.verifyPin(verifyPinDto);
-  }
 
   @Get()
   findAll(

@@ -3,12 +3,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import * as argon2 from 'argon2';
 import { UserType } from '@repo/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { VerifyPinDto } from './dto/verify-pin.dto';
 import { Prisma } from '../generated/prisma/client';
 
 @Injectable()
@@ -23,10 +21,6 @@ export class UsersService {
     createdAt: true,
     updatedAt: true,
   } satisfies Prisma.UserSelect;
-
-  private async hashPin(pin: string): Promise<string> {
-    return argon2.hash(pin, { type: argon2.argon2id });
-  }
 
   async findAll(filters: { type?: UserType; search?: string }) {
     const { type, search } = filters;
@@ -60,12 +54,10 @@ export class UsersService {
 
   async create(createUserDto: CreateUserDto) {
     try {
-      const hashedPin = await this.hashPin(createUserDto.pin);
-
       return await this.prisma.user.create({
         data: {
           name: createUserDto.name,
-          pin: hashedPin,
+          pin: createUserDto.pin,
           type: createUserDto.type,
           isActive: createUserDto.isActive ?? true,
         },
@@ -83,19 +75,14 @@ export class UsersService {
   async update(id: string, updateUserDto: UpdateUserDto) {
     await this.findOne(id);
 
-    const hashedPin =
-      updateUserDto.pin !== undefined
-        ? await this.hashPin(updateUserDto.pin)
-        : undefined;
-
     return this.prisma.user.update({
       where: { id },
       data: {
         ...(updateUserDto.name !== undefined && {
           name: updateUserDto.name,
         }),
-        ...(hashedPin !== undefined && {
-          pin: hashedPin,
+        ...(updateUserDto.pin !== undefined && {
+          pin: updateUserDto.pin,
         }),
         ...(updateUserDto.type !== undefined && {
           type: updateUserDto.type,
@@ -118,35 +105,6 @@ export class UsersService {
     return {
       message: 'User deleted successfully',
       id,
-    };
-  }
-
-  async verifyPin(verifyPinDto: VerifyPinDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: verifyPinDto.userId },
-    });
-
-    if (!user || !user.isActive) {
-      return {
-        valid: false,
-        userId: verifyPinDto.userId,
-      };
-    }
-
-    const isValid = await argon2.verify(user.pin, verifyPinDto.pin);
-
-    if (!isValid) {
-      return {
-        valid: false,
-        userId: verifyPinDto.userId,
-      };
-    }
-
-    return {
-      valid: true,
-      userId: user.id,
-      name: user.name,
-      type: user.type,
     };
   }
 }
