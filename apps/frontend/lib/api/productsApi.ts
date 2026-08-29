@@ -7,13 +7,19 @@ import {
   ProductsListResponse,
 } from "@repo/shared";
 
+export interface ProductOption {
+  id: string;
+  name: string;
+  packingSize: number;
+}
+
 export const productsApi = {
   list: async (params?: ProductsListQuery): Promise<ProductsListResponse> => {
     const { data } = await apiClient.get("/products", { params });
     return data;
   },
 
-  options: async (search: string): Promise<{ id: string; name: string }[]> => {
+  options: async (search: string): Promise<ProductOption[]> => {
     const { data } = await apiClient.get("/products/options", {
       params: { search },
     });

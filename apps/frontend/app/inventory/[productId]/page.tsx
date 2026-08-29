@@ -161,11 +161,16 @@ export default function ProductStockPage() {
     {
       key: "batchNumber",
       title: "Batch #",
-      render: (row: BatchRow) => (
-        <span className="font-medium text-[var(--color-text)]">
-          {row.batchNumber}
-        </span>
-      ),
+      render: (row: BatchRow) => {
+        const isAuto = row.batchNumber.includes("AUTO");
+        return (
+          <div>
+            <span className="font-mono text-sm">
+              {isAuto ? "N/A" : row.batchNumber}
+            </span>
+          </div>
+        );
+      },
     },
     {
       key: "expiryDate",

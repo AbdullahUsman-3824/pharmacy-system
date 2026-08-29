@@ -13,7 +13,7 @@ import {
   Download,
   Loader2,
   Package,
-  Calendar,
+  // Calendar,
   Hash,
   Building2,
   FileText,
@@ -106,24 +106,37 @@ export default function ViewVoucherPage() {
     {
       key: "batch",
       title: "Batch",
-      render: (row: VoucherItemRow) => (
-        <div>
-          <span className="font-mono text-xs">{row.batch.batchNumber}</span>
-          {row.batch.expiryDate && (
-            <span className="text-xs text-[var(--color-text-secondary)] ml-2">
-              Exp: {new Date(row.batch.expiryDate).toLocaleDateString()}
+      render: (row: VoucherItemRow) => {
+        const isAuto = row.batch.batchNumber.includes("AUTO");
+        return (
+          <div>
+            <span className="font-mono text-xs">
+              {isAuto ? "N/A" : row.batch.batchNumber}
             </span>
-          )}
-        </div>
+            {row.batch.expiryDate && (
+              <span className="text-xs text-[var(--color-text-secondary)] ml-2">
+                Exp: {new Date(row.batch.expiryDate).toLocaleDateString()}
+              </span>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      key: "packQuantity",
+      title: "Pack",
+      align: "right",
+      render: (row: VoucherItemRow) => (
+        <span className="font-semibold">{row.packQuantity}</span>
       ),
     },
     {
-      key: "quantity",
-      title: "Qty",
+      key: "looseQuantity",
+      title: "Loose",
       align: "right",
       render: (row: VoucherItemRow) => (
         <span className="font-semibold">
-          {row.quantity}
+          {row.looseQuantity}
           {row.freeQuantity > 0 && (
             <span className="text-xs text-[var(--color-success)] font-normal ml-1">
               (+{row.freeQuantity} free)
@@ -184,7 +197,7 @@ export default function ViewVoucherPage() {
                 <VoucherTypeBadge type={voucher.type} />
               </MetaField>
 
-              <MetaField icon={<Calendar className="w-4 h-4" />} label="Date">
+              {/* <MetaField icon={<Calendar className="w-4 h-4" />} label="Date">
                 <span className="text-sm font-semibold text-[var(--color-text)]">
                   {new Date(voucher.date).toLocaleDateString("en-US", {
                     weekday: "short",
@@ -193,15 +206,15 @@ export default function ViewVoucherPage() {
                     year: "numeric",
                   })}
                 </span>
-              </MetaField>
+              </MetaField> */}
 
-              {voucher.distributorId && voucher.distributor && (
+              {voucher.supplier && (
                 <MetaField
                   icon={<Building2 className="w-4 h-4" />}
-                  label="Distributor"
+                  label="Supplier"
                 >
                   <span className="text-sm font-semibold text-[var(--color-text)]">
-                    {voucher.distributor.name}
+                    {voucher.supplier}
                   </span>
                 </MetaField>
               )}

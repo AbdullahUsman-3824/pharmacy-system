@@ -8,10 +8,10 @@ export const saleItemSchema = z
     batchId: z.string().min(1, "Batch required"),
     batchNumber: z.string().optional(),
     expiryDate: z.string().optional().nullable(),
-    packQuantity: z.coerce.number().min(0).default(0),
-    saleRate: z.coerce.number().min(0, "Rate too low"), // rate per pack
-    looseQuantity: z.coerce.number().min(0).default(0),
-    looseRate: z.coerce.number().min(0).default(0), // rate per loose unit
+    packingSize: z.coerce.number().positive().default(1),
+    packQuantity: z.coerce.number().int().min(0).default(0),
+    looseQuantity: z.coerce.number().int().min(0).default(0),
+    saleRate: z.coerce.number().min(0, "Rate too low"),
   })
   .refine((data) => data.packQuantity > 0 || data.looseQuantity > 0, {
     message: "Enter a pack or loose quantity",
@@ -26,12 +26,12 @@ const paymentSchema = z.object({
 export const saleFormSchema = z
   .object({
     type: z.nativeEnum(SaleType),
-    customerId: z.string().min(1, "Customer required"),
+    customerId: z.string().optional(),
     customerName: z.string().default("Walk-in Customer"),
     saleDate: z.string().min(1, "Date required"),
     originalSaleId: z.string().optional().nullable(),
     remarks: z.string().optional(),
-    
+
     // bill-level discount/tax — applied once on the invoice total
     discountPercent: z.coerce.number().min(0).max(100).default(0),
     taxPercent: z.coerce.number().min(0).max(100).default(0),

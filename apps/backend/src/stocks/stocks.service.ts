@@ -36,6 +36,7 @@ export interface InventoryRow {
   total_quantity: bigint;
   nearest_expiry_date: Date | null;
   has_near_expiry: boolean;
+  batch_count: number;
 }
 
 @Injectable()
@@ -78,7 +79,7 @@ export class StockService {
         const unitQuantity =
           item.packQuantity * packingSize + item.looseQuantity;
 
-        this.validateVoucherItemAmounts(item, unitQuantity);
+        this.validateVoucherItemAmounts(item, packingSize);
 
         const batch = await this.resolveBatch(
           tx,
@@ -86,6 +87,7 @@ export class StockService {
           dto.type,
           expiryDate,
           unitQuantity,
+          packingSize,
         );
 
         await this.createStockVoucherItem(tx, voucher.id, batch.id, item);
@@ -278,18 +280,16 @@ export class StockService {
     const search = query.search?.trim();
     const isSearching = !!search && search.length >= 2;
 
-    // ---- WHERE conditions (product-level, applied before aggregation) ----
     const productConditions: Prisma.Sql[] = [Prisma.sql`p."deletedAt" IS NULL`];
     if (isSearching) {
       productConditions.push(Prisma.sql`(
-    p.name ILIKE ${'%' + search + '%'}
-    OR p.code ILIKE ${'%' + search + '%'}
-    OR p.barcode ILIKE ${'%' + search + '%'}
-  )`);
+      p.name ILIKE ${'%' + search + '%'}
+      OR p.code ILIKE ${'%' + search + '%'}
+      OR p.barcode ILIKE ${'%' + search + '%'}
+    )`);
     }
     const productWhere = Prisma.join(productConditions, ' AND ');
 
-    // ---- HAVING-equivalent conditions (post-aggregation, applied on batch_agg) ----
     const statusConditions: Prisma.Sql[] = [];
     if (query.status?.length) {
       for (const s of query.status) {
@@ -315,12 +315,12 @@ export class StockService {
     const sortDir =
       query.sortOrder === 'desc' ? Prisma.sql`DESC` : Prisma.sql`ASC`;
 
-    // ---- Shared CTE, reused by list / count / summary queries ----
     const baseCte = Prisma.sql`
     WITH batch_agg AS (
       SELECT
         b."productId",
         SUM(b."currentQuantity") AS total_quantity,
+        COUNT(*) FILTER (WHERE b."currentQuantity" > 0)::int AS batch_count,
         MIN(b."expiryDate") FILTER (WHERE b."currentQuantity" > 0) AS nearest_expiry_date,
         BOOL_OR(
           b."currentQuantity" > 0
@@ -336,7 +336,7 @@ export class StockService {
       SELECT
         p.id, p.code, p.barcode, p.name, p."shelfNo", p."retailRate", p."minimumStock",
         g.name AS group_name, gen.name AS generic_name,
-        ba.total_quantity, ba.nearest_expiry_date, ba.has_near_expiry
+        ba.total_quantity, ba.batch_count, ba.nearest_expiry_date, ba.has_near_expiry
       FROM "Product" p
       INNER JOIN batch_agg ba ON ba."productId" = p.id
       LEFT JOIN "ProductGroup" g ON g.id = p."groupId"
@@ -346,7 +346,6 @@ export class StockService {
     )
   `;
 
-    // ---- Page of results, count, and pre-pagination summary — 3 lightweight queries ----
     const [rows, countResult, summaryResult] = await Promise.all([
       this.prisma.$queryRaw<InventoryRow[]>`
       ${baseCte}
@@ -371,21 +370,6 @@ export class StockService {
 
     const total = Number(countResult[0]?.count ?? 0);
 
-    // ---- Batch details only for the current page's products (small IN clause) ----
-    const productIds = rows.map((r) => r.id);
-    const batches = productIds.length
-      ? await this.prisma.batch.findMany({
-          where: { productId: { in: productIds }, deletedAt: null },
-          orderBy: { expiryDate: 'asc' },
-        })
-      : [];
-    const batchesByProduct = new Map<string, typeof batches>();
-    for (const b of batches) {
-      const list = batchesByProduct.get(b.productId) ?? [];
-      list.push(b);
-      batchesByProduct.set(b.productId, list);
-    }
-
     const data: InventoryProductDto[] = rows.map((r) => {
       const totalQuantity = Number(r.total_quantity);
       return {
@@ -405,14 +389,7 @@ export class StockService {
           ? new Date(r.nearest_expiry_date).toISOString()
           : null,
         hasNearExpiryBatch: r.has_near_expiry,
-        batches: (batchesByProduct.get(r.id) ?? []).map((b) => ({
-          batchId: b.id,
-          batchNumber: b.batchNumber,
-          expiryDate: b.expiryDate ? b.expiryDate.toISOString() : null,
-          currentQuantity: b.currentQuantity,
-          purchaseRate: b.purchaseRate ? Number(b.purchaseRate) : null,
-          saleRate: b.saleRate ? Number(b.saleRate) : null,
-        })),
+        batchCount: Number(r.batch_count),
       };
     });
 
@@ -579,9 +556,8 @@ export class StockService {
 
   private validateVoucherItemAmounts(
     item: StockVoucherItemInput,
-    unitQuantity: number,
+    packingSize: number,
   ): void {
-    // Prevent negative quantities and rates
     if (item.packQuantity < 0) {
       throw new BadRequestException(
         `Pack quantity must be non-negative for batch ${item.batchNumber}`,
@@ -603,14 +579,18 @@ export class StockService {
       );
     }
 
+    const unitQuantity = item.packQuantity * packingSize + item.looseQuantity;
+
     if (unitQuantity + (item.freeQuantity ?? 0) <= 0) {
       throw new BadRequestException(
         `Quantity must be greater than zero for batch ${item.batchNumber}`,
       );
     }
 
-    // Validate gross amount = quantity * purchaseRate with rounding tolerance
-    const expectedGross = this.round2(unitQuantity * item.purchaseRate);
+    const unitRate = packingSize > 0 ? item.purchaseRate / packingSize : 0;
+    const expectedGross = this.round2(
+      item.packQuantity * item.purchaseRate + item.looseQuantity * unitRate,
+    );
     if (Math.abs(expectedGross - item.grossAmount) > 0.01) {
       throw new BadRequestException(
         `Gross amount mismatch for batch ${item.batchNumber}: expected ${expectedGross}, got ${item.grossAmount}`,
@@ -654,6 +634,7 @@ export class StockService {
     voucherType: StockVoucherType,
     expiryDate: Date | null,
     unitQuantity: number,
+    packingSize: number,
   ): Promise<any> {
     let batch = await tx.batch.findFirst({
       where: {
@@ -663,6 +644,8 @@ export class StockService {
         deletedAt: null,
       },
     });
+    const unitPurchaseRate = item.purchaseRate / packingSize;
+    const unitSaleRate = item.saleRate / packingSize;
 
     if (!batch) {
       batch = await tx.batch.create({
@@ -670,8 +653,8 @@ export class StockService {
           productId: item.productId,
           batchNumber: item.batchNumber,
           expiryDate,
-          purchaseRate: item.purchaseRate,
-          saleRate: item.saleRate,
+          purchaseRate: unitPurchaseRate,
+          saleRate: unitSaleRate,
           openingQuantity:
             voucherType === StockVoucherType.OPENING
               ? unitQuantity + (item.freeQuantity ?? 0)
@@ -681,8 +664,8 @@ export class StockService {
       });
     } else {
       const rateChanged =
-        Number(batch.purchaseRate) !== Number(item.purchaseRate) ||
-        Number(batch.saleRate) !== Number(item.saleRate);
+        Number(batch.purchaseRate) !== Number(unitPurchaseRate) ||
+        Number(batch.saleRate) !== Number(unitSaleRate);
 
       if (rateChanged && !item.confirmRateUpdate) {
         throw new BadRequestException({
@@ -701,8 +684,8 @@ export class StockService {
             batchId: batch.id,
             oldPurchaseRate: batch.purchaseRate,
             oldSaleRate: batch.saleRate,
-            newPurchaseRate: item.purchaseRate,
-            newSaleRate: item.saleRate,
+            newPurchaseRate: unitPurchaseRate,
+            newSaleRate: unitSaleRate,
             changedAt: new Date(),
           },
         });
@@ -717,8 +700,8 @@ export class StockService {
             increment: unitQuantity + (item.freeQuantity ?? 0),
           },
           ...(rateChanged && {
-            purchaseRate: item.purchaseRate,
-            saleRate: item.saleRate,
+            purchaseRate: unitPurchaseRate,
+            saleRate: unitSaleRate,
           }),
         },
       });
@@ -728,8 +711,8 @@ export class StockService {
         currentQuantity:
           batch.currentQuantity + unitQuantity + (item.freeQuantity ?? 0),
         ...(rateChanged && {
-          purchaseRate: item.purchaseRate,
-          saleRate: item.saleRate,
+          purchaseRate: unitPurchaseRate,
+          saleRate: unitSaleRate,
         }),
       };
     }

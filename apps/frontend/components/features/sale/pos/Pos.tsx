@@ -92,11 +92,12 @@ export default function PosPage() {
 
   const totals = useMemo(() => {
     const gross = (items ?? []).reduce((sum, item) => {
-      const packPart =
-        (Number(item?.packQuantity) || 0) * (Number(item?.saleRate) || 0);
-      const loosePart =
-        (Number(item?.looseQuantity) || 0) * (Number(item?.looseRate) || 0);
-      return sum + packPart + loosePart;
+      const ps = Number(item?.packingSize) || 1;
+      const units =
+        (Number(item?.packQuantity) || 0) * ps +
+        (Number(item?.looseQuantity) || 0);
+      const unitRate = Number(item?.saleRate) || 0;
+      return sum + units * unitRate;
     }, 0);
     const discount = round2(gross * (Number(discountPercent) / 100));
     const taxable = gross - discount;
@@ -315,13 +316,14 @@ export default function PosPage() {
             <SaleSummary
               ref={summaryRef}
               itemsCount={items?.length ?? 0}
-              totalQuantity={(items ?? []).reduce(
-                (sum, item) =>
+              totalQuantity={(items ?? []).reduce((sum, item) => {
+                const ps = Number(item?.packingSize) || 1;
+                return (
                   sum +
-                  (Number(item?.packQuantity) || 0) +
-                  (Number(item?.looseQuantity) || 0),
-                0,
-              )}
+                  (Number(item?.packQuantity) || 0) * ps +
+                  (Number(item?.looseQuantity) || 0)
+                );
+              }, 0)}
               grossAmount={totals.gross}
               discount={totals.discount}
               tax={totals.tax}

@@ -126,7 +126,7 @@ export const InventoryTable = ({
       key: "batches",
       title: "Batches",
       align: "center",
-      render: (row) => row.batches.length,
+      render: (row) => row.batchCount,
     },
     {
       key: "status",

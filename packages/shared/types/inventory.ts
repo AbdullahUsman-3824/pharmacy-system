@@ -14,7 +14,7 @@ export interface InventoryProductDto {
   isOutOfStock: boolean;
   nearestExpiryDate: string | null;
   hasNearExpiryBatch: boolean;
-  batches: InventoryBatchDto[];
+  batchCount: number;
 }
 
 export interface InventoryBatchDto {

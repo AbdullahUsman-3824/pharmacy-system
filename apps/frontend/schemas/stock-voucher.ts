@@ -1,17 +1,31 @@
 import { z } from "zod";
 import { StockVoucherType } from "@repo/shared";
 
-export const itemSchema = z.object({
-  productId: z.string().min(1, "Product required"),
-  batchNumber: z.string().min(1, "Batch # required"),
-  expiryDate: z.string().optional().nullable(),
-  quantity: z.coerce.number().positive("Qty too low"),
-  freeQuantity: z.coerce.number().min(0).default(0),
-  purchaseRate: z.coerce.number().positive("Rate too low"),
-  saleRate: z.coerce.number().positive("Sale rate too low"),
-  discountPercent: z.coerce.number().min(0).max(100).default(0),
-  taxPercent: z.coerce.number().min(0).max(100).default(0),
-});
+export const itemSchema = z
+  .object({
+    productId: z.string().min(1, "Product required"),
+    batchNumber: z.string().min(1, "Batch # required"),
+    expiryDate: z.string().optional().nullable(),
+    /** Client-only: used for amount calculation; not sent to backend */
+    packingSize: z.coerce.number().positive("Packing size required"),
+    packQuantity: z.coerce.number().int().min(0).default(0),
+    looseQuantity: z.coerce.number().int().min(0).default(0),
+    freeQuantity: z.coerce.number().int().min(0).default(0),
+    /** Per pack rates */
+    purchaseRate: z.coerce.number().positive("Rate too low"),
+    saleRate: z.coerce.number().positive("Sale rate too low"),
+    discountPercent: z.coerce.number().min(0).max(100).default(0),
+    taxPercent: z.coerce.number().min(0).max(100).default(0),
+  })
+  .superRefine((item, ctx) => {
+    if (item.packQuantity + item.looseQuantity + item.freeQuantity <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["packQuantity"],
+        message: "Enter pack, loose or free qty",
+      });
+    }
+  });
 
 export const paymentSchema = z.object({
   paymentAccountId: z.string().min(1, "Payment account required"),

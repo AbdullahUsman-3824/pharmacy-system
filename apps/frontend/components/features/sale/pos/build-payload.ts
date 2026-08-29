@@ -17,16 +17,16 @@ export function buildCreateSalePayload(form: SaleFormOutput): CreateSaleInput {
     taxPercent: form.taxPercent || undefined,
     payments: form.payments,
     items: form.items.map((item) => {
-      const grossAmount = round2(
-        item.packQuantity * item.saleRate + item.looseQuantity * item.looseRate,
-      );
+      const packingSize = item.packingSize || 1;
+      const unitQuantity = item.packQuantity * packingSize + item.looseQuantity;
+      const grossAmount = round2(unitQuantity * item.saleRate);
+
       return {
         productId: item.productId,
         batchId: item.batchId,
         packQuantity: item.packQuantity,
-        saleRate: item.saleRate,
         looseQuantity: item.looseQuantity,
-        looseRate: item.looseRate,
+        saleRate: item.saleRate,
         grossAmount,
         netAmount: grossAmount,
       };

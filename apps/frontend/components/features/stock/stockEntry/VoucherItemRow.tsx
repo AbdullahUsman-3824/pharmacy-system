@@ -14,16 +14,14 @@ import { Edit, Trash2 } from "lucide-react";
 interface Props {
   index: number;
   control: Control<StockVoucherFormInput>;
-  register: UseFormRegister<StockVoucherFormInput>; // still needed for validation, but we won't render inputs
+  register: UseFormRegister<StockVoucherFormInput>;
   onRemove: () => void;
-  onEdit: (item: StockVoucherItemValues) => void; // new
+  onEdit: (item: StockVoucherItemValues) => void;
   itemErrors?: FieldErrors<StockVoucherFormInput["items"][number]>;
   showAdvanced: boolean;
-  products?: Record<string, string>; // productId -> productName
+  products?: Record<string, string>;
 }
 
-// Coerces the raw (input-typed) watched item into a fully-resolved,
-// output-typed item, matching what zod would produce after parsing.
 function toItemValues(
   item: StockVoucherFormInput["items"][number] | undefined,
 ): StockVoucherItemValues {
@@ -31,7 +29,9 @@ function toItemValues(
     productId: item?.productId ?? "",
     batchNumber: item?.batchNumber ?? "",
     expiryDate: item?.expiryDate ?? undefined,
-    quantity: Number(item?.quantity) || 0,
+    packingSize: Number(item?.packingSize) || 1,
+    packQuantity: Number(item?.packQuantity) || 0,
+    looseQuantity: Number(item?.looseQuantity) || 0,
     freeQuantity: Number(item?.freeQuantity) || 0,
     purchaseRate: Number(item?.purchaseRate) || 0,
     saleRate: Number(item?.saleRate) || 0,
@@ -53,8 +53,10 @@ export function StockVoucherItemRow({
   const resolved = toItemValues(item);
 
   const amounts = calculateItemAmounts({
-    quantity: resolved.quantity,
+    packQuantity: resolved.packQuantity,
+    looseQuantity: resolved.looseQuantity,
     purchaseRate: resolved.purchaseRate,
+    packingSize: resolved.packingSize,
     discountPercent: resolved.discountPercent,
     taxPercent: resolved.taxPercent,
   });
@@ -72,7 +74,6 @@ export function StockVoucherItemRow({
 
   return (
     <tr className="border-b border-gray-100 align-top">
-      {/* Product */}
       <td className="px-3 py-2.5">
         <span className="text-sm">{productName}</span>
         {itemErrors?.productId && (
@@ -82,7 +83,6 @@ export function StockVoucherItemRow({
         )}
       </td>
 
-      {/* Batch Number */}
       <td className="px-3 py-2.5">
         <span className="text-sm">{resolved.batchNumber}</span>
         {itemErrors?.batchNumber && (
@@ -92,22 +92,28 @@ export function StockVoucherItemRow({
         )}
       </td>
 
-      {/* Expiry Date */}
       <td className="px-3 py-2.5">
         <span className="text-sm">{resolved.expiryDate || ""}</span>
       </td>
 
-      {/* Quantity */}
       <td className="px-3 py-2.5">
-        <span className="text-sm">{resolved.quantity}</span>
-        {itemErrors?.quantity && (
+        <span className="text-sm">{resolved.packQuantity}</span>
+        {itemErrors?.packQuantity && (
           <div className="text-xs text-red-600 mt-0.5">
-            {itemErrors.quantity.message}
+            {itemErrors.packQuantity.message}
           </div>
         )}
       </td>
 
-      {/* Purchase Rate */}
+      <td className="px-3 py-2.5">
+        <span className="text-sm">{resolved.looseQuantity}</span>
+        {itemErrors?.looseQuantity && (
+          <div className="text-xs text-red-600 mt-0.5">
+            {itemErrors.looseQuantity.message}
+          </div>
+        )}
+      </td>
+
       <td className="px-3 py-2.5">
         <span className="text-sm">{resolved.purchaseRate}</span>
         {itemErrors?.purchaseRate && (
@@ -117,7 +123,6 @@ export function StockVoucherItemRow({
         )}
       </td>
 
-      {/* Sale Rate */}
       <td className="px-3 py-2.5">
         <span className="text-sm">{resolved.saleRate}</span>
         {itemErrors?.saleRate && (
@@ -154,7 +159,6 @@ export function StockVoucherItemRow({
         {amounts.netAmount.toFixed(2)}
       </td>
 
-      {/* Actions: Edit + Remove */}
       <td className="px-3 py-2.5 text-center">
         <button
           type="button"

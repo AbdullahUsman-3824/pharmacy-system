@@ -161,10 +161,20 @@ export async function loadPurchaseDetails(
  * needed here. Batch has no looseQuantity column at all.
  */
 
+async function loadPackingSizeMap(
+  prisma: Prisma,
+): Promise<Map<string, number>> {
+  const products = await prisma.product.findMany({
+    select: { id: true, packingSize: true },
+  });
+  return new Map(products.map((p) => [p.id, Number(p.packingSize)]));
+}
+
 export async function migrateBatches(
   sqlPool: sql.ConnectionPool,
   prisma: Prisma,
   purchaseDetailsByBatch: Map<string, Row[]>,
+  packingSizeMap: Map<string, number>,
 ) {
   console.log(`\n▶ Migrating batches from dbo.ProductBatch...`);
 
@@ -190,6 +200,7 @@ export async function migrateBatches(
   let skipped = 0;
   let failed = 0;
   let noRateHistoryCount = 0;
+  let noPackingSizeCount = 0;
 
   let mergedIntoReal = 0;
   let generatedAuto = 0;
@@ -241,6 +252,48 @@ export async function migrateBatches(
   }
 
   // --------------------------------------------------
+  // Helper: resolve unit-level (purchaseRate, saleRate)
+  // for a product from the latest matching purchase row,
+  // dividing the pack-level source rate by packingSize.
+  // Returns null when packingSize is missing/invalid so
+  // callers can skip the row instead of writing NaN/Infinity.
+  // --------------------------------------------------
+
+  function resolveUnitRates(
+    productId: string,
+    oldBatchKey: string,
+  ): { purchaseRate: number; saleRate: number } | null {
+    const packingSize = packingSizeMap.get(productId);
+
+    if (!packingSize || packingSize <= 0) {
+      noPackingSizeCount++;
+      return null;
+    }
+
+    const purchaseRows = purchaseDetailsByBatch.get(oldBatchKey) ?? [];
+
+    if (purchaseRows.length === 0) {
+      noRateHistoryCount++;
+      return null;
+    }
+
+    const latest = purchaseRows[purchaseRows.length - 1];
+
+    const packPurchaseRate = Number(
+      latest[stockMapping.purchaseDetail.purchaseRate] ?? 0,
+    );
+
+    const unitSaleRate = Number(
+      latest[stockMapping.purchaseDetail.unitRetailPrice] ?? 0,
+    );
+
+    return {
+      purchaseRate: packPurchaseRate / packingSize,
+      saleRate: unitSaleRate,
+    };
+  }
+
+  // --------------------------------------------------
   // PASS 1: migrate real (identified) batches first, so
   // missing-batch rows have something to (maybe) merge
   // into. Track how many real batch numbers exist per
@@ -272,25 +325,19 @@ export async function migrateBatches(
         expiryDate,
       );
 
-      // Used ONLY for determining current/latest batch rates.
-      const purchaseRows = purchaseDetailsByBatch.get(oldBatchKey) ?? [];
+      // Used ONLY for determining current/latest batch rates
+      // (unit-level, converted from pack-level source rates).
+      const rates = resolveUnitRates(productId, oldBatchKey);
 
-      let purchaseRate = 0;
-      let saleRate = 0;
+      if (!rates) {
+        failed++;
 
-      if (purchaseRows.length > 0) {
-        const latest = purchaseRows[purchaseRows.length - 1];
+        renderProgressBar(index + 1, realRows.length, 'batches (real)');
 
-        purchaseRate = Number(
-          latest[stockMapping.purchaseDetail.purchaseRate] ?? 0,
-        );
-
-        saleRate = Number(
-          latest[stockMapping.purchaseDetail.unitRetailPrice] ?? 0,
-        );
-      } else {
-        noRateHistoryCount++;
+        continue;
       }
+
+      const { purchaseRate, saleRate } = rates;
 
       // ProductBatch is authoritative for stock quantities.
       const openingQuantity = Number(
@@ -377,6 +424,7 @@ export async function migrateBatches(
   }
 
   process.stdout.write('\n');
+  process.stdout.write('\n');
 
   const ambiguousKeyCount = [...realBatchCountByKey.values()].filter(
     (count) => count > 1,
@@ -431,6 +479,7 @@ export async function migrateBatches(
 
       if (existingRealBatchId) {
         // Merge into the single unambiguous real batch.
+        // Quantity-only update — no rate involved here.
         await prisma.batch.update({
           where: {
             id: existingRealBatchId,
@@ -456,24 +505,21 @@ export async function migrateBatches(
           expiryDate,
         );
 
-        const purchaseRows = purchaseDetailsByBatch.get(oldBatchKey) ?? [];
+        const rates = resolveUnitRates(productId, oldBatchKey);
 
-        let purchaseRate = 0;
-        let saleRate = 0;
+        if (!rates) {
+          missingFailed++;
 
-        if (purchaseRows.length > 0) {
-          const latest = purchaseRows[purchaseRows.length - 1];
-
-          purchaseRate = Number(
-            latest[stockMapping.purchaseDetail.purchaseRate] ?? 0,
+          renderProgressBar(
+            index + 1,
+            missingGroupEntries.length,
+            'batches (missing)',
           );
 
-          saleRate = Number(
-            latest[stockMapping.purchaseDetail.unitRetailPrice] ?? 0,
-          );
-        } else {
-          noRateHistoryCount++;
+          continue;
         }
+
+        const { purchaseRate, saleRate } = rates;
 
         const batchData = {
           productId,
@@ -574,6 +620,13 @@ export async function migrateBatches(
   if (noRateHistoryCount > 0) {
     console.log(
       `  ⚠ ${noRateHistoryCount} batches had no purchase history (rate=0)`,
+    );
+  }
+
+  if (noPackingSizeCount > 0) {
+    console.log(
+      `  ✗ ${noPackingSizeCount} batch(es) skipped — missing/invalid ` +
+        `packingSize for the product, could not convert pack-rate to unit-rate.`,
     );
   }
 }
@@ -1382,7 +1435,9 @@ export async function migrateStock(
 
   const purchaseDetailsByBatch = await loadPurchaseDetails(sqlPool);
 
-  await migrateBatches(sqlPool, prisma, purchaseDetailsByBatch);
+  const packingSizeMap = await loadPackingSizeMap(prisma);
+
+  await migrateBatches(sqlPool, prisma, purchaseDetailsByBatch, packingSizeMap);
 
   await migrateUnbatchedProductStock(sqlPool, prisma);
 

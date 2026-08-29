@@ -118,14 +118,16 @@ export class ProductsService {
     } as unknown as ProductDto;
   }
 
-  async findOptions(search: string): Promise<{ id: string; name: string }[]> {
+  async findOptions(
+    search: string,
+  ): Promise<{ id: string; name: string; packingSize: number }[]> {
     const trimmedSearch = search.trim();
 
     if (trimmedSearch.length < 2) {
       return [];
     }
 
-    return this.prisma.product.findMany({
+    const products = await this.prisma.product.findMany({
       where: {
         deletedAt: null,
         name: {
@@ -140,10 +142,16 @@ export class ProductsService {
       select: {
         id: true,
         name: true,
+        packingSize: true,
       },
     });
-  }
 
+    return products.map((p) => ({
+      id: p.id,
+      name: p.name,
+      packingSize: Number(p.packingSize),
+    }));
+  }
   async search(query: string, limit = 20) {
     return this.prisma.product.findMany({
       where: {

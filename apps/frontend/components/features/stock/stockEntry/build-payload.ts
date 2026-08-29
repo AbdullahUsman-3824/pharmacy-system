@@ -13,7 +13,14 @@ export function buildCreateVoucherPayload(
     remarks: form.remarks,
     payments: form.payments,
     items: form.items.map((item) => {
-      const amounts = calculateItemAmounts(item);
+      const amounts = calculateItemAmounts({
+        packQuantity: item.packQuantity,
+        looseQuantity: item.looseQuantity,
+        purchaseRate: item.purchaseRate,
+        packingSize: item.packingSize,
+        discountPercent: item.discountPercent,
+        taxPercent: item.taxPercent,
+      });
       const batchKey = `${item.productId}::${item.batchNumber}`;
       return {
         productId: item.productId,
@@ -21,8 +28,10 @@ export function buildCreateVoucherPayload(
         expiryDate: item.expiryDate
           ? new Date(item.expiryDate).toISOString()
           : null,
-        quantity: item.quantity,
+        packQuantity: item.packQuantity,
+        looseQuantity: item.looseQuantity,
         freeQuantity: item.freeQuantity,
+        // Rates are per pack (as entered); backend stores them as-is
         purchaseRate: item.purchaseRate,
         saleRate: item.saleRate,
         discountPercent: item.discountPercent,

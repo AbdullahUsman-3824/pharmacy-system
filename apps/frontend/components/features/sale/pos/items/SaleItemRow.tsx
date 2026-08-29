@@ -28,6 +28,10 @@ function formatCompactExpiry(dateStr?: string | null) {
   return `${month}-${year}`;
 }
 
+function round2(n: number) {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
 export function SaleItemRow({
   index,
   control,
@@ -43,9 +47,11 @@ export function SaleItemRow({
 
   const packQuantity = Number(item?.packQuantity) || 0;
   const looseQuantity = Number(item?.looseQuantity) || 0;
-  const saleRate = Number(item?.saleRate) || 0;
-  const looseRate = Number(item?.looseRate) || 0;
-  const netAmount = packQuantity * saleRate + looseQuantity * looseRate;
+  const packingSize = Number(item?.packingSize) || 1;
+  const saleRate = Number(item?.saleRate) || 0; // unit rate
+
+  const unitQuantity = packQuantity * packingSize + looseQuantity;
+  const netAmount = round2(unitQuantity * saleRate);
 
   function startEdit() {
     setDraftPack(packQuantity);
@@ -54,14 +60,22 @@ export function SaleItemRow({
   }
 
   function saveEdit() {
-    setValue(`items.${index}.packQuantity`, draftPack, {
-      shouldValidate: true,
-      shouldDirty: true,
-    });
-    setValue(`items.${index}.looseQuantity`, draftLoose, {
-      shouldValidate: true,
-      shouldDirty: true,
-    });
+    setValue(
+      `items.${index}.packQuantity`,
+      Math.max(0, Math.trunc(draftPack)),
+      {
+        shouldValidate: true,
+        shouldDirty: true,
+      },
+    );
+    setValue(
+      `items.${index}.looseQuantity`,
+      Math.max(0, Math.trunc(draftLoose)),
+      {
+        shouldValidate: true,
+        shouldDirty: true,
+      },
+    );
     setIsEditing(false);
   }
 
@@ -70,81 +84,80 @@ export function SaleItemRow({
   }
 
   return (
-    <tr className="border-b border-gray-100 hover:bg-gray-50/60">
-      <td className="px-3 py-1.5 text-sm text-gray-800">
+    <tr className="border-b border-[var(--color-border-light)] hover:bg-[var(--color-row-hover)] transition-[var(--transition-fast)]">
+      <td className="px-3 py-1.5 text-sm text-[var(--color-text)]">
         {item?.productName ?? item?.productId}
       </td>
-      <td className="px-3 py-1.5 text-sm text-gray-600">
+      <td className="px-3 py-1.5 text-sm text-[var(--color-text-secondary)]">
         {item?.batchNumber || "—"}
       </td>
-      <td className="px-3 py-1.5 text-sm text-gray-600">
+      <td className="px-3 py-1.5 text-sm text-[var(--color-text-secondary)]">
         {formatCompactExpiry(item?.expiryDate)}
       </td>
 
-      {/* Quantity group — read-only text by default, two inputs while editing */}
+      {/* Quantity — pack + unit */}
       <td className="px-3 py-1.5">
         {isEditing ? (
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-1">
-              <span className="text-[10px] text-gray-400 w-8 shrink-0">
+              <span className="text-[10px] text-[var(--color-text-placeholder)] w-8 shrink-0">
                 Pack
               </span>
               <input
                 type="number"
                 autoFocus
+                min={0}
                 value={draftPack}
                 onChange={(e) => setDraftPack(Number(e.target.value) || 0)}
-                className="h-6 w-full border rounded px-2 py-1 text-sm bg-white text-right font-medium"
+                className="h-6 w-full rounded border border-[var(--color-border)] bg-[var(--color-input)] px-2 py-1 text-sm text-[var(--color-text)] text-right font-medium focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 transition-[var(--transition-fast)]"
               />
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-[10px] text-gray-400 w-8 shrink-0">
+              <span className="text-[10px] text-[var(--color-text-placeholder)] w-8 shrink-0">
                 Unit
               </span>
               <input
                 type="number"
+                min={0}
                 value={draftLoose}
                 onChange={(e) => setDraftLoose(Number(e.target.value) || 0)}
-                className="h-6 w-full border rounded px-1.5 py-0.5 text-xs bg-white text-right text-gray-600"
+                className="h-6 w-full rounded border border-[var(--color-border)] bg-[var(--color-input)] px-1.5 py-0.5 text-xs text-[var(--color-text-secondary)] text-right focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 transition-[var(--transition-fast)]"
               />
             </div>
             {itemErrors?.packQuantity && (
-              <div className="text-xs text-red-600 leading-none">
+              <div className="text-xs text-[var(--color-danger)] leading-none">
                 {itemErrors.packQuantity.message}
               </div>
             )}
           </div>
         ) : (
           <div className="text-sm text-center">
-            <span className="font-medium text-gray-800">
+            <span className="font-medium text-[var(--color-text)]">
               {packQuantity} Pack
             </span>
             {looseQuantity > 0 && (
-              <span className="text-gray-600"> · {looseQuantity} Unit</span>
+              <span className="text-[var(--color-text-muted)]">
+                {" "}
+                · {looseQuantity} Unit
+              </span>
             )}
           </div>
         )}
       </td>
 
-      {/* Rate group — always read-only, same as entry row */}
+      {/* Rate — unit only */}
       <td className="px-3 py-1.5">
         <div className="flex flex-col gap-0.5 items-end">
-          <span className="text-sm font-medium text-gray-700">
+          <span className="text-sm font-medium text-[var(--color-text-secondary)]">
             {saleRate.toFixed(2)}
           </span>
-          <span className="text-[10px] text-gray-400">/ Pack</span>
-          {looseQuantity > 0 && (
-            <>
-              <span className="text-sm text-gray-600">
-                {looseRate.toFixed(2)}
-              </span>
-              <span className="text-[10px] text-gray-400">/ Unit</span>
-            </>
-          )}
+          <span className="text-[10px] text-[var(--color-text-placeholder)]">
+            / Unit
+          </span>
         </div>
       </td>
 
-      <td className="px-3 py-1.5 text-right font-medium text-sm text-blue-700">
+      <td className="px-3 py-1.5 text-right font-medium text-sm text-[var(--color-primary)]">
         {netAmount.toFixed(2)}
       </td>
 
@@ -155,7 +168,7 @@ export function SaleItemRow({
               type="button"
               onClick={saveEdit}
               title="Save"
-              className="text-green-600 hover:text-green-700 transition-colors"
+              className="text-[var(--color-success)] hover:text-[var(--color-success-text)] transition-[var(--transition-fast)]"
             >
               <Check className="w-4 h-4" />
             </button>
@@ -163,7 +176,7 @@ export function SaleItemRow({
               type="button"
               onClick={cancelEdit}
               title="Cancel"
-              className="text-gray-400 hover:text-red-600 transition-colors"
+              className="text-[var(--color-text-disabled)] hover:text-[var(--color-danger)] transition-[var(--transition-fast)]"
             >
               <X className="w-4 h-4" />
             </button>
@@ -174,7 +187,7 @@ export function SaleItemRow({
               type="button"
               onClick={startEdit}
               title="Edit"
-              className="text-gray-400 hover:text-blue-600 transition-colors"
+              className="text-[var(--color-text-disabled)] hover:text-[var(--color-primary)] transition-[var(--transition-fast)]"
             >
               <Pencil className="w-3.5 h-3.5" />
             </button>
@@ -182,7 +195,7 @@ export function SaleItemRow({
               type="button"
               onClick={onRemove}
               title="Delete"
-              className="text-gray-400 hover:text-red-600 transition-colors"
+              className="text-[var(--color-text-disabled)] hover:text-[var(--color-danger)] transition-[var(--transition-fast)]"
             >
               <Trash2 className="w-4 h-4" />
             </button>

@@ -8,13 +8,11 @@ import {
   useImperativeHandle,
   useMemo,
 } from "react";
-import { Check, X, CircleAlert, AlertCircle } from "lucide-react";
+import { Check, X, CircleAlert } from "lucide-react";
 import { saleItemSchema, SaleItemValues } from "@/schemas/sale-form";
-import { ProductSelect } from "@/components/ProductSelect";
 import { useProductStock } from "@/hooks/useStock";
 import { AsyncSelect } from "@/components/ui/async-select";
 import { useSaleProductOptions } from "@/hooks/useSale";
-import { SaleProductOption } from "@repo/shared";
 
 interface EntryRowState {
   productId: string;
@@ -25,10 +23,7 @@ interface EntryRowState {
   expiryDate: string;
   packQuantity: string;
   looseQuantity: string;
-  saleRate: string;
-  looseRate: string;
-  discountPercent: string;
-  taxPercent: string;
+  saleRate: string; // unit rate
 }
 
 const blankEntry: EntryRowState = {
@@ -41,9 +36,6 @@ const blankEntry: EntryRowState = {
   packQuantity: "",
   looseQuantity: "",
   saleRate: "",
-  looseRate: "",
-  discountPercent: "0",
-  taxPercent: "0",
 };
 
 interface Props {
@@ -81,6 +73,10 @@ const expiryColorClass: Record<ExpiryStatus, string> = {
   safe: "text-gray-700",
 };
 
+function round2(n: number) {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
 export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
   ({ onAdd, existingItems = [] }, ref) => {
     const [entry, setEntry] = useState<EntryRowState>(blankEntry);
@@ -100,23 +96,31 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
 
     const packingSize = selectedBatch?.packingSize ?? 1;
 
-    function usedPacksForBatch(batchId: string) {
+    /** Units already reserved in the cart for this batch */
+    function usedUnitsForBatch(batchId: string) {
       return existingItems
         .filter((i) => i.batchId === batchId)
-        .reduce((sum, i) => sum + Number(i.packQuantity || 0), 0);
+        .reduce((sum, i) => {
+          const ps = Number(i.packingSize) || packingSize || 1;
+          return (
+            sum +
+            Number(i.packQuantity || 0) * ps +
+            Number(i.looseQuantity || 0)
+          );
+        }, 0);
     }
 
-    function usedLooseForBatch(batchId: string) {
-      return existingItems
-        .filter((i) => i.batchId === batchId)
-        .reduce((sum, i) => sum + Number(i.looseQuantity || 0), 0);
-    }
-
+    /** currentQuantity is in UNITS — split into packs + loose */
     function expectedStockFor(batch: (typeof batches)[number]) {
+      const ps = batch.packingSize || 1;
+      const remainingUnits = Math.max(
+        0,
+        batch.currentQuantity - usedUnitsForBatch(batch.batchId),
+      );
       return {
-        packs: batch.currentQuantity - usedPacksForBatch(batch.batchId),
-        loose: (batch.looseQuantity ?? 0) - usedLooseForBatch(batch.batchId),
-        total: batch.currentQuantity,
+        packs: Math.floor(remainingUnits / ps),
+        loose: remainingUnits % ps,
+        totalUnits: remainingUnits,
       };
     }
 
@@ -137,16 +141,15 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
       }));
     }, [entry.productId, batches, entry.batchId]);
 
-    // Update rates when batch changes
+    // Batch.saleRate is pack rate (from stock entry) → convert to UNIT rate
+    // batch.saleRate is already unit rate
     useEffect(() => {
       if (!selectedBatch) return;
-      const packRate = Number(selectedBatch.saleRate);
       setEntry((prev) => ({
         ...prev,
-        saleRate: packRate.toFixed(2),
-        looseRate: (packRate / packingSize).toFixed(2),
+        saleRate: Number(selectedBatch.saleRate).toFixed(2),
       }));
-    }, [selectedBatch, packingSize]);
+    }, [selectedBatch]);
 
     function set<K extends keyof EntryRowState>(
       key: K,
@@ -181,21 +184,23 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
     function validateQuantities(packQty: number, looseQty: number) {
       const nextErrors: Record<string, string> = {};
       if (selectedBatch) {
-        const remainingPacks =
+        const remainingUnits = Math.max(
+          0,
           selectedBatch.currentQuantity -
-          usedPacksForBatch(selectedBatch.batchId);
-        const remainingLoose =
-          (selectedBatch.looseQuantity ?? 0) -
-          usedLooseForBatch(selectedBatch.batchId);
-        const availableLoose =
-          Math.max(remainingLoose, 0) +
-          Math.max(remainingPacks - packQty, 0) * packingSize;
+            usedUnitsForBatch(selectedBatch.batchId),
+        );
+        const requestedUnits = packQty * packingSize + looseQty;
 
-        if (packQty > remainingPacks) {
-          nextErrors.packQuantity = `Only ${remainingPacks} packs available`;
-        }
-        if (looseQty > availableLoose) {
-          nextErrors.looseQuantity = `Only ${availableLoose} units available`;
+        if (requestedUnits > remainingUnits) {
+          const maxPacks = Math.floor(remainingUnits / packingSize);
+          const maxLoose = remainingUnits % packingSize;
+          if (packQty > maxPacks) {
+            nextErrors.packQuantity = `Only ${maxPacks} packs available`;
+          } else if (looseQty > 0) {
+            nextErrors.looseQuantity = `Only ${remainingUnits} units available (${maxPacks}p + ${maxLoose}u)`;
+          } else {
+            nextErrors.packQuantity = `Only ${remainingUnits} units available`;
+          }
         }
       }
       setErrors((prev) => ({
@@ -221,28 +226,33 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
       setErrors({});
     }
 
-    const netAmount =
-      (Number(entry.packQuantity) || 0) * (Number(entry.saleRate) || 0) +
-      (Number(entry.looseQuantity) || 0) * (Number(entry.looseRate) || 0);
+    const packQtyNum = Number(entry.packQuantity) || 0;
+    const looseQtyNum = Number(entry.looseQuantity) || 0;
+    const unitRate = Number(entry.saleRate) || 0;
+    const unitQuantity = packQtyNum * packingSize + looseQtyNum;
+    const netAmount = round2(unitQuantity * unitRate);
 
     const commit = () => {
-      const packQty = Number(entry.packQuantity) || 0;
-      const looseQty = Number(entry.looseQuantity) || 0;
+      const packQty = Math.trunc(Number(entry.packQuantity) || 0);
+      const looseQty = Math.trunc(Number(entry.looseQuantity) || 0);
 
       if (selectedBatch) {
         const stockErrors = validateQuantities(packQty, looseQty);
         if (stockErrors.packQuantity || stockErrors.looseQuantity) return;
       }
 
+      const saleRate = Number(entry.saleRate) || 0;
+
       const result = saleItemSchema.safeParse({
-        ...entry,
+        productId: entry.productId,
+        productName: entry.productName,
+        batchId: entry.batchId,
+        batchNumber: entry.batchNumber,
         expiryDate: entry.expiryDate || undefined,
+        packingSize,
         packQuantity: packQty,
         looseQuantity: looseQty,
-        saleRate: Number(entry.saleRate) || 0,
-        looseRate: Number(entry.looseRate) || 0,
-        discountPercent: Number(entry.discountPercent) || 0,
-        taxPercent: Number(entry.taxPercent) || 0,
+        saleRate,
       });
 
       if (!result.success) {
@@ -311,40 +321,28 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
     const isBatchSelected = !!entry.batchId;
 
     const showInfo = isProductSelected && isBatchSelected && selectedExpected;
-
-    // Fires when a product is chosen but has zero batches at all — the
-    // case showInfo silently skipped, since isBatchSelected can never
-    // become true when the FEFO auto-select effect has nothing to pick.
     const showNoStock =
       isProductSelected && !isBatchSelected && batches.length === 0;
 
-    // Shared base styles
     const containerBaseClass = "transition-colors duration-300 relative";
     const innerBorderClass = flash
       ? "shadow-[inset_4px_0_0_0_#4ade80]"
       : "shadow-[inset_4px_0_0_0_#60a5fa]";
-
     const flashClass = flash
       ? "bg-green-50/70"
       : "bg-blue-50/30 hover:bg-blue-50/50";
-
-    // Main row: no bottom border if an info/no-stock row follows it
     const mainRowBottomBorder =
       showInfo || showNoStock ? "" : "border-b border-gray-200";
     const mainRowClasses = `${containerBaseClass} ${innerBorderClass} ${flashClass} ${mainRowBottomBorder}`;
-
-    // Info row: always has a bottom border to close the block
-    const infoRowClasses = `${containerBaseClass} ${innerBorderClass} ${flashClass} border-b border-gray-200`;
+    // const infoRowClasses = `${containerBaseClass} ${innerBorderClass} ${flashClass} border-b border-gray-200`;
 
     return (
       <>
-        {/* Main entry row */}
         <tr
           ref={containerRef}
           onKeyDown={handleKeyDown}
           className={mainRowClasses}
         >
-          {/* Product */}
           {/* Product */}
           <td className="px-3 py-2">
             <div className="flex items-center gap-1 product-select">
@@ -358,8 +356,8 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
                   <div className="flex w-full items-center justify-between gap-2 overflow-hidden">
                     <span className="truncate">{option.name}</span>
                     <span className="flex-shrink-0 text-xs text-gray-400">
-                      {option.stock
-                        ? `${option.stock.packs} pack, ${option.stock.loose} loose`
+                      {option.currentQuantity != null
+                        ? `${option.currentQuantity} units`
                         : "—"}
                     </span>
                   </div>
@@ -373,7 +371,7 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
 
           {/* Batch + Stock */}
           <td className="px-3 py-2 align-middle">
-            <div className="flex flex-col">
+            <div className="relative flex flex-col">
               <select
                 value={entry.batchId}
                 onChange={(e) => handleBatchChange(e.target.value)}
@@ -387,9 +385,14 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
                   </option>
                 ))}
               </select>
-              {selectedExpected && (
-                <div className="text-[11px] text-gray-500 mt-0.5">
-                  Stock: {selectedExpected.packs}/{selectedExpected.total}
+              {selectedBatch && stock && (
+                <div className="absolute -bottom-5 left-0 text-[11px] text-gray-500 mt-0.5 whitespace-nowrap">
+                  {Math.max(
+                    0,
+                    selectedBatch.currentQuantity -
+                      usedUnitsForBatch(selectedBatch.batchId),
+                  )}{" "}
+                  / {stock.totalQuantity}
                 </div>
               )}
             </div>
@@ -402,7 +405,7 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
             </div>
           </td>
 
-          {/* Pack Qty */}
+          {/* Pack + Loose Qty */}
           <td className="px-3 py-2 align-middle">
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-1">
@@ -446,23 +449,13 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
             </div>
           </td>
 
-          {/* Rate */}
+          {/* Rate — unit only */}
           <td className="px-3 py-2 align-middle">
             <div className="flex flex-col items-end">
               <span className="text-sm font-medium text-gray-700">
                 {entry.saleRate ? Number(entry.saleRate).toFixed(2) : "0.00"}
               </span>
-              <span className="text-[10px] text-gray-400">Per Pack</span>
-              {packingSize > 1 && (
-                <>
-                  <span className="text-xs font-medium text-gray-500 mt-0.5">
-                    {entry.looseRate
-                      ? Number(entry.looseRate).toFixed(2)
-                      : "0.00"}
-                  </span>
-                  <span className="text-[10px] text-gray-400">Per Unit</span>
-                </>
-              )}
+              <span className="text-[10px] text-gray-400">Per Unit</span>
             </div>
           </td>
 
@@ -474,24 +467,35 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
           </td>
 
           {/* Action */}
-          <td className="px-3 py-2 text-center">
-            <button
-              type="button"
-              onClick={resetRow}
-              title="Clear entry"
-              className="text-gray-400 hover:text-red-600 transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
+          <td className="px-3 py-2 text-center align-middle">
+            <div className="flex flex-col items-center gap-1.5">
+              {/* Primary — Add / Enter */}
+              <button
+                type="button"
+                onClick={commit}
+                title="Add item (Enter)"
+                className="inline-flex items-center justify-center h-6 w-6 rounded-sm bg-[var(--color-primary)] text-white shadow-sm hover:bg-[var(--color-primary-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/40 transition-[var(--transition-fast)]"
+              >
+                <Check className="w-4 h-4" />
+              </button>
+
+              {/* Secondary — Clear */}
+              <button
+                type="button"
+                onClick={resetRow}
+                title="Clear"
+                className="inline-flex items-center justify-center h-5 w-5 rounded text-[var(--color-text-disabled)] hover:text-[var(--color-danger)] hover:bg-[var(--color-danger-soft)] focus:outline-none transition-[var(--transition-fast)]"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
           </td>
         </tr>
 
-        {/* Info row – appears below when product & batch are selected */}
-        {showInfo && (
+        {/* {showInfo && (
           <tr className={infoRowClasses}>
             <td colSpan={7} className="px-4 py-2">
               <div className="flex items-center flex-wrap gap-3 text-xs">
-                {/* FEFO indicator */}
                 {batches.length > 1 && (
                   <div className="flex items-center gap-1.5 text-emerald-700 bg-emerald-50/80 px-2.5 py-1 rounded-full border border-emerald-200/60">
                     <Check className="w-3.5 h-3.5" />
@@ -499,47 +503,39 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
                   </div>
                 )}
 
-                {/* Stock info with relative coloring */}
                 <div
-                  className={`flex items-center gap-2  ${
-                    selectedExpected.packs <= 5
+                  className={`flex items-center gap-2 ${
+                    selectedExpected.totalUnits <= 5
                       ? "text-red-600"
-                      : selectedExpected.packs <= 15
+                      : selectedExpected.totalUnits <= 15
                         ? "text-amber-600"
                         : "text-green-600"
                   }`}
                 >
                   <span className="font-medium">Remaining Stock:</span>
                   <div className="flex items-center gap-1.5">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-medium ">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-medium">
                       {selectedExpected.packs} Packs
                     </span>
                     <span className="text-gray-300">•</span>
-                    <span
-                      className={
-                        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-medium "
-                      }
-                    >
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-medium">
                       {selectedExpected.loose} Units
                     </span>
                   </div>
                 </div>
 
-                {/* Out-of-stock warning */}
-                {selectedExpected.packs === 0 &&
-                  selectedExpected.loose === 0 && (
-                    <span className="text-red-600 font-semibold flex items-center gap-1">
-                      <AlertCircle className="w-3.5 h-3.5" />
-                      Out of Stock
-                    </span>
-                  )}
+                {selectedExpected.totalUnits === 0 && (
+                  <span className="text-red-600 font-semibold flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    Out of Stock
+                  </span>
+                )}
               </div>
             </td>
           </tr>
-        )}
+        )} */}
 
-        {/* No-stock row – product has no batches to sell from at all */}
-        {showNoStock && (
+        {/* {showNoStock && (
           <tr className={infoRowClasses}>
             <td colSpan={7} className="px-4 py-2">
               <div className="flex items-center gap-1.5 text-red-600 text-xs font-semibold">
@@ -548,7 +544,7 @@ export const SaleEntryRow = forwardRef<SaleEntryRowRef, Props>(
               </div>
             </td>
           </tr>
-        )}
+        )} */}
       </>
     );
   },

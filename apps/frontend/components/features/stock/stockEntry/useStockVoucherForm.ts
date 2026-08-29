@@ -56,22 +56,12 @@ export function useStockVoucherForm() {
   const items = useWatch({ control, name: "items" });
   const supplierId = useWatch({ control, name: "supplierId" });
 
-  // Ref to the entry row for programmatic commit / setData
   const entryRowRef = useRef<StockVoucherEntryRowRef>(null);
 
-  // Track whether the user has explicitly picked a supplier
   const [supplierTouched, setSupplierTouched] = useState(false);
-
-  // productId of the item currently being typed in the entry row
   const [entryProductId, setEntryProductId] = useState("");
-
-  // productId -> display name map, populated as items are committed
   const [productNames, setProductNames] = useState<Record<string, string>>({});
-
-  // Label shown in the AsyncSelect for the currently selected supplier
   const [supplierLabel, setSupplierLabel] = useState<string>("");
-
-  // ── Item handlers ──────────────────────────────────────────────────────────
 
   function handleAddItem(item: StockVoucherItemValues, productName: string) {
     insert(0, item);
@@ -88,13 +78,13 @@ export function useStockVoucherForm() {
     entryRowRef.current?.commit();
   }
 
-  // ── Totals ─────────────────────────────────────────────────────────────────
-
   const totals: VoucherTotals = (items ?? []).reduce(
     (acc, item) => {
       const a = calculateItemAmounts({
-        quantity: Number(item?.quantity) || 0,
+        packQuantity: Number(item?.packQuantity) || 0,
+        looseQuantity: Number(item?.looseQuantity) || 0,
         purchaseRate: Number(item?.purchaseRate) || 0,
+        packingSize: Number(item?.packingSize) || 1,
         discountPercent: Number(item?.discountPercent) || 0,
         taxPercent: Number(item?.taxPercent) || 0,
       });
@@ -116,8 +106,6 @@ export function useStockVoucherForm() {
       setValue("payments", []);
     }
   }, [selectedPayment, totals.net, setValue]);
-
-  // ── Submit ─────────────────────────────────────────────────────────────────
 
   const onSubmit = async (data: StockVoucherFormOutput) => {
     const confirmedBatchKeys = new Set<string>();
@@ -154,7 +142,6 @@ export function useStockVoucherForm() {
   };
 
   return {
-    // form primitives
     register,
     control,
     handleSubmit,
@@ -162,44 +149,34 @@ export function useStockVoucherForm() {
     errors,
     isSubmitting,
 
-    // field array
     fields,
     remove,
 
-    // watched values
     type,
     items,
     supplierId,
 
-    // supplier state
     supplierTouched,
     setSupplierTouched,
     supplierLabel,
     setSupplierLabel,
 
-    // entry product tracking
     entryProductId,
     setEntryProductId,
 
-    // product names map
     productNames,
 
-    // entry row ref
     entryRowRef,
 
-    // handlers
     handleAddItem,
     handleEditItem,
     handleAddButtonClick,
 
-    // computed
     totals,
 
-    // payment
     selectedPayment,
     setSelectedPayment,
 
-    // submit
     onSubmit,
   };
 }

@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { SaleType, SaleSortField } from "@repo/shared";
+import { SaleType, SaleSortField, SaleDto } from "@repo/shared";
 
 import { useSales } from "@/hooks/useSale";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -20,14 +20,10 @@ const PAGE_SIZE = 20;
 
 type SortDirection = "asc" | "desc";
 
-type SaleRow = {
-  id: string;
-  saleNumber: string;
-  date: string | Date;
-  customerName: string;
-  type: SaleType;
-  netAmount: number;
-};
+type SaleRow = Pick<
+  SaleDto,
+  "id" | "saleNumber" | "date" | "type" | "netAmount" | "customer"
+>;
 
 export default function SalesListPage() {
   const router = useRouter();
@@ -45,7 +41,7 @@ export default function SalesListPage() {
     sortOrder: sortDirection,
   });
 
-  const sales = useMemo(() => (data?.data ?? []) as SaleRow[], [data?.data]);
+  const sales = useMemo(() => data?.data ?? [], [data?.data]);
   const meta = data?.meta;
 
   const goToReturn = useCallback(
@@ -90,10 +86,11 @@ export default function SalesListPage() {
         render: (row) => formatDate(row.date as string),
       },
       {
-        key: "customerName",
-        dataKey: "customerName",
+        key: "customer",
+        dataKey: "customer",
         title: "Customer",
         sortable: true,
+        render: (row) => row.customer ?? "—",
       },
       {
         key: "type",

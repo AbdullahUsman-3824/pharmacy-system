@@ -8,12 +8,21 @@ import { calculateItemAmounts } from "@/lib/stock-calculations";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
+/** Option shape returned by /products/options (includes packingSize) */
+export interface ProductOption {
+  id: string;
+  name: string;
+  packingSize: number;
+}
+
 interface EntryRowState {
   productId: string;
   productName: string;
+  packingSize: string;
   batchNumber: string;
   expiryDate: string;
-  quantity: string;
+  packQuantity: string;
+  looseQuantity: string;
   freeQuantity: string;
   purchaseRate: string;
   saleRate: string;
@@ -24,9 +33,11 @@ interface EntryRowState {
 const blankEntry: EntryRowState = {
   productId: "",
   productName: "",
+  packingSize: "",
   batchNumber: "",
   expiryDate: "",
-  quantity: "",
+  packQuantity: "",
+  looseQuantity: "",
   freeQuantity: "",
   purchaseRate: "",
   saleRate: "",
@@ -58,10 +69,13 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
       setEntry((prev) => ({ ...prev, [key]: value }));
     }
 
-    // Calculate amounts for the entry row preview
+    const packingSizeNum = Number(entry.packingSize) || 0;
+
     const amounts = calculateItemAmounts({
-      quantity: Number(entry.quantity) || 0,
+      packQuantity: Number(entry.packQuantity) || 0,
+      looseQuantity: Number(entry.looseQuantity) || 0,
       purchaseRate: Number(entry.purchaseRate) || 0,
+      packingSize: packingSizeNum || 1,
       discountPercent: Number(entry.discountPercent) || 0,
       taxPercent: Number(entry.taxPercent) || 0,
     });
@@ -69,6 +83,7 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
     const commit = () => {
       const result = itemSchema.safeParse({
         ...entry,
+        packingSize: packingSizeNum || undefined,
         expiryDate: entry.expiryDate || undefined,
       });
 
@@ -96,16 +111,17 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
         setEntry({
           productId: data.productId || "",
           productName: productName ?? "",
+          packingSize: String(data.packingSize ?? ""),
           batchNumber: data.batchNumber || "",
           expiryDate: data.expiryDate || "",
-          quantity: String(data.quantity ?? ""),
+          packQuantity: String(data.packQuantity ?? ""),
+          looseQuantity: String(data.looseQuantity ?? ""),
           freeQuantity: String(data.freeQuantity ?? "0"),
           purchaseRate: String(data.purchaseRate ?? ""),
           saleRate: String(data.saleRate ?? ""),
           discountPercent: String(data.discountPercent ?? "0"),
           taxPercent: String(data.taxPercent ?? "0"),
         });
-        // Clear any previous errors
         setErrors({});
       },
     }));
@@ -130,9 +146,7 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
       }
     }
 
-    // Handle focus on expiry date input to show calendar
     const handleExpiryFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-      // Use showPicker if available (modern browsers)
       if (e.target.showPicker) {
         e.target.showPicker();
       }
@@ -146,7 +160,7 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
       >
         <td className="px-3 py-1.5">
           <div className="min-h-[60px] flex flex-col justify-center">
-            <AsyncSelect
+            <AsyncSelect<ProductOption>
               placeholder="Scan barcode, medicine, generic..."
               value={entry.productId || null}
               selectedLabel={entry.productName}
@@ -154,9 +168,13 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
               onChange={(id, option) => {
                 set("productId", id ?? "");
                 set("productName", option?.name ?? "");
+                set(
+                  "packingSize",
+                  option?.packingSize != null ? String(option.packingSize) : "",
+                );
                 onProductPicked?.(id ?? "");
               }}
-              error={errors.productId}
+              error={errors.productId || errors.packingSize}
               minChars={2}
             />
           </div>
@@ -182,10 +200,8 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
               selected={
                 entry.expiryDate ? new Date(entry.expiryDate + "-01") : null
               }
-              // Append "-01" to create a valid date from "YYYY-MM"
               onChange={(date: Date | null) => {
                 if (date) {
-                  // Format as "YYYY-MM" (e.g., "2026-07")
                   const year = date.getFullYear();
                   const month = String(date.getMonth() + 1).padStart(2, "0");
                   set("expiryDate", `${year}-${month}`);
@@ -193,7 +209,7 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
                   set("expiryDate", "");
                 }
               }}
-              dateFormat="MM/yyyy" // Display as "MM/YYYY"
+              dateFormat="MM/yyyy"
               showMonthYearPicker
               className="w-full border rounded px-2 py-1.5 text-sm bg-white cursor-pointer"
               placeholderText="Select expiry"
@@ -205,14 +221,30 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
           <div className="min-h-[60px] flex flex-col justify-center">
             <input
               type="number"
-              value={entry.quantity}
-              onChange={(e) => set("quantity", e.target.value)}
+              value={entry.packQuantity}
+              onChange={(e) => set("packQuantity", e.target.value)}
               className="w-full border rounded px-2 py-1.5 text-sm bg-white"
               placeholder="0"
             />
-            {errors.quantity && (
+            {errors.packQuantity && (
               <div className="text-xs text-red-600 mt-0.5 leading-none">
-                {errors.quantity}
+                {errors.packQuantity}
+              </div>
+            )}
+          </div>
+        </td>
+        <td className="px-3 py-1.5">
+          <div className="min-h-[60px] flex flex-col justify-center">
+            <input
+              type="number"
+              value={entry.looseQuantity}
+              onChange={(e) => set("looseQuantity", e.target.value)}
+              className="w-full border rounded px-2 py-1.5 text-sm bg-white"
+              placeholder="0"
+            />
+            {errors.looseQuantity && (
+              <div className="text-xs text-red-600 mt-0.5 leading-none">
+                {errors.looseQuantity}
               </div>
             )}
           </div>
@@ -312,9 +344,7 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
             {amounts.netAmount.toFixed(2)}
           </div>
         </td>
-        <td className="px-3 py-1.5">
-          {/* Empty cell - aligns with the actions column where remove button sits */}
-        </td>
+        <td className="px-3 py-1.5">{/* actions column */}</td>
       </tr>
     );
   },

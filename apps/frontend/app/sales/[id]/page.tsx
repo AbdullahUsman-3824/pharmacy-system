@@ -30,11 +30,10 @@ export default function SaleDetailPage() {
     () => [
       {
         key: "productName",
-        dataKey: "productName",
         title: "Product",
         render: (row) => (
           <span className="font-medium text-[var(--color-text)]">
-            {row.productName ?? "—"}
+            {row.product?.name ?? "—"}
           </span>
         ),
       },
@@ -43,11 +42,16 @@ export default function SaleDetailPage() {
         title: "Batch",
         width: 100,
         align: "center",
-        render: (row) => (
-          <span className="font-mono text-xs text-[var(--color-text-secondary)]">
-            {row.batch.batchNumber}
-          </span>
-        ),
+        render: (row) => {
+          const isAuto = row.batch.batchNumber.includes("AUTO");
+          return (
+            <div>
+              <span className="font-mono text-xs">
+                {isAuto ? "N/A" : row.batch.batchNumber}
+              </span>
+            </div>
+          );
+        },
       },
       {
         key: "packQuantity",
@@ -106,7 +110,7 @@ export default function SaleDetailPage() {
     <PageContainer>
       <PageHeader
         title={isReturn ? "Sale Return" : "Sale"}
-        description={`${sale.saleNumber} • ${formatDate(sale.date)} • ${sale.customerName}`}
+        description={`${sale.saleNumber} • ${formatDate(sale.date)} • ${sale.customer}`}
       >
         <Button variant="secondary" onClick={() => router.push("/sales")}>
           Back
