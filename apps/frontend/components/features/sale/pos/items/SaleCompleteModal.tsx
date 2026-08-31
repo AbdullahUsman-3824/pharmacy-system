@@ -1,34 +1,10 @@
 "use client";
 
 import { Check, Printer, Plus } from "lucide-react";
-
-// Matches SalesService.serializeSale()'s return shape.
-export interface CompletedSaleItem {
-  productName: string;
-  packQuantity: number;
-  looseQuantity: number;
-  saleRate: number;
-  looseRate: number | null;
-  grossAmount: number;
-  netAmount: number;
-}
-
-export interface CompletedSale {
-  id: string;
-  saleNumber: string;
-  date: string;
-  customerName: string;
-  items: CompletedSaleItem[];
-  grossAmount: number;
-  discountPercent: number | null;
-  discountAmount: number;
-  taxPercent: number | null;
-  taxAmount: number;
-  netAmount: number;
-}
+import type { SerializedSale } from "@repo/shared";
 
 interface SaleCompleteModalProps {
-  sale: CompletedSale;
+  sale: SerializedSale;
   onPrint: () => void;
   onNewSale: () => void;
 }
@@ -60,7 +36,7 @@ export function SaleCompleteModal({
         {/* Line items */}
         <div className="max-h-64 overflow-y-auto px-6 py-4">
           <div className="mb-3 flex justify-between text-xs text-gray-500">
-            <span>{sale.customerName}</span>
+            <span>{sale.customerName ?? "Walk-in Customer"}</span>
             <span>{new Date(sale.date).toLocaleDateString()}</span>
           </div>
 

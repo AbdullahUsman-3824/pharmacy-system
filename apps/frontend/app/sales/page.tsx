@@ -22,7 +22,7 @@ type SortDirection = "asc" | "desc";
 
 type SaleRow = Pick<
   SaleDto,
-  "id" | "saleNumber" | "date" | "type" | "netAmount" | "customer"
+  "id" | "saleNumber" | "date" | "type" | "netAmount" | "customerName"
 >;
 
 export default function SalesListPage() {
@@ -87,10 +87,10 @@ export default function SalesListPage() {
       },
       {
         key: "customer",
-        dataKey: "customer",
+        dataKey: "customerName",
         title: "Customer",
         sortable: true,
-        render: (row) => row.customer ?? "—",
+        render: (row) => row.customerName ?? "Walk-in Customer",
       },
       {
         key: "type",

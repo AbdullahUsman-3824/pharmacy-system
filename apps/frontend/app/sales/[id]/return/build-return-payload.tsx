@@ -7,34 +7,48 @@ function round2(value: number): number {
 
 export function buildReturnPayload(
   data: SaleReturnFormOutput,
+  paymentAccountId: string,
+  creatorPin: string,
 ): CreateSaleInput {
   const items = data.lines
     .filter((line) => line.packQuantity > 0 || line.looseQuantity > 0)
     .map((line) => {
-      const grossAmount = round2(
-        line.packQuantity * line.saleRate +
-          line.looseQuantity * (line.looseRate ?? 0),
-      );
+      const unitQuantity =
+        line.packQuantity * line.packingSize + line.looseQuantity;
+      const grossAmount = round2(unitQuantity * line.saleRate);
+
       return {
         productId: line.productId,
         batchId: line.batchId,
         packQuantity: line.packQuantity,
-        saleRate: line.saleRate,
         looseQuantity: line.looseQuantity,
-        looseRate: line.looseRate ?? 0,
+        saleRate: line.saleRate,
         grossAmount,
         netAmount: grossAmount,
       };
     });
 
+  const grossTotal = items.reduce((s, i) => s + i.grossAmount, 0);
+  const discount = round2(grossTotal * ((data.discountPercent || 0) / 100));
+  const taxable = grossTotal - discount;
+  const tax = round2(taxable * ((data.taxPercent || 0) / 100));
+  const netTotal = round2(taxable + tax);
+
   return {
     type: SaleType.SALE_RETURN,
     originalSaleId: data.originalSaleId,
-    customerName: data.customerName,
+    customerId: data.customerId || undefined,
     saleDate: new Date().toISOString().slice(0, 10),
     remarks: data.remarks,
-    discountPercent: data.discountPercent,
-    taxPercent: data.taxPercent,
+    discountPercent: data.discountPercent || 0,
+    taxPercent: data.taxPercent || 0,
     items,
+    creatorPin,
+    payments: [
+      {
+        paymentAccountId,
+        amount: netTotal,
+      },
+    ],
   };
 }

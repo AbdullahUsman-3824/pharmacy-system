@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { UsersService } from '../user/user.service';
 import { Prisma } from '../generated/prisma/client';
 import { CreateStockVoucherDto } from './dto/create-stock-voucher.dto';
 import {
@@ -41,13 +42,18 @@ export interface InventoryRow {
 
 @Injectable()
 export class StockService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly usersService: UsersService,
+  ) {}
 
   // -----------------------
   //   Stock Vouchers
   // -----------------------
 
   async createVoucher(dto: CreateStockVoucherDto) {
+    const createdBy = await this.usersService.findByPin(dto.creatorPin);
+
     return this.prisma.$transaction(async (tx) => {
       const voucherNumber = await this.generateVoucherNumber(tx, dto.type);
 
@@ -64,6 +70,7 @@ export class StockService {
           type: dto.type,
           supplierId: dto.supplierId,
           date: new Date(dto.voucherDate),
+          createdById: createdBy.id,
           remarks: dto.remarks,
         },
       });
@@ -137,7 +144,7 @@ export class StockService {
           { supplier: { name: { contains: search, mode: 'insensitive' } } },
         ],
       }),
-      ...(query?.types?.length && { type: { in: query.types } }),
+      ...(query?.type && { type: query.type }),
     };
 
     const orderShape =
@@ -799,7 +806,7 @@ export class StockService {
       discountAmount: Number(voucher.discountAmount),
       taxAmount: Number(voucher.taxAmount),
       netAmount: Number(voucher.netAmount),
-      createdBy: voucher.createdBy?.name ?? null,
+      createdByName: voucher.createdBy?.name ?? null,
       createdAt: voucher.createdAt.toISOString(),
       updatedAt: voucher.updatedAt.toISOString(),
       items: voucher.items.map((item: any) => ({

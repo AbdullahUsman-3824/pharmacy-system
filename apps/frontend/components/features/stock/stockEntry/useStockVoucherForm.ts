@@ -11,11 +11,13 @@ import {
   StockVoucherFormOutput,
   StockVoucherItemValues,
 } from "@/schemas/stock-voucher";
+import { usePinModal } from "@/hooks/usePinModal";
 import { useCreateStockVoucher } from "@/hooks/useStock";
 import { calculateItemAmounts } from "@/lib/stock-calculations";
 import { buildCreateVoucherPayload } from "@/components/features/stock/stockEntry/build-payload";
 import { StockVoucherEntryRowRef } from "./VoucherEntryRow";
 import { PaymentOption } from "@/components/shared/payment-select";
+import { toast } from "sonner";
 
 export interface VoucherTotals {
   gross: number;
@@ -68,6 +70,7 @@ export function useStockVoucherForm() {
     if (productName) {
       setProductNames((prev) => ({ ...prev, [item.productId]: productName }));
     }
+    toast.success(`${productName || "Item"} added successfully!`);
   }
 
   function handleEditItem(item: StockVoucherItemValues) {
@@ -107,16 +110,46 @@ export function useStockVoucherForm() {
     }
   }, [selectedPayment, totals.net, setValue]);
 
+  const { getPin, PinModalElement } = usePinModal();
+
   const onSubmit = async (data: StockVoucherFormOutput) => {
+    // Validate supplier
+    if (!data.supplierId) {
+      toast.error("Please select a supplier.");
+      return;
+    }
+
+    // Validate items
+    if (!data.items || data.items.length === 0) {
+      toast.error("Please add at least one item to the voucher.");
+      return;
+    }
+
     const confirmedBatchKeys = new Set<string>();
 
     const trySubmit = async (): Promise<void> => {
-      const payload = buildCreateVoucherPayload(data, confirmedBatchKeys);
       try {
+        const pin = await getPin("salesman");
+        if (!pin) {
+          toast.error("PIN verification cancelled or failed.");
+          return;
+        }
+
+        const payload = buildCreateVoucherPayload(
+          data,
+          confirmedBatchKeys,
+          pin,
+        );
         await createVoucher.mutateAsync(payload);
+        toast.success("Stock voucher created successfully!");
         router.push("/stock");
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
+        // Handle the error from apiClient interceptor
+        const errorMessage =
+          error?.message || "Failed to create stock voucher. Please try again.";
+
+        // Check if it's a batch rate mismatch error
         const responseData = error?.response?.data;
 
         if (responseData?.code === "BATCH_RATE_MISMATCH") {
@@ -131,14 +164,47 @@ export function useStockVoucherForm() {
             confirmedBatchKeys.add(batchKey);
             await trySubmit();
             return;
+          } else {
+            toast.info("Batch update cancelled.");
+            return;
           }
         }
 
-        throw error;
+        // Check for PIN errors
+        if (
+          errorMessage.toLowerCase().includes("pin") ||
+          errorMessage.toLowerCase().includes("incorrect pin")
+        ) {
+          toast.error("Incorrect PIN. Please try again.");
+          return;
+        }
+
+        // Check for stock-related errors
+        if (
+          errorMessage.toLowerCase().includes("stock") ||
+          errorMessage.toLowerCase().includes("inventory")
+        ) {
+          toast.error(`Stock error: ${errorMessage}`);
+          return;
+        }
+
+        // Handle all other errors
+        toast.error(errorMessage);
+        console.error("Stock voucher creation error:", error);
       }
     };
 
-    await trySubmit();
+    try {
+      await trySubmit();
+    } catch (error) {
+      // This catches any unhandled errors from trySubmit
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "An unexpected error occurred.";
+      toast.error(errorMessage);
+      console.error("Unhandled error in onSubmit:", error);
+    }
   };
 
   return {
@@ -177,6 +243,7 @@ export function useStockVoucherForm() {
     selectedPayment,
     setSelectedPayment,
 
+    PinModalElement,
     onSubmit,
   };
 }

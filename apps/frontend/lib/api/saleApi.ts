@@ -6,6 +6,7 @@ import {
   ReturnableSaleDto,
   CreateSaleInput,
   SaleProductOption,
+  SerializedSale,
 } from "@repo/shared";
 
 export const saleApi = {
@@ -31,7 +32,7 @@ export const saleApi = {
     return data;
   },
 
-  create: async (input: CreateSaleInput): Promise<SaleDetailDto> => {
+  create: async (input: CreateSaleInput): Promise<SerializedSale> => {
     const { data } = await apiClient.post("/sales", input);
     return data;
   },

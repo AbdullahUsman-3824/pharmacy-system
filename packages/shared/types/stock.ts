@@ -72,6 +72,7 @@ interface StockVoucherBase {
 
 export interface CreateStockVoucherInput extends StockVoucherBase {
   voucherDate: string;
+  creatorPin: string;
   items: StockVoucherItemInput[];
   payments: CreatePaymentDto[];
 }
@@ -88,7 +89,7 @@ export interface StockVoucherOutput extends StockVoucherBase {
   updatedAt: string;
   items: StockVoucherItemOutput[];
   supplier: string | null;
-  createdBy: string | null;
+  createdByName: string | null;
   payments: PaymentOutput[];
 }
 

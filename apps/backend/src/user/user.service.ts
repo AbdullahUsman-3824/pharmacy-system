@@ -39,6 +39,19 @@ export class UsersService {
     });
   }
 
+  async findByPin(pin: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { pin },
+      select: this.userSelect,
+    });
+
+    if (!user) {
+      throw new NotFoundException(`Incorrect PIN`);
+    }
+
+    return user;
+  }
+
   async findOne(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },

@@ -3,7 +3,6 @@
 import { useState, useRef, useMemo, useEffect } from "react";
 import { useForm, useWatch, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { SaleType } from "@repo/shared";
 import {
   saleFormSchema,
   SaleFormInput,
@@ -12,6 +11,7 @@ import {
 } from "@/schemas/sale-form";
 import { buildCreateSalePayload } from "./build-payload";
 import { useCreateSale } from "@/hooks/useSale";
+import { usePinModal } from "@/hooks/usePinModal";
 import {
   PosHeader,
   StockError,
@@ -23,12 +23,32 @@ import {
   SaleSummaryRef,
 } from ".";
 import { useHeldInvoices } from "@/lib/context/HeldInvoicesContext";
-import { RecallHeldPopover, SaleCompleteModal, CompletedSale } from ".";
+import { RecallHeldPopover, SaleCompleteModal } from ".";
+import type { SerializedSale } from "@repo/shared";
 import { usePageShortcuts } from "@/lib/shortcuts/usePageShortcuts";
 import type { PaymentOption } from "@/components/shared/payment-select";
+import { toast } from "sonner";
+import {
+  getLastDiscountPercent,
+  getLastTaxPercent,
+  setLastDiscountPercent,
+  setLastTaxPercent,
+} from "@/lib/last-sale-defaults";
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function buildDefaultValues(): SaleFormInput {
+  return {
+    customerId: "",
+    saleDate: new Date().toISOString().slice(0, 10),
+    remarks: "",
+    discountPercent: getLastDiscountPercent(),
+    taxPercent: getLastTaxPercent(),
+    items: [],
+    payments: [],
+  };
 }
 
 export default function PosPage() {
@@ -43,15 +63,7 @@ export default function PosPage() {
     formState: { errors },
   } = useForm<SaleFormInput, unknown, SaleFormOutput>({
     resolver: zodResolver(saleFormSchema),
-    defaultValues: {
-      type: SaleType.SALE,
-      customerId: "",
-      saleDate: new Date().toISOString().slice(0, 10),
-      remarks: "",
-      discountPercent: 0,
-      taxPercent: 0,
-      items: [],
-    },
+    defaultValues: buildDefaultValues(),
   });
 
   const { fields, insert, remove, replace } = useFieldArray({
@@ -66,7 +78,7 @@ export default function PosPage() {
 
   const [stockError, setStockError] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
-  const [completedSale, setCompletedSale] = useState<CompletedSale | null>(
+  const [completedSale, setCompletedSale] = useState<SerializedSale | null>(
     null,
   );
   const [showRecallPopover, setShowRecallPopover] = useState(false);
@@ -106,12 +118,6 @@ export default function PosPage() {
     return { gross, discount, tax, net };
   }, [items, discountPercent, taxPercent]);
 
-  // Keep amountPaid in sync when net changes (and cart is not empty)
-  const [prevNet, setPrevNet] = useState(totals.net);
-  if (totals.net !== prevNet) {
-    setPrevNet(totals.net);
-  }
-
   useEffect(() => {
     if (selectedPayment) {
       setValue("payments", [
@@ -122,42 +128,75 @@ export default function PosPage() {
     }
   }, [selectedPayment, totals.net, setValue]);
 
+  const { getPin, PinModalElement } = usePinModal();
+
   const onSubmit = async (data: SaleFormOutput) => {
     setStockError(null);
     setPaymentError(null);
 
     if (!selectedPayment) {
-      setPaymentError("Please select a payment method.");
+      const errorMsg = "Please select a payment method.";
+      setPaymentError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
-    const payload = buildCreateSalePayload(data);
-    // If your API expects payment info, merge it here, e.g.:
-    // const payload = {
-    //   ...buildCreateSalePayload(data),
-    //   paymentMethodId: selectedPayment.id, // or whatever the shape is
-    //   amountPaid,
-    // };
-
     try {
-      const result = await createSale.mutateAsync(payload);
-      setCompletedSale(result as unknown as CompletedSale);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-      const responseData = error?.response?.data;
-      if (responseData?.code === "INSUFFICIENT_STOCK") {
-        setStockError(
-          `Not enough stock available. Available: ${responseData.available}, requested: ${responseData.requested}.`,
-        );
+      const pin = await getPin("salesman");
+      if (!pin) {
+        toast.error("PIN verification cancelled or failed.");
         return;
       }
-      throw error;
+
+      const payload = buildCreateSalePayload(data, pin);
+      const result = await createSale.mutateAsync(payload);
+      setCompletedSale(result);
+      toast.success("Sale completed successfully!");
+    } catch (error: unknown) {
+      // Handle errors from the apiClient interceptor
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to create sale. Please try again.";
+
+      // Check for stock error
+      if (
+        errorMessage.includes("INSUFFICIENT_STOCK") ||
+        errorMessage.toLowerCase().includes("stock")
+      ) {
+        // Try to extract available/requested quantities
+        const match = errorMessage.match(
+          /Available:\s*(\d+),\s*requested:\s*(\d+)/i,
+        );
+        let detailedMsg = "Not enough stock available for this item.";
+        if (match) {
+          detailedMsg = `Not enough stock available. Available: ${match[1]}, requested: ${match[2]}.`;
+        }
+        setStockError(detailedMsg);
+        toast.error(detailedMsg);
+        return;
+      }
+
+      // Check for PIN error
+      if (
+        errorMessage.toLowerCase().includes("pin") ||
+        errorMessage.toLowerCase().includes("incorrect pin")
+      ) {
+        toast.error("Incorrect PIN. Please try again.");
+        return;
+      }
+
+      // Handle all other errors
+      toast.error(errorMessage);
+      console.error("Sale creation error:", error);
     }
   };
 
   const handleCompleteSale = () => {
     if (!selectedPayment) {
-      setPaymentError("Please select a payment method.");
+      const errorMsg = "Please select a payment method.";
+      setPaymentError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
     setPaymentError(null);
@@ -172,7 +211,7 @@ export default function PosPage() {
   const handleNewSale = () => {
     setCompletedSale(null);
     replace([]);
-    reset();
+    reset(buildDefaultValues());
     setCustomerLabel("");
     resetPayment();
     requestAnimationFrame(() => entryRowRef.current?.focus());
@@ -186,7 +225,10 @@ export default function PosPage() {
   const { heldInvoices, hold, recall } = useHeldInvoices();
 
   const holdCurrentCart = () => {
-    if (!items || items.length === 0) return;
+    if (!items || items.length === 0) {
+      toast.warning("Cart is empty. Add items before holding.");
+      return;
+    }
     hold({
       customerId: customerId || undefined,
       customerName: customerId ? customerLabel : undefined,
@@ -194,11 +236,16 @@ export default function PosPage() {
       netAmount: totals.net,
     });
     replace([]);
-    reset();
+    reset(buildDefaultValues());
     resetPayment();
+    toast.success("Invoice held successfully!");
   };
 
   const handleOpenRecall = () => {
+    if (heldInvoices.length === 0) {
+      toast.info("No held invoices to recall.");
+      return;
+    }
     setShowRecallPopover(true);
   };
 
@@ -211,15 +258,23 @@ export default function PosPage() {
       replace(recalled.items);
       setValue("customerId", recalled.customerId ?? "");
       setCustomerLabel(recalled.customerName ?? "");
+      toast.success("Invoice recalled successfully!");
+    } else {
+      toast.error("Failed to recall invoice.");
     }
     setShowRecallPopover(false);
   };
 
   const handleClear = () => {
+    if (!items || items.length === 0) {
+      toast.info("Cart is already empty.");
+      return;
+    }
     replace([]);
-    reset();
+    reset(buildDefaultValues());
     setCustomerLabel("");
     resetPayment();
+    toast.info("Cart cleared.");
   };
 
   usePageShortcuts([
@@ -330,8 +385,14 @@ export default function PosPage() {
               netAmount={totals.net}
               discountPercent={discountPercent}
               taxPercent={taxPercent}
-              onDiscountPercentChange={(v) => setValue("discountPercent", v)}
-              onTaxPercentChange={(v) => setValue("taxPercent", v)}
+              onDiscountPercentChange={(v) => {
+                setValue("discountPercent", v);
+                setLastDiscountPercent(v);
+              }}
+              onTaxPercentChange={(v) => {
+                setValue("taxPercent", v);
+                setLastTaxPercent(v);
+              }}
             />
             <div className="flex-1">
               <SalePayment
@@ -364,6 +425,7 @@ export default function PosPage() {
           onNewSale={handleNewSale}
         />
       )}
+      {PinModalElement}
     </div>
   );
 }

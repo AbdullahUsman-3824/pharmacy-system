@@ -16,7 +16,7 @@ interface SaleItemBase {
   batchId: string;
   packQuantity: number;
   looseQuantity: number;
-  saleRate: number;
+  saleRate: number; // always per unit
   grossAmount: number;
   netAmount: number;
 }
@@ -45,20 +45,22 @@ interface SaleBase {
 
 export interface CreateSaleInput extends SaleBase {
   saleDate: string;
+  creatorPin: string; // required for both SALE & SALE_RETURN
   items: CreateSaleItemInput[];
-  payments: CreatePaymentDto[];
+  payments: CreatePaymentDto[]; // required (even for returns / refunds)
 }
 
 export interface SaleDto extends SaleBase {
   id: string;
   saleNumber: string;
   date: string;
-  customer: string | null;
+  customerName: string | null;
   grossAmount: number;
   discountAmount: number;
   taxAmount: number;
   netAmount: number;
-  createdBy: string | null;
+  createdById: string | null; // ← added
+  createdByName: string | null;
   createdAt?: string;
   updatedAt?: string;
   deletedAt?: string | null;
@@ -99,18 +101,24 @@ export interface ReturnableItemDto {
   productName?: string;
   batchId: string;
   batchNumber?: string;
-  saleRate: number;
+  saleRate: number; // per unit
+  packingSize: number;
+
   originalPackQuantity: number;
   originalLooseQuantity: number;
   alreadyReturnedPacks: number;
   alreadyReturnedLoose: number;
+
   availablePacksToReturn: number;
   availableLooseToReturn: number;
+  availableUnitsToReturn: number; // (packs * packingSize) + loose
 }
 
 export interface ReturnableSaleDto {
   saleId: string;
   saleNumber: string;
+  customerId: string | null;
+  customerName: string | null;
   items: ReturnableItemDto[];
 }
 
@@ -122,4 +130,33 @@ export interface SaleProductOption {
   id: string;
   name: string;
   currentQuantity: number | null;
+}
+
+// ======================================================
+// Serialized data for POS sale completion modal
+// ======================================================
+
+export interface SerializedSaleItem {
+  productName: string;
+  packQuantity: number;
+  looseQuantity: number;
+  saleRate: number;
+  grossAmount: number;
+  netAmount: number;
+}
+
+export interface SerializedSale {
+  id: string;
+  saleNumber: string;
+  date: string;
+  customerName: string;
+  createdByName: string;
+  items: SerializedSaleItem[];
+  grossAmount: number;
+  discountPercent: number | null;
+  discountAmount: number;
+  taxPercent: number | null;
+  taxAmount: number;
+  netAmount: number;
+  payments?: PaymentOutput[];
 }

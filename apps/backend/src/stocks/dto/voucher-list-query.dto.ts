@@ -1,5 +1,4 @@
 import { IsEnum, IsOptional, IsIn } from 'class-validator';
-import { Transform } from 'class-transformer';
 import { BaseListDto } from '../../common/base-list.dto';
 import {
   StockVoucherSortField,
@@ -20,7 +19,6 @@ export class VoucherListQueryDto
   sortOrder?: 'asc' | 'desc';
 
   @IsOptional()
-  @Transform(({ value }) => (Array.isArray(value) ? value : [value]))
-  @IsEnum(StockVoucherType, { each: true })
-  types?: StockVoucherType[];
+  @IsEnum(StockVoucherType)
+  type?: StockVoucherType;
 }

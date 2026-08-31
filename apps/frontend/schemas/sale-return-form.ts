@@ -7,23 +7,26 @@ export const returnLineSchema = z
     batchId: z.string(),
     batchNumber: z.string().optional(),
     saleRate: z.number(),
-    looseRate: z.number().nullable(),
+    packingSize: z.number().min(1),
     maxPacks: z.number(),
     maxLoose: z.number(),
+    maxUnits: z.number(),
     packQuantity: z.coerce.number().min(0).default(0),
     looseQuantity: z.coerce.number().min(0).default(0),
   })
-  .refine((line) => line.packQuantity <= line.maxPacks, {
-    message: "Exceeds available pack quantity",
-    path: ["packQuantity"],
-  })
-  .refine((line) => line.looseQuantity <= line.maxLoose, {
-    message: "Exceeds available loose quantity",
-    path: ["looseQuantity"],
-  });
-
+  .refine(
+    (line) => {
+      const units = line.packQuantity * line.packingSize + line.looseQuantity;
+      return units <= line.maxUnits;
+    },
+    {
+      message: "Total return quantity exceeds available units",
+      path: ["packQuantity"],
+    },
+  );
 export const saleReturnFormSchema = z.object({
   originalSaleId: z.string().min(1, "Original sale required"),
+  customerId: z.string().nullable().optional(),
   customerName: z.string().optional(),
   remarks: z.string().optional(),
   discountPercent: z.coerce.number().min(0).max(100).default(0),

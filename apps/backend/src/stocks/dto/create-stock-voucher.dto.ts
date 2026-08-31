@@ -8,6 +8,7 @@ import {
   IsString,
   ValidateNested,
   IsBoolean,
+  Length,
 } from 'class-validator';
 
 import { CreateStockVoucherInput, StockVoucherType } from '@repo/shared';
@@ -45,4 +46,8 @@ export class CreateStockVoucherDto implements CreateStockVoucherInput {
   @IsOptional()
   @IsBoolean()
   confirmRateUpdate?: boolean;
+
+  @IsString()
+  @Length(4, 6)
+  creatorPin!: string;
 }

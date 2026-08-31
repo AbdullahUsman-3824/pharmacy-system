@@ -6,7 +6,7 @@ enum UserType {
 model User {
     id       String   @id @default(uuid())
     name     String
-    pin      String
+    pin      String   @unique
     type     UserType
     isActive Boolean  @default(true)
 

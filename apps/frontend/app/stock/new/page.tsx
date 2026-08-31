@@ -33,6 +33,7 @@ export default function NewStockVoucherPage() {
     totals,
     selectedPayment,
     setSelectedPayment,
+    PinModalElement,
     onSubmit,
   } = useStockVoucherForm();
 
@@ -93,6 +94,7 @@ export default function NewStockVoucherPage() {
         selectedPayment={selectedPayment}
         onPaymentChange={setSelectedPayment}
       />
+      {PinModalElement}
     </div>
   );
 }

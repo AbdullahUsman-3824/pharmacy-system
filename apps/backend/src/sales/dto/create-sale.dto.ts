@@ -8,6 +8,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Length,
   Max,
   Min,
   ValidateIf,
@@ -62,4 +63,8 @@ export class CreateSaleDto implements CreateSaleInput {
   @ValidateNested({ each: true })
   @Type(() => CreatePaymentDto)
   payments!: CreatePaymentDto[];
+
+  @IsString()
+  @Length(4, 6)
+  creatorPin!: string;
 }

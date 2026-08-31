@@ -7,8 +7,16 @@ import { useProductsOptions } from "@/hooks/useProducts";
 import { calculateItemAmounts } from "@/lib/stock-calculations";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { Check, X } from "lucide-react";
+import {
+  inputBaseClass,
+  inputBorderClass,
+  fieldErrorClass,
+  datePickerClass,
+  amountTextClass,
+  amountHighlightClass,
+} from "@/constants/ui/input-styles";
 
-/** Option shape returned by /products/options (includes packingSize) */
 export interface ProductOption {
   id: string;
   name: string;
@@ -105,6 +113,11 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
       });
     };
 
+    function resetRow() {
+      setEntry(blankEntry);
+      setErrors({});
+    }
+
     useImperativeHandle(ref, () => ({
       commit,
       setData: (data: StockVoucherItemValues, productName?: string) => {
@@ -184,13 +197,11 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
             <input
               value={entry.batchNumber}
               onChange={(e) => set("batchNumber", e.target.value)}
-              className="w-full border rounded px-2 py-1.5 text-sm bg-white"
+              className={`${inputBaseClass} ${inputBorderClass(!!errors.batchNumber)}`}
               placeholder="Batch #"
             />
             {errors.batchNumber && (
-              <div className="text-xs text-red-600 mt-0.5 leading-none">
-                {errors.batchNumber}
-              </div>
+              <div className={fieldErrorClass}>{errors.batchNumber}</div>
             )}
           </div>
         </td>
@@ -211,7 +222,7 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
               }}
               dateFormat="MM/yyyy"
               showMonthYearPicker
-              className="w-full border rounded px-2 py-1.5 text-sm bg-white cursor-pointer"
+              className={`${datePickerClass} ${inputBorderClass(!!errors.expiryDate)}`}
               placeholderText="Select expiry"
               onFocus={handleExpiryFocus}
             />
@@ -223,13 +234,11 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
               type="number"
               value={entry.packQuantity}
               onChange={(e) => set("packQuantity", e.target.value)}
-              className="w-full border rounded px-2 py-1.5 text-sm bg-white"
+              className={`${inputBaseClass} ${inputBorderClass(!!errors.packQuantity)}`}
               placeholder="0"
             />
             {errors.packQuantity && (
-              <div className="text-xs text-red-600 mt-0.5 leading-none">
-                {errors.packQuantity}
-              </div>
+              <div className={fieldErrorClass}>{errors.packQuantity}</div>
             )}
           </div>
         </td>
@@ -239,13 +248,11 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
               type="number"
               value={entry.looseQuantity}
               onChange={(e) => set("looseQuantity", e.target.value)}
-              className="w-full border rounded px-2 py-1.5 text-sm bg-white"
+              className={`${inputBaseClass} ${inputBorderClass(!!errors.looseQuantity)}`}
               placeholder="0"
             />
             {errors.looseQuantity && (
-              <div className="text-xs text-red-600 mt-0.5 leading-none">
-                {errors.looseQuantity}
-              </div>
+              <div className={fieldErrorClass}>{errors.looseQuantity}</div>
             )}
           </div>
         </td>
@@ -256,13 +263,11 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
               step="0.01"
               value={entry.purchaseRate}
               onChange={(e) => set("purchaseRate", e.target.value)}
-              className="w-full border rounded px-2 py-1.5 text-sm bg-white"
+              className={`${inputBaseClass} ${inputBorderClass(!!errors.purchaseRate)}`}
               placeholder="0.00"
             />
             {errors.purchaseRate && (
-              <div className="text-xs text-red-600 mt-0.5 leading-none">
-                {errors.purchaseRate}
-              </div>
+              <div className={fieldErrorClass}>{errors.purchaseRate}</div>
             )}
           </div>
         </td>
@@ -273,13 +278,11 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
               step="0.01"
               value={entry.saleRate}
               onChange={(e) => set("saleRate", e.target.value)}
-              className="w-full border rounded px-2 py-1.5 text-sm bg-white"
+              className={`${inputBaseClass} ${inputBorderClass(!!errors.saleRate)}`}
               placeholder="0.00"
             />
             {errors.saleRate && (
-              <div className="text-xs text-red-600 mt-0.5 leading-none">
-                {errors.saleRate}
-              </div>
+              <div className={fieldErrorClass}>{errors.saleRate}</div>
             )}
           </div>
         </td>
@@ -292,7 +295,7 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
                   type="number"
                   value={entry.freeQuantity}
                   onChange={(e) => set("freeQuantity", e.target.value)}
-                  className="w-full border rounded px-2 py-1.5 text-sm bg-white"
+                  className={`${inputBaseClass} ${inputBorderClass(!!errors.freeQuantity)}`}
                   placeholder="0"
                 />
               </div>
@@ -304,7 +307,7 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
                   step="0.01"
                   value={entry.discountPercent}
                   onChange={(e) => set("discountPercent", e.target.value)}
-                  className="w-full border rounded px-2 py-1.5 text-sm bg-white"
+                  className={`${inputBaseClass} ${inputBorderClass(!!errors.discountPercent)}`}
                   placeholder="0"
                 />
               </div>
@@ -316,22 +319,28 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
                   step="0.01"
                   value={entry.taxPercent}
                   onChange={(e) => set("taxPercent", e.target.value)}
-                  className="w-full border rounded px-2 py-1.5 text-sm bg-white"
+                  className={`${inputBaseClass} ${inputBorderClass(!!errors.taxPercent)}`}
                   placeholder="0"
                 />
               </div>
             </td>
-            <td className="px-3 py-1.5 text-right font-medium text-sm text-gray-600">
+            <td
+              className={`px-3 py-1.5 text-right font-medium text-sm ${amountTextClass}`}
+            >
               <div className="min-h-[60px] flex items-center justify-end">
                 {amounts.grossAmount.toFixed(2)}
               </div>
             </td>
-            <td className="px-3 py-1.5 text-right font-medium text-sm text-gray-600">
+            <td
+              className={`px-3 py-1.5 text-right font-medium text-sm ${amountTextClass}`}
+            >
               <div className="min-h-[60px] flex items-center justify-end">
                 {amounts.discountAmount.toFixed(2)}
               </div>
             </td>
-            <td className="px-3 py-1.5 text-right font-medium text-sm text-gray-600">
+            <td
+              className={`px-3 py-1.5 text-right font-medium text-sm ${amountTextClass}`}
+            >
               <div className="min-h-[60px] flex items-center justify-end">
                 {amounts.taxAmount.toFixed(2)}
               </div>
@@ -339,12 +348,33 @@ export const StockVoucherEntryRow = forwardRef<StockVoucherEntryRowRef, Props>(
           </>
         )}
 
-        <td className="px-3 py-1.5 text-right font-medium text-sm text-blue-700">
+        <td
+          className={`px-3 py-1.5 text-right font-medium text-sm ${amountHighlightClass}`}
+        >
           <div className="min-h-[60px] flex items-center justify-end">
             {amounts.netAmount.toFixed(2)}
           </div>
         </td>
-        <td className="px-3 py-1.5">{/* actions column */}</td>
+        <td className="px-3 py-1.5">
+          <div className="min-h-[60px] flex items-center justify-center gap-1.5">
+            <button
+              type="button"
+              onClick={commit}
+              title="Add item (Enter)"
+              className="inline-flex items-center justify-center h-6 w-6 rounded-sm bg-[var(--color-primary)] text-white shadow-sm hover:bg-[var(--color-primary-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/40 transition-[var(--transition-fast)]"
+            >
+              <Check className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={resetRow}
+              title="Clear"
+              className="inline-flex items-center justify-center h-5 w-5 rounded text-[var(--color-text-disabled)] hover:text-[var(--color-danger)] hover:bg-[var(--color-danger-soft)] focus:outline-none transition-[var(--transition-fast)]"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        </td>
       </tr>
     );
   },

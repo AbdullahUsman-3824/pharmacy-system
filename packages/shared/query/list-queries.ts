@@ -16,7 +16,7 @@ export interface SalesListQuery
 
 export interface StockVoucherListQuery
   extends BaseListQuery, SortQuery<StockVoucherSortField> {
-  types?: StockVoucherType[];
+  type?: StockVoucherType;
 }
 
 export interface InventoryListQuery

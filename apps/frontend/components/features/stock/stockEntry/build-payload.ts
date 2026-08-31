@@ -5,6 +5,7 @@ import { StockVoucherFormOutput } from "@/schemas/stock-voucher";
 export function buildCreateVoucherPayload(
   form: StockVoucherFormOutput,
   confirmedBatchKeys: Set<string> = new Set(),
+  creatorPin: string,
 ): CreateStockVoucherInput {
   return {
     type: form.type,
@@ -12,6 +13,7 @@ export function buildCreateVoucherPayload(
     voucherDate: new Date(form.voucherDate).toISOString(),
     remarks: form.remarks,
     payments: form.payments,
+    creatorPin,
     items: form.items.map((item) => {
       const amounts = calculateItemAmounts({
         packQuantity: item.packQuantity,

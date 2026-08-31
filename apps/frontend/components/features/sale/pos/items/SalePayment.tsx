@@ -130,7 +130,7 @@ export const SalePayment = forwardRef<SalePaymentRef, SalePaymentProps>(
             onClick={() => onComplete?.(amountPaid)}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded transition-colors flex items-center justify-center gap-2"
           >
-            <span className="text-sm">F11</span> Complete sale
+            <span className="text-sm">F11</span> CheckOut
           </button>
           <button
             type="button"

@@ -2,8 +2,6 @@
 
 import { UseFormRegister } from "react-hook-form";
 import { SaleFormInput } from "@/schemas/sale-form";
-import { SALE_TYPE_LABELS } from "@/constants/sale/sale-form";
-import { SaleType } from "@repo/shared";
 import { AsyncSelect } from "@/components/ui/async-select";
 import { useCustomersOptions } from "@/hooks/useBusinessContacts";
 
@@ -43,7 +41,7 @@ export function PosHeader({
         </div>
 
         {/* Date */}
-        <div className="col-span-2">
+        <div className="col-span-4">
           <label className="block pb-0.5 text-[10px] font-medium uppercase tracking-wider text-gray-400/80">
             Date
           </label>
@@ -54,26 +52,8 @@ export function PosHeader({
           />
         </div>
 
-        {/* Invoice Type */}
-        <div className="col-span-3">
-          <label className="block pb-0.5 text-[10px] font-medium uppercase tracking-wider text-gray-400/80">
-            Invoice Type
-          </label>
-          <select
-            {...register("type")}
-            className="h-9 w-full rounded-md border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 bg-white"
-            defaultValue={SaleType.SALE}
-          >
-            {Object.entries(SALE_TYPE_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </div>
-
         {/* Remarks */}
-        <div className="col-span-3">
+        <div className="col-span-4">
           <label className="block pb-0.5 text-[10px] font-medium uppercase tracking-wider text-gray-400/80">
             Remarks
           </label>

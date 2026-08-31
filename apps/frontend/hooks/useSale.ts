@@ -64,21 +64,32 @@ export function useCreateSale() {
 
   return useMutation({
     mutationFn: (payload: CreateSaleInput) => saleApi.create(payload),
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
+      // Always invalidate sales list
       queryClient.invalidateQueries({ queryKey: saleKeys.all });
 
-      data.items?.forEach((item) => {
+      // Invalidate stock for all products that were in the payload
+      // (SerializedSale doesn't contain productIds)
+      variables.items.forEach((item) => {
         queryClient.invalidateQueries({
           queryKey: stockKeys.productStock(item.productId),
         });
       });
 
-      if (data.originalSaleId) {
+      // If this was a return, invalidate the original sale + its returnable data
+      if (variables.type === "SALE_RETURN" && variables.originalSaleId) {
         queryClient.invalidateQueries({
-          queryKey: saleKeys.sale(data.originalSaleId),
+          queryKey: saleKeys.sale(variables.originalSaleId),
         });
         queryClient.invalidateQueries({
-          queryKey: saleKeys.returnable(data.originalSaleId),
+          queryKey: saleKeys.returnable(variables.originalSaleId),
+        });
+      }
+
+      // Also invalidate the newly created sale (optional but useful)
+      if (data?.id) {
+        queryClient.invalidateQueries({
+          queryKey: saleKeys.sale(data.id),
         });
       }
     },

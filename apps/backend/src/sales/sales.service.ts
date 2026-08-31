@@ -14,18 +14,25 @@ import {
   SaleListResponse,
   SaleProductOption,
   SaleDetailDto,
+  SerializedSale,
   SaleDto,
   ReturnableSaleDto,
 } from '@repo/shared';
 import { buildPagination, withOrder } from '../common/pagination.helper';
 import { Prisma } from '../generated/prisma/client';
+import { UsersService } from '../user/user.service';
 
 @Injectable()
 export class SalesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly usersService: UsersService,
+  ) {}
 
   // ===================== CREATE SALE =====================
-  async createSale(dto: CreateSaleDto): Promise<SaleDetailDto> {
+  async createSale(dto: CreateSaleDto): Promise<SerializedSale> {
+    const createdBy = await this.usersService.findByPin(dto.creatorPin);
+
     const sale = await this.prisma.$transaction(async (tx) => {
       if (dto.type === SaleType.SALE_RETURN && !dto.originalSaleId) {
         throw new BadRequestException(
@@ -46,6 +53,7 @@ export class SalesService {
           originalSaleId: dto.originalSaleId ?? null,
           date: new Date(dto.saleDate),
           remarks: dto.remarks,
+          createdById: createdBy.id,
         },
       });
 
@@ -149,6 +157,8 @@ export class SalesService {
           taxPercent: true,
           taxAmount: true,
           netAmount: true,
+          createdById: true,
+          createdBy: { select: { name: true } },
           createdAt: true,
           updatedAt: true,
         },
@@ -165,7 +175,7 @@ export class SalesService {
       type: s.type as unknown as SaleType,
       date: s.date.toISOString(),
       customerId: s.customerId,
-      customer: s.customer?.name ?? null,
+      customerName: s.customer?.name ?? null,
       originalSaleId: s.originalSaleId,
       remarks: s.remarks,
       grossAmount: Number(s.grossAmount),
@@ -175,7 +185,8 @@ export class SalesService {
       taxPercent: s.taxPercent !== null ? Number(s.taxPercent) : null,
       taxAmount: Number(s.taxAmount),
       netAmount: Number(s.netAmount),
-      createdBy: null,
+      createdById: s.createdById ?? null,
+      createdByName: s.createdBy?.name ?? null,
       createdAt: s.createdAt?.toISOString(),
       updatedAt: s.updatedAt?.toISOString(),
     }));
@@ -197,7 +208,7 @@ export class SalesService {
       throw new NotFoundException(`Sale ${id} not found`);
     }
 
-    return this.serializeSale(sale);
+    return this.serializeSaleDetail(sale);
   }
 
   // ===================== FIND BY SALE NUMBER =====================
@@ -214,7 +225,7 @@ export class SalesService {
       throw new NotFoundException(`Sale ${saleNumber} not found`);
     }
 
-    return this.serializeSale(sale);
+    return this.serializeSaleDetail(sale);
   }
 
   // ===================== GET RETURNABLE ITEMS =====================
@@ -222,8 +233,23 @@ export class SalesService {
     const originalSale = await this.prisma.sale.findFirst({
       where: { id: originalSaleId, deletedAt: null },
       include: {
+        customer: { select: { id: true, name: true } },
         items: {
-          include: { product: true, batch: true },
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                packingSize: true,
+              },
+            },
+            batch: {
+              select: {
+                id: true,
+                batchNumber: true,
+              },
+            },
+          },
         },
       },
     });
@@ -265,9 +291,15 @@ export class SalesService {
     return {
       saleId: originalSale.id,
       saleNumber: originalSale.saleNumber,
+      customerId: originalSale.customerId,
+      customerName: originalSale.customer?.name ?? null,
       items: originalSale.items.map((item) => {
         const key = `${item.productId}|${item.batchId}`;
         const returned = returnedMap.get(key) || { pack: 0, loose: 0 };
+
+        const packingSize = Number(item.product?.packingSize) || 1;
+        const availablePacks = item.packQuantity - returned.pack;
+        const availableLoose = item.looseQuantity - returned.loose;
 
         return {
           productId: item.productId,
@@ -275,12 +307,16 @@ export class SalesService {
           batchId: item.batchId,
           batchNumber: item.batch?.batchNumber,
           saleRate: Number(item.saleRate),
+          packingSize,
+
           originalPackQuantity: item.packQuantity,
           originalLooseQuantity: item.looseQuantity,
           alreadyReturnedPacks: returned.pack,
           alreadyReturnedLoose: returned.loose,
-          availablePacksToReturn: item.packQuantity - returned.pack,
-          availableLooseToReturn: item.looseQuantity - returned.loose,
+
+          availablePacksToReturn: availablePacks,
+          availableLooseToReturn: availableLoose,
+          availableUnitsToReturn: availablePacks * packingSize + availableLoose,
         };
       }),
     };
@@ -375,27 +411,58 @@ export class SalesService {
     return `${yy}${mm}${dd}`;
   }
 
-  private serializeSale(sale: any): SaleDetailDto {
+  private serializeSale(sale: any): SerializedSale {
     return {
       id: sale.id,
       saleNumber: sale.saleNumber,
-      type: sale.type,
-      customerId: sale.customerId,
-      customer: sale.customer?.name ?? null,
-      originalSaleId: sale.originalSaleId,
-      remarks: sale.remarks,
       date: sale.date.toISOString(),
+      customerName: sale.customer?.name ?? null,
+      createdByName: sale.createdBy?.name ?? '',
+      grossAmount: Number(sale.grossAmount),
       discountPercent:
         sale.discountPercent !== null ? Number(sale.discountPercent) : null,
-      taxPercent: sale.taxPercent !== null ? Number(sale.taxPercent) : null,
-      grossAmount: Number(sale.grossAmount),
       discountAmount: Number(sale.discountAmount),
+      taxPercent: sale.taxPercent !== null ? Number(sale.taxPercent) : null,
       taxAmount: Number(sale.taxAmount),
       netAmount: Number(sale.netAmount),
-      createdBy: sale.createdBy?.name ?? null,
+      items: (sale.items ?? []).map((item: any) => ({
+        productName: item.product?.name ?? 'Unknown',
+        packQuantity: item.packQuantity,
+        looseQuantity: item.looseQuantity,
+        saleRate: Number(item.saleRate),
+        grossAmount: Number(item.grossAmount),
+        netAmount: Number(item.netAmount),
+      })),
+    };
+  }
+
+  private serializeSaleDetail(sale: any): SaleDetailDto {
+    return {
+      id: sale.id,
+      saleNumber: sale.saleNumber,
+      type: sale.type as SaleType,
+      date: sale.date.toISOString(),
+
+      customerId: sale.customerId,
+      customerName: sale.customer?.name ?? null,
+
+      originalSaleId: sale.originalSaleId,
+      remarks: sale.remarks,
+
+      grossAmount: Number(sale.grossAmount),
+      discountPercent:
+        sale.discountPercent !== null ? Number(sale.discountPercent) : null,
+      discountAmount: Number(sale.discountAmount),
+      taxPercent: sale.taxPercent !== null ? Number(sale.taxPercent) : null,
+      taxAmount: Number(sale.taxAmount),
+      netAmount: Number(sale.netAmount),
+
+      createdById: sale.createdById ?? null,
+      createdByName: sale.createdBy?.name ?? null,
       createdAt: sale.createdAt?.toISOString(),
       updatedAt: sale.updatedAt?.toISOString(),
-      deletedAt: sale.deletedAt ? sale.deletedAt.toISOString() : null,
+      deletedAt: sale.deletedAt?.toISOString() ?? null,
+
       items: (sale.items ?? []).map((item: any) => ({
         id: item.id,
         saleId: item.saleId,
@@ -408,27 +475,28 @@ export class SalesService {
         netAmount: Number(item.netAmount),
         createdAt: item.createdAt?.toISOString(),
         updatedAt: item.updatedAt?.toISOString(),
+
         product: {
           id: item.product.id,
           name: item.product.name,
           code: item.product.code,
         },
+
         batch: {
           id: item.batch.id,
           batchNumber: item.batch.batchNumber,
-          expiryDate: item.batch.expiryDate
-            ? item.batch.expiryDate.toISOString()
-            : null,
+          expiryDate: item.batch.expiryDate?.toISOString() ?? null,
           purchaseRate: Number(item.batch.purchaseRate),
           saleRate: Number(item.batch.saleRate),
           openingQuantity: item.batch.openingQuantity,
           currentQuantity: item.batch.currentQuantity,
-          manufacturingDate: item.batch.manufacturingDate
-            ? item.batch.manufacturingDate.toISOString()
-            : null,
+          manufacturingDate:
+            item.batch.manufacturingDate?.toISOString() ?? null,
           isActive: item.batch.isActive,
         },
       })),
+
+      // payments belong at the sale level, NOT inside each item
       payments: (sale.payments ?? []).map((p: any) => ({
         id: p.id,
         amount: Number(p.amount),
@@ -600,6 +668,9 @@ export class SalesService {
         productId: item.productId,
         batchId: item.batchId,
       },
+      include: {
+        product: { select: { packingSize: true } },
+      },
     });
 
     if (!originalItem) {
@@ -611,6 +682,13 @@ export class SalesService {
       });
     }
 
+    const packingSize = Number(originalItem.product?.packingSize) || 1;
+
+    // Original units
+    const originalUnits =
+      originalItem.packQuantity * packingSize + originalItem.looseQuantity;
+
+    // Already returned units
     const previousReturns = await tx.saleItem.findMany({
       where: {
         productId: item.productId,
@@ -623,35 +701,33 @@ export class SalesService {
       },
     });
 
-    const alreadyReturnedPacks = previousReturns.reduce(
-      (sum: number, r: any) => sum + r.packQuantity,
-      0,
-    );
-    const alreadyReturnedLoose = previousReturns.reduce(
-      (sum: number, r: any) => sum + r.looseQuantity,
+    const alreadyReturnedUnits = previousReturns.reduce(
+      (sum: number, r: any) =>
+        sum + r.packQuantity * packingSize + r.looseQuantity,
       0,
     );
 
-    const availablePacksToReturn =
-      originalItem.packQuantity - alreadyReturnedPacks;
-    const availableLooseToReturn =
-      originalItem.looseQuantity - alreadyReturnedLoose;
+    const availableUnits = originalUnits - alreadyReturnedUnits;
 
-    if (
-      item.packQuantity > availablePacksToReturn ||
-      item.looseQuantity > availableLooseToReturn
-    ) {
+    // Requested return units
+    const requestedUnits = item.packQuantity * packingSize + item.looseQuantity;
+
+    if (requestedUnits <= 0) {
+      throw new BadRequestException(
+        `Return quantity must be greater than zero for batch ${item.batchId}`,
+      );
+    }
+
+    if (requestedUnits > availableUnits) {
       throw new BadRequestException({
         message: `Return quantity exceeds what's available to return for this item.`,
         code: 'RETURN_QUANTITY_EXCEEDS_ORIGINAL',
         productId: item.productId,
         batchId: item.batchId,
-        originalPackQuantity: originalItem.packQuantity,
-        originalLooseQuantity: originalItem.looseQuantity,
-        alreadyReturnedPacks,
-        alreadyReturnedLoose,
-        availablePacksToReturn,
-        availableLooseToReturn,
+        originalUnits,
+        alreadyReturnedUnits,
+        availableUnits,
+        requestedUnits,
       });
     }
   }

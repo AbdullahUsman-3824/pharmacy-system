@@ -110,16 +110,14 @@ export default function SaleDetailPage() {
     <PageContainer>
       <PageHeader
         title={isReturn ? "Sale Return" : "Sale"}
-        description={`${sale.saleNumber} • ${formatDate(sale.date)} • ${sale.customer}`}
+        description={`${sale.saleNumber} • ${formatDate(sale.date)} • ${sale.customerName}`}
       >
         <Button variant="secondary" onClick={() => router.push("/sales")}>
           Back
         </Button>
 
         {!isReturn && (
-          <Button
-            onClick={() => router.push(`/sales/return?saleId=${sale.id}`)}
-          >
+          <Button onClick={() => router.push(`/sales/${sale.id}/return`)}>
             Return Items
           </Button>
         )}

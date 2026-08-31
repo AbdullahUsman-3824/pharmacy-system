@@ -205,7 +205,7 @@ export function AsyncSelect<T extends AsyncSelectOption = AsyncSelectOption>({
                 className="flex w-full items-center gap-2 border-t border-[var(--color-border)] px-3 py-2 text-left text-sm text-[var(--color-primary)] hover:bg-[var(--color-background-muted)] transition-colors duration-150"
               >
                 <Plus size={14} />
-                Add "{search}"
+                Add &quot;{search}&quot;
               </button>
             )}
           </div>,

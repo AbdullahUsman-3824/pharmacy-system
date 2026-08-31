@@ -5,17 +5,19 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-export function buildCreateSalePayload(form: SaleFormOutput): CreateSaleInput {
+export function buildCreateSalePayload(
+  form: SaleFormOutput,
+  creatorPin: string,
+): CreateSaleInput {
   return {
-    type: form.type,
+    type: SaleType.SALE,
     customerId: form.customerId || undefined,
     saleDate: new Date(form.saleDate).toISOString(),
-    originalSaleId:
-      form.type === SaleType.SALE_RETURN ? form.originalSaleId : undefined,
     remarks: form.remarks,
     discountPercent: form.discountPercent || undefined,
     taxPercent: form.taxPercent || undefined,
     payments: form.payments,
+    creatorPin,
     items: form.items.map((item) => {
       const packingSize = item.packingSize || 1;
       const unitQuantity = item.packQuantity * packingSize + item.looseQuantity;
