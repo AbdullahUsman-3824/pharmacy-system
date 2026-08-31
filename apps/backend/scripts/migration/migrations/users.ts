@@ -63,3 +63,26 @@ export async function migrateUsers(
   const seconds = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log(`✔ users: ${created} created, ${failed} failed (${seconds}s)`);
 }
+
+export async function migrateAdmin(prisma: Prisma) {
+  console.log(`\n▶ Clearing existing users...`);
+  await prisma.user.deleteMany({});
+
+  console.log(`▶ Migrating users...`);
+  const startTime = Date.now();
+
+  try {
+    await prisma.user.create({
+      data: {
+        name: process.env.ADMIN_NAME || 'Admin',
+        pin: process.env.ADMIN_PIN || '1234',
+        type: UserType.OWNER,
+        isActive: true,
+      },
+    });
+  } catch (err) {
+    console.error(`\n  ✗ Failed to create admin user:`, err);
+  }
+  const seconds = ((Date.now() - startTime) / 1000).toFixed(1);
+  console.log(`✔ Admin user created (${seconds}s)`);
+}

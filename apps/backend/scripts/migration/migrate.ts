@@ -7,7 +7,7 @@ import { migrateDistributors } from './migrations/distributor';
 import { migrateProducts } from './migrations/product';
 import { migrateStock } from './migrations/stock';
 import { migrateAccounts } from './migrations/accounts';
-import { migrateUsers } from './migrations/users';
+import { migrateAdmin } from './migrations/users';
 
 /**
  * Full-refresh reset — clears previously migrated data before a
@@ -66,7 +66,8 @@ async function main() {
 
     await migrateAccounts(sqlPool, prisma);
     await migrateStock(sqlPool, prisma);
-    await migrateUsers(sqlPool, prisma);
+    // await migrateUsers(sqlPool, prisma);
+    await migrateAdmin(prisma);
     const totalElapsed = formatDuration(Date.now() - migrationStart);
     console.log(`\nMigration completed successfully in ${totalElapsed}.`);
   } catch (error: any) {
