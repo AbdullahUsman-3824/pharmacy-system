@@ -3,6 +3,9 @@
   "private": true,
   "scripts": {
     "frontend": "pnpm --dir apps/frontend dev",
-    "backend": "pnpm --dir apps/backend start:dev"
+    "backend": "pnpm --dir apps/backend start:dev",
+    "desktop:prepare": "pnpm --dir apps/desktop run sync:resources",
+    "build:dev": "node apps/desktop/scripts/build-dev.cjs",
+    "build:resources": "node apps/desktop/scripts/build-resources.cjs"
   }
 }

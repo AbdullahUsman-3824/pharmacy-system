@@ -1,9 +1,12 @@
 packages:
   - "apps/*"
   - "packages/*"
+verifyDepsBeforeRun: false
 allowBuilds:
   "@prisma/engines": true
   argon2: true
+  electron: true
+  electron-winstaller: true
   esbuild: false
   msnodesqlv8: true
   prisma: true
