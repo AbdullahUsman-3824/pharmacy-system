@@ -1,3 +1,8 @@
 .local/**
 release/**
 resources/**
+.env
+
+# Keep bundled PostgreSQL runtime in git
+!resources/postgres/
+!resources/postgres/**

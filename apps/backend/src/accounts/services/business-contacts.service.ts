@@ -55,8 +55,6 @@ export class BusinessContactsService {
       this.prisma.businessContact.count({ where }),
     ]);
 
-    console.log('Accounts query:', query);
-    console.log('Prisma where:', JSON.stringify(where));
 
     const data: AccountsListResponse['data'] = contacts.map((c) => ({
       id: c.id,

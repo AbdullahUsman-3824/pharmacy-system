@@ -138,9 +138,6 @@ async function initialize(app) {
   }
 
   const password = readOrCreatePassword(paths.config);
-  console.log("[DEBUG initdb] config path:", paths.config);
-  console.log("[DEBUG initdb] password length:", password.length);
-  console.log("[DEBUG initdb] password first 5 chars:", password.slice(0, 5));
 
   const passwordFile = path.join(paths.config, ".initdb-password");
 
@@ -168,10 +165,6 @@ async function initialize(app) {
 async function ensureDatabase(app) {
   const paths = getPaths(app);
   const password = readOrCreatePassword(paths.config);
-
-  console.log("[DEBUG] config path:", paths.config);
-  console.log("[DEBUG] password length:", password.length);
-  console.log("[DEBUG] password first 5 chars:", password.slice(0, 5));
 
   try {
     await run(
