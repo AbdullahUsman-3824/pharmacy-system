@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain } = require("electron");
 const path = require("node:path");
+const fs = require("node:fs");
 const { execFileSync } = require("node:child_process");
 
 const postgres = require("./postgres/manager.cjs");
@@ -7,10 +8,61 @@ const backend = require("./backend/manager.cjs");
 const frontend = require("./frontend/manager.cjs");
 const db = require("./db/manager.cjs");
 
+const { autoUpdater } = require("electron-updater");
+
 const projectRoot = path.resolve(__dirname, "../../..");
 
 let mainWindow = null;
 let currentDatabaseUrl = null; // set once services start, used by IPC handlers
+
+// ---------------------------------------------------------------------------
+// Auto-updater helpers — once-per-day + silent offline
+// ---------------------------------------------------------------------------
+
+const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+function getLastUpdateCheckPath() {
+  return path.join(app.getPath("userData"), "last-update-check");
+}
+
+function getLastUpdateCheckTime() {
+  try {
+    const raw = fs.readFileSync(getLastUpdateCheckPath(), "utf8");
+    const ts = Number(raw);
+    return Number.isFinite(ts) ? ts : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function setLastUpdateCheckTime(ts = Date.now()) {
+  try {
+    fs.writeFileSync(getLastUpdateCheckPath(), String(ts), "utf8");
+  } catch (err) {
+    console.error("[Updater] Failed to save last check time:", err);
+  }
+}
+
+function shouldAutoCheckForUpdates() {
+  const last = getLastUpdateCheckTime();
+  return Date.now() - last >= UPDATE_CHECK_INTERVAL_MS;
+}
+
+/** Returns true for typical offline / network errors that should stay silent. */
+function isNetworkError(error) {
+  const msg = String(error?.message || error || "").toLowerCase();
+  return (
+    msg.includes("net::") ||
+    msg.includes("enotfound") ||
+    msg.includes("econnrefused") ||
+    msg.includes("econnreset") ||
+    msg.includes("etimedout") ||
+    msg.includes("network") ||
+    msg.includes("internet") ||
+    msg.includes("offline") ||
+    msg.includes("getaddrinfo")
+  );
+}
 
 async function runMigrations(app, databaseUrl) {
   const packaged = app.isPackaged;
@@ -234,14 +286,11 @@ function buildMenu() {
     {
       label: "Help",
       submenu: [
-        // {
-        //   label: "Keyboard Shortcuts",
-        //   click: () => {
-        //     // Replace this with your renderer navigation/event
-        //     navigate("/shortcuts");
-        //   },
-        // },
-        // { type: "separator" },
+        {
+          label: "Check for Updates",
+          click: () => checkForUpdatesManual(),
+        },
+        { type: "separator" },
         {
           label: "About Furqan Medicos",
           click: () => {
@@ -259,6 +308,141 @@ function buildMenu() {
   ];
 
   return Menu.buildFromTemplate(template);
+}
+
+// ---------------------------------------------------------------------------
+// Auto-updater setup
+// ---------------------------------------------------------------------------
+
+/** true = user clicked "Check for Updates"; false = automatic background check */
+let updateCheckIsManual = false;
+
+function setupAutoUpdater() {
+  if (!app.isPackaged) {
+    console.log("[Updater] Skipping update check in development.");
+    return;
+  }
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on("checking-for-update", () => {
+    console.log("[Updater] Checking for updates...");
+  });
+
+  autoUpdater.on("update-available", (info) => {
+    console.log(`[Updater] Update available: ${info.version}`);
+    setLastUpdateCheckTime();
+    if (updateCheckIsManual) {
+      dialog.showMessageBox(mainWindow, {
+        type: "info",
+        title: "Update Available",
+        message: `Furqan Medicos ${info.version} is available.`,
+        detail:
+          "The update is downloading in the background. You will be notified when it is ready to install.",
+      });
+    }
+  });
+
+  autoUpdater.on("update-not-available", () => {
+    console.log("[Updater] App is up to date.");
+    setLastUpdateCheckTime();
+    if (updateCheckIsManual) {
+      dialog.showMessageBox(mainWindow, {
+        type: "info",
+        title: "No Updates",
+        message: "You are using the latest version.",
+        detail: `Current version: ${app.getVersion()}`,
+      });
+    }
+  });
+
+  autoUpdater.on("download-progress", (progress) => {
+    console.log(`[Updater] Downloading: ${progress.percent.toFixed(1)}%`);
+  });
+
+  autoUpdater.on("update-downloaded", async (info) => {
+    console.log(`[Updater] Update downloaded: ${info.version}`);
+
+    const { response } = await dialog.showMessageBox(mainWindow, {
+      type: "info",
+      title: "Update Ready",
+      message: `Furqan Medicos ${info.version} is ready to install.`,
+      detail: "The application needs to restart to complete the update.",
+      buttons: ["Restart & Update", "Later"],
+      defaultId: 0,
+      cancelId: 1,
+    });
+
+    if (response === 0) {
+      autoUpdater.quitAndInstall();
+    }
+  });
+
+  autoUpdater.on("error", (error) => {
+    console.error("[Updater] Update error:", error);
+
+    // Automatic checks: always silent on network/offline errors
+    if (!updateCheckIsManual || isNetworkError(error)) {
+      return;
+    }
+
+    // Manual check + non-network error → show message
+    dialog.showMessageBox(mainWindow, {
+      type: "error",
+      title: "Update Check Failed",
+      message: "Could not check for updates.",
+      detail: error?.message || String(error),
+    });
+  });
+
+  // Auto-check only if 24h have passed
+  if (shouldAutoCheckForUpdates()) {
+    updateCheckIsManual = false;
+    autoUpdater.checkForUpdates().catch((err) => {
+      // Promise rejection (e.g. offline) — keep silent for auto checks
+      console.error(
+        "[Updater] Auto check failed (silently ignored):",
+        err?.message || err,
+      );
+    });
+  } else {
+    console.log(
+      "[Updater] Skipping auto-check (already checked within last 24 hours).",
+    );
+  }
+}
+
+/** Manual "Check for Updates" from the menu */
+function checkForUpdatesManual() {
+  if (!app.isPackaged) {
+    dialog.showMessageBox(mainWindow, {
+      type: "info",
+      title: "Updates",
+      message: "Update checks are disabled in development mode.",
+    });
+    return;
+  }
+
+  updateCheckIsManual = true;
+  autoUpdater.checkForUpdates().catch((err) => {
+    console.error("[Updater] Manual check failed:", err);
+    if (isNetworkError(err)) {
+      dialog.showMessageBox(mainWindow, {
+        type: "warning",
+        title: "No Internet",
+        message: "Could not check for updates.",
+        detail: "Please check your internet connection and try again.",
+      });
+    } else {
+      dialog.showMessageBox(mainWindow, {
+        type: "error",
+        title: "Update Check Failed",
+        message: "Could not check for updates.",
+        detail: err?.message || String(err),
+      });
+    }
+  });
 }
 
 async function createWindow() {
@@ -325,6 +509,9 @@ app.whenReady().then(async () => {
   try {
     await startServices();
     await createWindow();
+
+    setupAutoUpdater();
+
     console.log("[Startup] PharmacyPOS ready.");
   } catch (error) {
     console.error("[Startup] Failed:", error);

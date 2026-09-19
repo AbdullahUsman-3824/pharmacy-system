@@ -31,12 +31,22 @@
       "allowToChangeInstallationDirectory": true,
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "AbdullahUsman-3824",
+        "repo": "pharmacy-system"
+      }
+    ]
   },
   "devDependencies": {
     "cross-env": "^10.1.0",
     "dotenv-cli": "^8.0.0",
     "electron": "^44.2.0",
     "electron-builder": "^25.0.0"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
   }
 }
