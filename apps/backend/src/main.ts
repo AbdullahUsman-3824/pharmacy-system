@@ -3,13 +3,16 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { PrismaExceptionFilter } from './prisma/prisma-exception.filter';
+import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  app.use(cookieParser());
+
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,  
+      whitelist: true,
       transform: true,
     }),
   );
@@ -30,4 +33,4 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 3001);
 }
-bootstrap();
+void bootstrap();
