@@ -6,6 +6,7 @@ export const apiClient = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  withCredentials: true,
 });
 
 // Optional but worth having now: centralized error shape

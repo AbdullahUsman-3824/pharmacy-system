@@ -3,7 +3,6 @@ import type {
   CreateUserInput,
   UpdateUserInput,
   User,
-  UserType,
   UserResponse,
   UserListQuery,
   VerifyUserPinInput,

@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
 import { AdminSessionService } from './admin-session.service';
 import { AdminSessionController } from './admin-session.controller';
-import { JwtModule } from '@nestjs/jwt';
+import { AdminSessionGuard } from './admin-session.guard';
 
 @Module({
   imports: [
@@ -10,6 +11,7 @@ import { JwtModule } from '@nestjs/jwt';
     }),
   ],
   controllers: [AdminSessionController],
-  providers: [AdminSessionService],
+  providers: [AdminSessionService, AdminSessionGuard],
+  exports: [AdminSessionService, AdminSessionGuard, JwtModule],
 })
 export class AdminSessionModule {}

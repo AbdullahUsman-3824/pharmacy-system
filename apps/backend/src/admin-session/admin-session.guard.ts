@@ -37,7 +37,7 @@ export class AdminSessionGuard implements CanActivate {
       const admin = await this.prisma.user.findFirst({
         where: {
           id: payload.adminUserId,
-          name: 'admin',
+          name: 'Admin',
           isActive: true,
         },
         select: { id: true },

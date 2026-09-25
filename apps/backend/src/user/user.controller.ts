@@ -9,11 +9,13 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { UserType } from '@repo/shared';
 import { UsersService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { AdminSessionGuard } from '../admin-session/admin-session.guard';
 
 @Controller('user')
 export class UsersController {
@@ -34,11 +36,13 @@ export class UsersController {
   }
 
   @Post()
+  @UseGuards(AdminSessionGuard)
   create(@Body() createUserDto: CreateUserDto) {
     return this.usersService.create(createUserDto);
   }
 
   @Patch(':id')
+  @UseGuards(AdminSessionGuard)
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateUserDto: UpdateUserDto,
@@ -47,6 +51,7 @@ export class UsersController {
   }
 
   @Delete(':id')
+  @UseGuards(AdminSessionGuard)
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.remove(id);
   }

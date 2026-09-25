@@ -4,28 +4,65 @@ import { Modal } from "@/components/ui/modal";
 import { UserForm } from "./UserForm";
 import type { UserFormOutput } from "./userSchema";
 import { useCreateUser, useUpdateUser } from "@/hooks/useUser";
+import { useAdminPinModal } from "@/lib/context/AdminPinModalProvider";
 import { UserResponse } from "@repo/shared";
+import { toast } from "sonner";
 
 interface UserFormModalProps {
   open: boolean;
   onClose: () => void;
-  user?: UserResponse | null; // present -> edit mode
+  user?: UserResponse | null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function isAdminLockedError(error: any): boolean {
+  return (
+    error?.response?.status === 401 &&
+    error?.response?.data?.code === "ADMIN_LOCKED"
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getErrorMessage(error: any): string {
+  const msg = error?.response?.data?.message;
+
+  if (Array.isArray(msg)) return msg[0]; // validation errors
+  if (typeof msg === "string") return msg;
+
+  return error?.message || "Something went wrong";
 }
 
 export function UserFormModal({ open, onClose, user }: UserFormModalProps) {
   const isEdit = !!user;
 
-  const { mutate: createUser } = useCreateUser();
-  const { mutate: updateUser } = useUpdateUser();
+  const { mutateAsync: createUser } = useCreateUser();
+  const { mutateAsync: updateUser } = useUpdateUser();
+  const { requestAdminUnlock } = useAdminPinModal();
 
-  function handleSubmit(values: UserFormOutput) {
-    if (isEdit && user) {
-      const { pin, ...rest } = values;
-      // Only include pin if the user actually typed a new one
-      const input = pin ? { ...rest, pin } : rest;
-      updateUser({ id: user.id, input }, { onSuccess: onClose });
-    } else {
-      createUser(values as Required<UserFormOutput>, { onSuccess: onClose });
+  async function handleSubmit(values: UserFormOutput) {
+    try {
+      if (isEdit && user) {
+        const { pin, ...rest } = values;
+        const input = pin ? { ...rest, pin } : rest;
+        await updateUser({ id: user.id, input });
+      } else {
+        await createUser(values as Required<UserFormOutput>);
+      }
+      onClose();
+    } catch (error) {
+      // 1. Admin locked → PIN modal, no toast
+      if (isAdminLockedError(error)) {
+        try {
+          await requestAdminUnlock();
+          await handleSubmit(values); // retry
+        } catch {
+          // user cancelled PIN modal
+        }
+        return;
+      }
+
+      // 2. Baaki errors → toast
+      toast.error(getErrorMessage(error));
     }
   }
 

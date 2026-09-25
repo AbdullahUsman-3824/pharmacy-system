@@ -8,6 +8,7 @@ import { SearchBar } from "@/components/ui/searchBar";
 import Button from "@/components/ui/button";
 import { UserFormModal } from "./UserFormModal";
 import { useUsers, useDeleteUser } from "@/hooks/useUser";
+import { useRequireAdmin } from "@/hooks/useRequireAdmin";
 import { UserResponse } from "@repo/shared";
 
 export function UsersTable() {
@@ -19,21 +20,31 @@ export function UsersTable() {
   const users = useMemo(() => data ?? [], [data]);
 
   const { mutate: deleteUser } = useDeleteUser();
+  const { requireAdmin } = useRequireAdmin();
 
-  function handleDelete(id: string) {
-    if (confirm("Delete this user?")) {
-      deleteUser(id);
-    }
+  async function handleDelete(id: string) {
+    try {
+      await requireAdmin();
+      if (confirm("Delete this user?")) {
+        deleteUser(id);
+      }
+    } catch {}
   }
 
-  function openAddModal() {
-    setEditingUser(null);
-    setModalOpen(true);
+  async function openAddModal() {
+    try {
+      await requireAdmin();
+      setEditingUser(null);
+      setModalOpen(true);
+    } catch {}
   }
 
-  function openEditModal(user: UserResponse) {
-    setEditingUser(user);
-    setModalOpen(true);
+  async function openEditModal(user: UserResponse) {
+    try {
+      await requireAdmin();
+      setEditingUser(user);
+      setModalOpen(true);
+    } catch {}
   }
 
   function closeModal() {

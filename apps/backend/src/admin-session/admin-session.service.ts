@@ -3,6 +3,11 @@ import { JwtService } from '@nestjs/jwt';
 import { Response, Request } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminPinDto } from './dto/admin-pin.dto';
+import {
+  UnlockAdminResponse,
+  LockAdminResponse,
+  AdminSessionStatus,
+} from '@repo/shared';
 
 @Injectable()
 export class AdminSessionService {
@@ -11,10 +16,13 @@ export class AdminSessionService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async unlock(adminPin: AdminPinDto, res: Response) {
-    // 1. Fetch the designated user with name "admin"
+  async unlock(
+    adminPin: AdminPinDto,
+    res: Response,
+  ): Promise<UnlockAdminResponse> {
+    // 1. Fetch the designated user with name "Admin"
     const admin = await this.prisma.user.findFirst({
-      where: { name: 'admin' },
+      where: { name: 'Admin' },
       select: {
         id: true,
         name: true,
@@ -56,10 +64,10 @@ export class AdminSessionService {
     // 5. Return unlockedUntil so frontend can show a countdown
     return {
       unlockedUntil: exp * 1000, // milliseconds
-    }; 
+    };
   }
 
-  lock(res: Response) {
+  async lock(res: Response): Promise<LockAdminResponse> {
     res.clearCookie('adminSession', {
       httpOnly: true,
       sameSite: 'lax',
@@ -70,7 +78,7 @@ export class AdminSessionService {
     return { locked: true };
   }
 
-  async status(req: Request) {
+  async status(req: Request): Promise<AdminSessionStatus> {
     const token = req.cookies?.['adminSession'];
 
     if (!token) {
@@ -88,7 +96,7 @@ export class AdminSessionService {
       const admin = await this.prisma.user.findFirst({
         where: {
           id: payload.adminUserId,
-          name: 'admin',
+          name: 'Admin',
           isActive: true,
         },
         select: { id: true },
