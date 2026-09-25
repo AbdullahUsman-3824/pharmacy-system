@@ -6,7 +6,7 @@ import { Providers } from "./providers";
 import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
-  title: "Furqan Medicos — POS",
+  title: "Nexora — POS",
   description: "Medicos point-of-sale dashboard",
 };
 
@@ -22,7 +22,7 @@ export default function RootLayout({
           <div className="flex h-screen w-full overflow-hidden bg-surface-page">
             <Sidebar />
             <div className="flex min-w-0 flex-1 flex-col">
-              <Topbar pharmacyName="Furqan Medicos" />
+              <Topbar />
               <main className="flex-1 overflow-y-auto p-4">{children}</main>
             </div>
           </div>

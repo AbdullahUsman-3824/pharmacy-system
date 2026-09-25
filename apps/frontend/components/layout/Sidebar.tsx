@@ -15,6 +15,7 @@ import {
   Layers,
   ChevronsRight,
   ChevronsLeft,
+  Settings,
 } from "lucide-react";
 import { navItems } from "@/lib/nav-data";
 import type { NavKey } from "@/lib/types";
@@ -30,6 +31,7 @@ const icons: Record<NavKey, React.ElementType> = {
   reports: BarChart3,
   inventory: Layers,
   accounts: Users,
+  settings: Settings,
 };
 
 const collapsedByDefaultOn = ["/pos"];

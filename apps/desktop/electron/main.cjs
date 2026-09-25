@@ -292,13 +292,13 @@ function buildMenu() {
         },
         { type: "separator" },
         {
-          label: "About Furqan Medicos",
+          label: "About Nexora",
           click: () => {
             dialog.showMessageBox(mainWindow, {
               type: "info",
               icon: path.join(__dirname, "../build/icon.ico"),
-              title: "About Furqan Medicos",
-              message: "Furqan Medicos POS",
+              title: "About Nexora",
+              message: "Nexora POS",
               detail: `Version ${app.getVersion()}\n\nA pharmacy point-of-sale system.`,
             });
           },
@@ -337,7 +337,7 @@ function setupAutoUpdater() {
       dialog.showMessageBox(mainWindow, {
         type: "info",
         title: "Update Available",
-        message: `Furqan Medicos ${info.version} is available.`,
+        message: `Nexora ${info.version} is available.`,
         detail:
           "The update is downloading in the background. You will be notified when it is ready to install.",
       });
@@ -367,7 +367,7 @@ function setupAutoUpdater() {
     const { response } = await dialog.showMessageBox(mainWindow, {
       type: "info",
       title: "Update Ready",
-      message: `Furqan Medicos ${info.version} is ready to install.`,
+      message: `Nexora ${info.version} is ready to install.`,
       detail: "The application needs to restart to complete the update.",
       buttons: ["Restart & Update", "Later"],
       defaultId: 0,
@@ -512,7 +512,7 @@ app.whenReady().then(async () => {
 
     setupAutoUpdater();
 
-    console.log("[Startup] PharmacyPOS ready.");
+    console.log("[Startup] Nexora ready.");
   } catch (error) {
     console.error("[Startup] Failed:", error);
     await stopServices();

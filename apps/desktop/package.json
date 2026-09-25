@@ -1,8 +1,8 @@
 {
   "name": "@pharmacy/desktop",
   "version": "1.0.0",
-  "description": "Furqan Medicos Pharmacy POS",
-  "author": "Furqan Medicos",
+  "description": "Nexora Pharmacy POS",
+  "author": "Nexora",
   "main": "electron/main.cjs",
   "scripts": {
     "start": "electron .",
@@ -12,8 +12,8 @@
     "dist": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false pnpm build:resources && electron-builder"
   },
   "build": {
-    "appId": "com.furqanmedicos.pos",
-    "productName": "Furqan Medicos",
+    "appId": "com.nexora.pos",
+    "productName": "Nexora",
     "directories": {
       "output": "release"
     },

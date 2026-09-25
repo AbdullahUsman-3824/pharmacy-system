@@ -8,6 +8,7 @@ export * from "./types/inventory";
 export * from "./types/accounts";
 export * from "./types/user";
 export * from "./types/adminSession";
+export * from "./types/system-settings";
 export * from "./query/list-queries";
 export * from "./query/base";
 export * from "./query/sort-fields";

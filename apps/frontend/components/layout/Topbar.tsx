@@ -7,13 +7,13 @@ import { KeyboardShortcuts } from "@/components/ui/keyboardShortcuts";
 import { useAdminSessionStore } from "@/lib/stores/admin-session.store";
 import { useLockAdminSession } from "@/hooks/useAdminSession";
 import { useAdminPinModal } from "@/lib/context/AdminPinModalProvider";
+import { useSystemSettings } from "@/hooks/useSystemSettings";
 import { Lock, Unlock } from "lucide-react";
 
-interface TopbarProps {
-  pharmacyName?: string;
-}
+export function Topbar() {
+  const { data: settings, isLoading } = useSystemSettings();
+  const pharmacyName = settings?.pharmacyName || "Nexora — POS";
 
-export function Topbar({ pharmacyName = "Furqan Medicos" }: TopbarProps) {
   const unlocked = useAdminSessionStore((s) => s.unlocked);
   const setUnlocked = useAdminSessionStore((s) => s.setUnlocked);
   const setLocked = useAdminSessionStore((s) => s.setLocked);
@@ -38,7 +38,7 @@ export function Topbar({ pharmacyName = "Furqan Medicos" }: TopbarProps) {
   return (
     <header className="flex h-[var(--header-height)] items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-header)] px-6 py-2">
       <h1 className="text-sm font-semibold text-[var(--color-text)]">
-        {pharmacyName}
+        {isLoading ? "..." : pharmacyName}
       </h1>
 
       <div className="flex items-center gap-5">

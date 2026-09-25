@@ -11,6 +11,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { AccountsModule } from './accounts/accounts.module';
 import { UserModule } from './user/user.module';
 import { AdminSessionModule } from './admin-session/admin-session.module';
+import { SystemSettingsModule } from './system-settings/system-settings.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { AdminSessionModule } from './admin-session/admin-session.module';
     AccountsModule,
     UserModule,
     AdminSessionModule,
+    SystemSettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
