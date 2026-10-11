@@ -26,6 +26,8 @@ import { useHeldInvoices } from "@/lib/context/HeldInvoicesContext";
 import { RecallHeldPopover, SaleCompleteModal } from ".";
 import type { SerializedSale } from "@repo/shared";
 import { usePageShortcuts } from "@/lib/shortcuts/usePageShortcuts";
+import { useShortcuts } from "@/hooks/useShortcut";
+import { useKeyboard } from "@/components/providers/KeyboardProvider";
 import type { PaymentOption } from "@/components/shared/payment-select";
 import { toast } from "sonner";
 import {
@@ -277,6 +279,9 @@ export default function PosPage() {
     toast.info("Cart cleared.");
   };
 
+  // ── Legacy shortcut registration (F-key bindings via old command registry) ──
+  // Kept intentionally while migration is in progress. Remove once all callers
+  // are fully on the new system.
   usePageShortcuts([
     {
       id: "complete-sale",
@@ -328,6 +333,47 @@ export default function PosPage() {
       execute: handleClear,
     },
   ]);
+
+  // ── New keyboard system — push "form" context for the POS form area ────────
+  // These actions fire through KeyboardManager (capture phase) and co-exist
+  // with the legacy bindings above without conflict.
+  const { setContext, removeContext } = useKeyboard();
+  useEffect(() => {
+    setContext("form");
+    return () => removeContext("form");
+  }, [setContext, removeContext]);
+
+  useShortcuts(
+    {
+      // "/" → focus product search bar
+      focusSearchBar: () => entryRowRef.current?.focus(),
+
+      // F2 → start a fresh sale (new sale via the global binding)
+      newSale: handleNewSale,
+
+      // F3 → hold the current cart (new binding in defaults.ts)
+      holdSale: holdCurrentCart,
+
+      // F4 → void / clear the cart
+      voidSale: handleClear,
+
+      // F6 → open discount editor
+      applyDiscount: () => summaryRef.current?.openDiscountEditor(),
+
+      // Ctrl+Enter (form context) → complete sale
+      confirm: handleCompleteSale,
+
+      // Esc → if a modal is open, it closes itself; otherwise focus entry row
+      cancel: () => {
+        if (!showRecallPopover && !completedSale) {
+          entryRowRef.current?.focus();
+        }
+      },
+    },
+    // "form" context is already pushed above; pass it here so handlers only
+    // fire when the form context is active on the manager stack.
+    { context: "form" },
+  );
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-64px)] bg-transparent">
